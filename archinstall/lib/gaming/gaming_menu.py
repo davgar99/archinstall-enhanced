@@ -1,12 +1,13 @@
 from typing import override
 
 from archinstall.lib.menu.abstract_menu import AbstractSubMenu
-from archinstall.lib.menu.helpers import Selection
+from archinstall.lib.menu.helpers import Confirmation, Selection
 from archinstall.lib.models.gaming import (
 	CPUScheduler,
 	CPUSchedulerConfiguration,
 	CPUSchedulerStability,
 	GamingConfiguration,
+	NTSyncConfiguration,
 )
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup
@@ -23,6 +24,12 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					action=select_cpu_scheduler,
 					preview_action=self._prev_cpu_scheduler,
 					key='cpu_scheduler_config',
+				),
+				MenuItem(
+					text=tr('NTSYNC'),
+					action=select_ntsync,
+					preview_action=self._prev_ntsync,
+					key='ntsync_config',
 				),
 			],
 			checkmarks=True,
@@ -44,6 +51,14 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 
 		config: CPUSchedulerConfiguration = item.value
 		return config.scheduler.value
+
+	def _prev_ntsync(self, item: MenuItem) -> str | None:
+		if item.value is None:
+			return None
+
+		config: NTSyncConfiguration = item.value
+		status = tr('Enabled') if config.enabled else tr('Disabled')
+		return f'{tr("NTSYNC")}: {status}'
 
 
 def _scheduler_menu_items() -> list[MenuItem]:
@@ -83,3 +98,21 @@ async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) 
 			return None
 
 	raise ValueError('Unhandled result type')
+
+
+async def select_ntsync(preset: NTSyncConfiguration | None = None) -> NTSyncConfiguration | None:
+	result = await Confirmation(
+		header=tr(
+			'Enable NTSYNC? This installs ntsync-autoload so the ntsync kernel module is loaded automatically at boot.'
+		),
+		allow_skip=True,
+		preset=preset.enabled if preset else False,
+	).show()
+
+	match result.type_:
+		case ResultType.Skip:
+			return preset
+		case ResultType.Selection:
+			return NTSyncConfiguration(enabled=result.get_value())
+		case _:
+			raise ValueError('Unhandled result type')

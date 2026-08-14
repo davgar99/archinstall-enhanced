@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
+from archinstall.applications.ntsync import NTSyncApp
 from archinstall.lib.args import ArchConfig, ArchConfigType, Arguments
 from archinstall.lib.models.gaming import (
 	CPU_SCHEDULER_STABILITY,
@@ -8,6 +9,7 @@ from archinstall.lib.models.gaming import (
 	CPUSchedulerConfiguration,
 	CPUSchedulerStability,
 	GamingConfiguration,
+	NTSyncConfiguration,
 )
 
 
@@ -51,10 +53,14 @@ def test_cpu_scheduler_stability() -> None:
 def test_gaming_configuration_roundtrip() -> None:
 	gaming_config = GamingConfiguration(
 		cpu_scheduler_config=CPUSchedulerConfiguration(scheduler=CPUScheduler.LAVD),
+		ntsync_config=NTSyncConfiguration(enabled=True),
 	)
 	serialized = gaming_config.json()
 
-	assert serialized == {'cpu_scheduler_config': {'scheduler': 'scx_lavd'}}
+	assert serialized == {
+		'cpu_scheduler_config': {'scheduler': 'scx_lavd'},
+		'ntsync_config': {'enabled': True},
+	}
 	assert GamingConfiguration.parse_arg(serialized) == gaming_config
 
 	arch_config = ArchConfig(gaming_config=gaming_config)
@@ -74,3 +80,21 @@ def test_cpu_scheduler_install(tmp_path: Path) -> None:
 		'default_sched = "scx_lavd"\n'
 		'default_mode = "Gaming"\n'
 	)
+
+
+def test_ntsync_install(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+
+	NTSyncApp().install(installer, NTSyncConfiguration(enabled=True))  # type: ignore[arg-type]
+
+	assert installer.packages == ['ntsync-autoload']
+	assert installer.services == []
+
+
+def test_ntsync_disabled_does_not_install(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+
+	NTSyncApp().install(installer, NTSyncConfiguration(enabled=False))  # type: ignore[arg-type]
+
+	assert installer.packages == []
+	assert installer.services == []

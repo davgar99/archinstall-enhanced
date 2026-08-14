@@ -60,8 +60,13 @@ class CPUSchedulerConfigSerialization(TypedDict):
 	scheduler: str
 
 
+class NTSyncConfigSerialization(TypedDict):
+	enabled: bool
+
+
 class GamingConfigSerialization(TypedDict):
 	cpu_scheduler_config: NotRequired[CPUSchedulerConfigSerialization]
+	ntsync_config: NotRequired[NTSyncConfigSerialization]
 
 
 @dataclass
@@ -77,8 +82,21 @@ class CPUSchedulerConfiguration:
 
 
 @dataclass
+class NTSyncConfiguration:
+	enabled: bool
+
+	def json(self) -> NTSyncConfigSerialization:
+		return {'enabled': self.enabled}
+
+	@classmethod
+	def parse_arg(cls, arg: NTSyncConfigSerialization) -> Self:
+		return cls(enabled=arg['enabled'])
+
+
+@dataclass
 class GamingConfiguration(SubConfig):
 	cpu_scheduler_config: CPUSchedulerConfiguration | None = None
+	ntsync_config: NTSyncConfiguration | None = None
 
 	@classmethod
 	def parse_arg(cls, arg: GamingConfigSerialization) -> Self:
@@ -86,6 +104,9 @@ class GamingConfiguration(SubConfig):
 
 		if cpu_scheduler_config := arg.get('cpu_scheduler_config'):
 			config.cpu_scheduler_config = CPUSchedulerConfiguration.parse_arg(cpu_scheduler_config)
+
+		if ntsync_config := arg.get('ntsync_config'):
+			config.ntsync_config = NTSyncConfiguration.parse_arg(ntsync_config)
 
 		return config
 
@@ -96,6 +117,9 @@ class GamingConfiguration(SubConfig):
 		if self.cpu_scheduler_config:
 			config['cpu_scheduler_config'] = self.cpu_scheduler_config.json()
 
+		if self.ntsync_config:
+			config['ntsync_config'] = self.ntsync_config.json()
+
 		return config
 
 	@override
@@ -104,5 +128,8 @@ class GamingConfiguration(SubConfig):
 
 		if self.cpu_scheduler_config:
 			out.append(tr('CPU scheduler "{}"').format(self.cpu_scheduler_config.scheduler.value))
+
+		if self.ntsync_config and self.ntsync_config.enabled:
+			out.append(tr('NTSYNC enabled'))
 
 		return out

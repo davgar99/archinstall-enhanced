@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
+from archinstall.applications.ntsync import NTSyncApp
 from archinstall.lib.models.gaming import GamingConfiguration
 
 if TYPE_CHECKING:
@@ -11,3 +12,6 @@ class GamingHandler:
 	def install_gaming(self, install_session: Installer, gaming_config: GamingConfiguration) -> None:
 		if gaming_config.cpu_scheduler_config:
 			CPUSchedulerApp().install(install_session, gaming_config.cpu_scheduler_config)
+
+		if gaming_config.ntsync_config:
+			NTSyncApp().install(install_session, gaming_config.ntsync_config)
