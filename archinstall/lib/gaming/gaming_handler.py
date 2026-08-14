@@ -1,0 +1,13 @@
+from typing import TYPE_CHECKING
+
+from archinstall.applications.cpu_scheduler import CPUSchedulerApp
+from archinstall.lib.models.gaming import GamingConfiguration
+
+if TYPE_CHECKING:
+	from archinstall.lib.installer import Installer
+
+
+class GamingHandler:
+	def install_gaming(self, install_session: Installer, gaming_config: GamingConfiguration) -> None:
+		if gaming_config.cpu_scheduler_config:
+			CPUSchedulerApp().install(install_session, gaming_config.cpu_scheduler_config)

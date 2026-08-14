@@ -10,6 +10,7 @@ from archinstall.lib.configuration import confirm_config
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.disk.utils import disk_layouts
 from archinstall.lib.general.general_menu import PostInstallationAction, select_post_installation
+from archinstall.lib.gaming.gaming_handler import GamingHandler
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, accessibility_tools_in_use, run_custom_user_commands
 from archinstall.lib.log import debug, error, info
@@ -54,6 +55,7 @@ def perform_installation(
 	mirror_list_handler: MirrorListHandler,
 	auth_handler: AuthenticationHandler,
 	application_handler: ApplicationHandler,
+	gaming_handler: GamingHandler,
 ) -> None:
 	"""
 	Performs the installation steps on a block device.
@@ -138,6 +140,9 @@ def perform_installation(
 
 		if app_config := config.app_config:
 			application_handler.install_applications(installation, app_config)
+
+		if gaming_config := config.gaming_config:
+			gaming_handler.install_gaming(installation, gaming_config)
 
 		if profile_config := config.profile_config:
 			profile_handler.install_profile_config(installation, profile_config)
@@ -252,6 +257,7 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 		mirror_list_handler,
 		AuthenticationHandler(),
 		ApplicationHandler(),
+		GamingHandler(),
 	)
 
 

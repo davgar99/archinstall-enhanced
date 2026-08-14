@@ -10,6 +10,7 @@ from archinstall.lib.configuration import save_config
 from archinstall.lib.disk.disk_menu import DiskLayoutConfigurationMenu
 from archinstall.lib.general.general_menu import select_hostname, select_ntp, select_timezone
 from archinstall.lib.general.system_menu import select_kernel, select_swap
+from archinstall.lib.gaming.gaming_menu import GamingMenu
 from archinstall.lib.hardware import SysInfo
 from archinstall.lib.locale.locale_menu import LocaleMenu
 from archinstall.lib.menu.abstract_menu import AbstractMenu, SpecialMenuKey
@@ -19,6 +20,7 @@ from archinstall.lib.models.application import ApplicationConfiguration, ZramCon
 from archinstall.lib.models.authentication import AuthenticationConfiguration
 from archinstall.lib.models.bootloader import Bootloader, BootloaderConfiguration
 from archinstall.lib.models.device import DiskLayoutConfiguration, DiskLayoutType, PartitionModification
+from archinstall.lib.models.gaming import GamingConfiguration
 from archinstall.lib.models.locale import LocaleConfiguration
 from archinstall.lib.models.mirrors import MirrorConfiguration
 from archinstall.lib.models.network import NetworkConfiguration, NicType
@@ -135,6 +137,12 @@ class GlobalMenu(AbstractMenu[None]):
 				value=[],
 				preview_action=self._prev_applications,
 				key='app_config',
+			),
+			MenuItem(
+				text=tr('Gaming'),
+				action=self._select_gaming,
+				preview_action=self._prev_gaming,
+				key='gaming_config',
 			),
 			MenuItem(
 				text=tr('Network configuration'),
@@ -267,6 +275,10 @@ class GlobalMenu(AbstractMenu[None]):
 		app_config = await ApplicationMenu(preset).show()
 		return app_config
 
+	async def _select_gaming(self, preset: GamingConfiguration | None) -> GamingConfiguration | None:
+		gaming_config = await GamingMenu(preset).show()
+		return gaming_config
+
 	async def _select_authentication(self, preset: AuthenticationConfiguration | None) -> AuthenticationConfiguration | None:
 		auth_config = await AuthenticationMenu(preset).show()
 		return auth_config
@@ -367,6 +379,13 @@ class GlobalMenu(AbstractMenu[None]):
 
 			return output
 
+		return None
+
+	def _prev_gaming(self, item: MenuItem) -> str | None:
+		if item.value:
+			gaming_config: GamingConfiguration = item.value
+			summary = gaming_config.summary()
+			return '\n'.join(summary) if summary else None
 		return None
 
 	def _prev_tz(self, item: MenuItem) -> str | None:
