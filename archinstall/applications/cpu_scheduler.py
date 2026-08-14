@@ -10,25 +10,14 @@ if TYPE_CHECKING:
 class CPUSchedulerApp:
 	@property
 	def packages(self) -> list[str]:
-		return [
-			'scx-scheds',
-			'scx-tools',
-		]
+		return ['scx-scheds', 'scx-tools']
 
 	def install(self, install_session: Installer, scheduler_config: CPUSchedulerConfiguration) -> None:
 		scheduler = scheduler_config.scheduler
-
-		if not scheduler.supported_by_scx_loader():
-			raise ValueError(f'{scheduler.value} is not supported by scx_loader')
-
 		debug(f'Installing sched-ext CPU scheduler: {scheduler.value}')
 
-		# Arch ships the schedulers in scx-scheds and scx_loader in scx-tools.
 		install_session.add_additional_packages(self.packages)
 
-		# scx_loader documents /etc/scx_loader/config.toml as its preferred
-		# system configuration path. Missing per-scheduler mode fields fall back
-		# to the loader's built-in defaults.
 		config_dir = install_session.target / 'etc/scx_loader'
 		config_dir.mkdir(parents=True, exist_ok=True)
 

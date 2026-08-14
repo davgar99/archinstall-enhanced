@@ -16,15 +16,17 @@ from archinstall.tui.result import ResultType
 class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 	def __init__(self, preset: GamingConfiguration | None = None) -> None:
 		self._gaming_config = preset if preset else GamingConfiguration()
-		menu_options = [
-			MenuItem(
-				text=tr('CPU scheduler'),
-				action=select_cpu_scheduler,
-				preview_action=self._prev_cpu_scheduler,
-				key='cpu_scheduler_config',
-			),
-		]
-		self._item_group = MenuItemGroup(menu_options, checkmarks=True)
+		self._item_group = MenuItemGroup(
+			[
+				MenuItem(
+					text=tr('CPU scheduler'),
+					action=select_cpu_scheduler,
+					preview_action=self._prev_cpu_scheduler,
+					key='cpu_scheduler_config',
+				),
+			],
+			checkmarks=True,
+		)
 
 		super().__init__(
 			self._item_group,
@@ -37,10 +39,11 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 		return await super().show()
 
 	def _prev_cpu_scheduler(self, item: MenuItem) -> str | None:
-		if item.value is not None:
-			config: CPUSchedulerConfiguration = item.value
-			return config.scheduler.value
-		return None
+		if item.value is None:
+			return None
+
+		config: CPUSchedulerConfiguration = item.value
+		return config.scheduler.value
 
 
 def _scheduler_menu_items() -> list[MenuItem]:
@@ -52,17 +55,7 @@ def _scheduler_menu_items() -> list[MenuItem]:
 			(scheduler for scheduler in CPUScheduler if scheduler.stability() == stability),
 			key=lambda scheduler: scheduler.value,
 		)
-
-		for scheduler in schedulers:
-			if scheduler.supported_by_scx_loader():
-				items.append(MenuItem(text=f'  {scheduler.value}', value=scheduler))
-			else:
-				items.append(
-					MenuItem(
-						text=f'  {scheduler.value} ({tr("not supported by scx_loader")})',
-						read_only=True,
-					)
-				)
+		items.extend(MenuItem(text=f'  {scheduler.value}', value=scheduler) for scheduler in schedulers)
 
 	return items
 
@@ -73,13 +66,9 @@ async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) 
 	if preset:
 		group.set_focus_by_value(preset.scheduler)
 
-	header = tr(
-		'Select one sched-ext CPU scheduler. Experimental schedulers may be unstable. '
-		'Schedulers not supported by scx_loader are shown but cannot be selected.'
-	)
 	result = await Selection[CPUScheduler](
 		group,
-		header=header,
+		header=tr('Select one sched-ext CPU scheduler. Experimental schedulers may be unstable.'),
 		allow_skip=True,
 		allow_reset=True,
 		multi=False,

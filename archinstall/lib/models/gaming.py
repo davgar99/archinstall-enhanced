@@ -21,17 +21,14 @@ class CPUSchedulerStability(StrEnum):
 
 
 class CPUScheduler(StrEnum):
-	# Schedulers currently shipped by Arch Linux's scx-scheds package.
 	BEERLAND = 'scx_beerland'
 	BPFLAND = 'scx_bpfland'
 	CAKE = 'scx_cake'
-	CHAOS = 'scx_chaos'
 	COSMOS = 'scx_cosmos'
 	FLASH = 'scx_flash'
 	FLOW = 'scx_flow'
 	FORGE = 'scx_forge'
 	LAVD = 'scx_lavd'
-	LAYERED = 'scx_layered'
 	P2DQ = 'scx_p2dq'
 	PANDEMONIUM = 'scx_pandemonium'
 	RUSTLAND = 'scx_rustland'
@@ -39,34 +36,24 @@ class CPUScheduler(StrEnum):
 	TICKLESS = 'scx_tickless'
 
 	def stability(self) -> CPUSchedulerStability:
-		match self:
-			case (
-				CPUScheduler.BEERLAND
-				| CPUScheduler.BPFLAND
-				| CPUScheduler.COSMOS
-				| CPUScheduler.FLASH
-				| CPUScheduler.LAVD
-				| CPUScheduler.LAYERED
-				| CPUScheduler.P2DQ
-				| CPUScheduler.PANDEMONIUM
-				| CPUScheduler.RUSTLAND
-				| CPUScheduler.RUSTY
-			):
-				return CPUSchedulerStability.STABLE
-			case (
-				CPUScheduler.CAKE
-				| CPUScheduler.CHAOS
-				| CPUScheduler.FLOW
-				| CPUScheduler.FORGE
-				| CPUScheduler.TICKLESS
-			):
-				return CPUSchedulerStability.EXPERIMENTAL
+		return CPU_SCHEDULER_STABILITY[self]
 
-		raise ValueError(f'Unhandled CPU scheduler: {self}')
 
-	def supported_by_scx_loader(self) -> bool:
-		# scx_loader currently rejects these two package-provided schedulers.
-		return self not in (CPUScheduler.CHAOS, CPUScheduler.LAYERED)
+CPU_SCHEDULER_STABILITY: dict[CPUScheduler, CPUSchedulerStability] = {
+	CPUScheduler.BEERLAND: CPUSchedulerStability.STABLE,
+	CPUScheduler.BPFLAND: CPUSchedulerStability.STABLE,
+	CPUScheduler.CAKE: CPUSchedulerStability.EXPERIMENTAL,
+	CPUScheduler.COSMOS: CPUSchedulerStability.STABLE,
+	CPUScheduler.FLASH: CPUSchedulerStability.STABLE,
+	CPUScheduler.FLOW: CPUSchedulerStability.EXPERIMENTAL,
+	CPUScheduler.FORGE: CPUSchedulerStability.EXPERIMENTAL,
+	CPUScheduler.LAVD: CPUSchedulerStability.STABLE,
+	CPUScheduler.P2DQ: CPUSchedulerStability.STABLE,
+	CPUScheduler.PANDEMONIUM: CPUSchedulerStability.STABLE,
+	CPUScheduler.RUSTLAND: CPUSchedulerStability.STABLE,
+	CPUScheduler.RUSTY: CPUSchedulerStability.STABLE,
+	CPUScheduler.TICKLESS: CPUSchedulerStability.EXPERIMENTAL,
+}
 
 
 class CPUSchedulerConfigSerialization(TypedDict):

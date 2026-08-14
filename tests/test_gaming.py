@@ -1,10 +1,9 @@
 from pathlib import Path
 
-import pytest
-
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
 from archinstall.lib.args import ArchConfig, ArchConfigType, Arguments
 from archinstall.lib.models.gaming import (
+	CPU_SCHEDULER_STABILITY,
 	CPUScheduler,
 	CPUSchedulerConfiguration,
 	CPUSchedulerStability,
@@ -32,7 +31,6 @@ def test_cpu_scheduler_stability() -> None:
 		CPUScheduler.COSMOS,
 		CPUScheduler.FLASH,
 		CPUScheduler.LAVD,
-		CPUScheduler.LAYERED,
 		CPUScheduler.P2DQ,
 		CPUScheduler.PANDEMONIUM,
 		CPUScheduler.RUSTLAND,
@@ -40,28 +38,14 @@ def test_cpu_scheduler_stability() -> None:
 	}
 	experimental = {
 		CPUScheduler.CAKE,
-		CPUScheduler.CHAOS,
 		CPUScheduler.FLOW,
 		CPUScheduler.FORGE,
 		CPUScheduler.TICKLESS,
 	}
 
-	assert set(CPUSchedulerStability) == {
-		CPUSchedulerStability.STABLE,
-		CPUSchedulerStability.EXPERIMENTAL,
-	}
+	assert set(CPU_SCHEDULER_STABILITY) == set(CPUScheduler)
 	assert {scheduler for scheduler in CPUScheduler if scheduler.stability() == CPUSchedulerStability.STABLE} == stable
 	assert {scheduler for scheduler in CPUScheduler if scheduler.stability() == CPUSchedulerStability.EXPERIMENTAL} == experimental
-	assert stable | experimental == set(CPUScheduler)
-
-
-def test_cpu_scheduler_loader_support() -> None:
-	unsupported = {
-		CPUScheduler.CHAOS,
-		CPUScheduler.LAYERED,
-	}
-
-	assert {scheduler for scheduler in CPUScheduler if not scheduler.supported_by_scx_loader()} == unsupported
 
 
 def test_gaming_configuration_roundtrip() -> None:
@@ -90,11 +74,3 @@ def test_cpu_scheduler_install(tmp_path: Path) -> None:
 		'default_sched = "scx_lavd"\n'
 		'default_mode = "Gaming"\n'
 	)
-
-
-def test_cpu_scheduler_install_rejects_unsupported_loader_scheduler(tmp_path: Path) -> None:
-	installer = FakeInstaller(tmp_path)
-	config = CPUSchedulerConfiguration(scheduler=CPUScheduler.LAYERED)
-
-	with pytest.raises(ValueError, match='scx_layered is not supported by scx_loader'):
-		CPUSchedulerApp().install(installer, config)  # type: ignore[arg-type]
