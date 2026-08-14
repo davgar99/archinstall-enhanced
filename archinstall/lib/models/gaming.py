@@ -9,53 +9,64 @@ from archinstall.lib.translationhandler import tr
 class CPUSchedulerStability(StrEnum):
 	STABLE = 'stable'
 	EXPERIMENTAL = 'experimental'
-	DEPRECATED = 'deprecated'
 
 	def display_name(self) -> str:
 		match self:
 			case CPUSchedulerStability.STABLE:
-				return tr('Production ready (stable)')
+				return tr('Stable')
 			case CPUSchedulerStability.EXPERIMENTAL:
 				return tr('Experimental')
-			case CPUSchedulerStability.DEPRECATED:
-				return tr('Deprecated')
 
 		raise ValueError(f'Unhandled CPU scheduler stability: {self}')
 
 
 class CPUScheduler(StrEnum):
-	# Production-ready schedulers explicitly documented as such upstream and
-	# shipped by Arch Linux's scx-scheds package.
-	LAVD = 'scx_lavd'
-	BPFLAND = 'scx_bpfland'
-	FLASH = 'scx_flash'
-	RUSTY = 'scx_rusty'
-	P2DQ = 'scx_p2dq'
-	COSMOS = 'scx_cosmos'
+	# Schedulers currently shipped by Arch Linux's scx-scheds package.
 	BEERLAND = 'scx_beerland'
-
-	# Experimental schedulers that are also shipped by Arch Linux's
-	# scx-scheds package.
+	BPFLAND = 'scx_bpfland'
 	CAKE = 'scx_cake'
+	CHAOS = 'scx_chaos'
+	COSMOS = 'scx_cosmos'
+	FLASH = 'scx_flash'
 	FLOW = 'scx_flow'
+	FORGE = 'scx_forge'
+	LAVD = 'scx_lavd'
+	LAYERED = 'scx_layered'
+	P2DQ = 'scx_p2dq'
+	PANDEMONIUM = 'scx_pandemonium'
+	RUSTLAND = 'scx_rustland'
+	RUSTY = 'scx_rusty'
 	TICKLESS = 'scx_tickless'
 
 	def stability(self) -> CPUSchedulerStability:
 		match self:
 			case (
-				CPUScheduler.LAVD
+				CPUScheduler.BEERLAND
 				| CPUScheduler.BPFLAND
-				| CPUScheduler.FLASH
-				| CPUScheduler.RUSTY
-				| CPUScheduler.P2DQ
 				| CPUScheduler.COSMOS
-				| CPUScheduler.BEERLAND
+				| CPUScheduler.FLASH
+				| CPUScheduler.LAVD
+				| CPUScheduler.LAYERED
+				| CPUScheduler.P2DQ
+				| CPUScheduler.PANDEMONIUM
+				| CPUScheduler.RUSTLAND
+				| CPUScheduler.RUSTY
 			):
 				return CPUSchedulerStability.STABLE
-			case CPUScheduler.CAKE | CPUScheduler.FLOW | CPUScheduler.TICKLESS:
+			case (
+				CPUScheduler.CAKE
+				| CPUScheduler.CHAOS
+				| CPUScheduler.FLOW
+				| CPUScheduler.FORGE
+				| CPUScheduler.TICKLESS
+			):
 				return CPUSchedulerStability.EXPERIMENTAL
 
 		raise ValueError(f'Unhandled CPU scheduler: {self}')
+
+	def supported_by_scx_loader(self) -> bool:
+		# scx_loader currently rejects these two package-provided schedulers.
+		return self not in (CPUScheduler.CHAOS, CPUScheduler.LAYERED)
 
 
 class CPUSchedulerConfigSerialization(TypedDict):

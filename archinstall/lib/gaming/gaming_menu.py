@@ -48,12 +48,21 @@ def _scheduler_menu_items() -> list[MenuItem]:
 
 	for stability in CPUSchedulerStability:
 		items.append(MenuItem(text=stability.display_name(), read_only=True))
-		schedulers = [scheduler for scheduler in CPUScheduler if scheduler.stability() == stability]
+		schedulers = sorted(
+			(scheduler for scheduler in CPUScheduler if scheduler.stability() == stability),
+			key=lambda scheduler: scheduler.value,
+		)
 
-		if schedulers:
-			items.extend(MenuItem(text=f'  {scheduler.value}', value=scheduler) for scheduler in schedulers)
-		else:
-			items.append(MenuItem(text=f'  {tr("None currently documented")}', read_only=True))
+		for scheduler in schedulers:
+			if scheduler.supported_by_scx_loader():
+				items.append(MenuItem(text=f'  {scheduler.value}', value=scheduler))
+			else:
+				items.append(
+					MenuItem(
+						text=f'  {scheduler.value} ({tr("not supported by scx_loader")})',
+						read_only=True,
+					)
+				)
 
 	return items
 
@@ -64,7 +73,10 @@ async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) 
 	if preset:
 		group.set_focus_by_value(preset.scheduler)
 
-	header = tr('Select one sched-ext CPU scheduler. Experimental schedulers may be unstable.')
+	header = tr(
+		'Select one sched-ext CPU scheduler. Experimental schedulers may be unstable. '
+		'Schedulers not supported by scx_loader are shown but cannot be selected.'
+	)
 	result = await Selection[CPUScheduler](
 		group,
 		header=header,

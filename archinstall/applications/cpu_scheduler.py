@@ -17,6 +17,10 @@ class CPUSchedulerApp:
 
 	def install(self, install_session: Installer, scheduler_config: CPUSchedulerConfiguration) -> None:
 		scheduler = scheduler_config.scheduler
+
+		if not scheduler.supported_by_scx_loader():
+			raise ValueError(f'{scheduler.value} is not supported by scx_loader')
+
 		debug(f'Installing sched-ext CPU scheduler: {scheduler.value}')
 
 		# Arch ships the schedulers in scx-scheds and scx_loader in scx-tools.
