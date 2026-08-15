@@ -144,6 +144,32 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 				case _:
 					assert_never(algo_result.type_)
 
-			return ZramConfiguration(enabled=True, algorithm=algo)
+			# Ask for swappiness & VM performance tweaks
+			tweak_result = await Confirmation(
+				header=tr(
+					'Apply Arch Wiki swap on zram performance tweaks?\n'
+					'(Sets vm.swappiness=180, vm.page-cluster=0, and watermark factors in /etc/sysctl.d/99-vm-zram-parameters.conf)'
+				),
+				allow_skip=True,
+				preset=preset.swappiness_tweaks,
+			).show()
+
+			match tweak_result.type_:
+				case ResultType.Skip:
+					tweaks = preset.swappiness_tweaks
+				case ResultType.Selection:
+					tweaks = tweak_result.get_value()
+				case ResultType.Reset:
+					raise ValueError('Unhandled result type')
+				case _:
+					assert_never(tweak_result.type_)
+
+			return ZramConfiguration(
+				enabled=True,
+				algorithm=algo,
+				swappiness_tweaks=tweaks,
+			)
 		case ResultType.Reset:
 			raise ValueError('Unhandled result type')
+		case _:
+			assert_never(result.type_)

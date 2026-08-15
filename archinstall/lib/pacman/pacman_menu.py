@@ -1,4 +1,4 @@
-from typing import override
+from typing import assert_never, override
 
 from archinstall.lib.menu.abstract_menu import AbstractSubMenu
 from archinstall.lib.menu.helpers import Confirmation, Input
@@ -97,6 +97,8 @@ async def select_parallel_downloads(preset: int = 5) -> int | None:
 			return 5
 		case ResultType.Selection:
 			return int(result.get_value())
+		case _:
+			assert_never(result.type_)
 
 
 async def select_color(preset: bool = True) -> bool | None:
@@ -113,6 +115,8 @@ async def select_color(preset: bool = True) -> bool | None:
 			return True
 		case ResultType.Selection:
 			return result.get_value()
+		case _:
+			assert_never(result.type_)
 
 
 async def select_ilove_candy(preset: bool = False) -> bool | None:
@@ -129,3 +133,5 @@ async def select_ilove_candy(preset: bool = False) -> bool | None:
 			return False
 		case ResultType.Selection:
 			return result.get_value()
+		case _:
+			assert_never(result.type_)

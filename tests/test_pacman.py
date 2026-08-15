@@ -38,15 +38,7 @@ def test_configure_pacman_options_enables_ilove_candy(tmp_path: Path) -> None:
 
 	configure_pacman_options(path, PacmanConfiguration(parallel_downloads=10, color=True, ilove_candy=True))
 
-	assert path.read_text() == (
-		'[options]\n'
-		'Color\n'
-		'ParallelDownloads = 10\n'
-		'\n'
-		'ILoveCandy\n'
-		'[core]\n'
-		'Include = /etc/pacman.d/mirrorlist\n'
-	)
+	assert path.read_text() == '[options]\nColor\nParallelDownloads = 10\n\nILoveCandy\n[core]\nInclude = /etc/pacman.d/mirrorlist\n'
 
 
 def test_configure_pacman_options_disables_ilove_candy(tmp_path: Path) -> None:
