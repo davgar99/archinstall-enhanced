@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, ClassVar
 
 from archinstall.lib.hardware import CPUVendor, SysInfo
-from archinstall.lib.log import debug
+from archinstall.lib.log import debug, warn
 from archinstall.lib.models.gaming import GamingConfiguration
 
 if TYPE_CHECKING:
@@ -24,8 +24,17 @@ class HardwareWatchdogApp:
 		if gaming_config.disable_watchdog is not True:
 			return
 
-		if module := self.module():
-			debug(f'Disabling hardware watchdog module: {module}')
-			config_path = install_session.target / 'etc/modprobe.d/disable-watchdog.conf'
-			config_path.parent.mkdir(parents=True, exist_ok=True)
-			config_path.write_text(f'blacklist {module}\n')
+		module = self.module()
+		if module is None:
+			warn('Could not disable hardware watchdog: unsupported or unknown CPU vendor')
+			return
+
+		debug(f'Disabling hardware watchdog module: {module}')
+		config_path = install_session.target / 'etc/modprobe.d/disable-watchdog.conf'
+		config_path.parent.mkdir(parents=True, exist_ok=True)
+		config_path.write_text(f'blacklist {module}\n')
+
+		# The blacklist must be in place before the initramfs is (re)built, otherwise a
+		# watchdog module already pulled in by mkinitcpio's autodetect hook would still
+		# load at early boot despite the blacklist now present on disk.
+		install_session.mkinitcpio(['-P'])

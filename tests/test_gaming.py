@@ -27,6 +27,7 @@ class FakeInstaller:
 		self.packages: list[str] = []
 		self.services: list[str] = []
 		self.chroot_commands: list[str] = []
+		self.mkinitcpio_calls: list[list[str]] = []
 
 	def add_additional_packages(self, packages: list[str]) -> None:
 		self.packages.extend(packages)
@@ -36,6 +37,10 @@ class FakeInstaller:
 
 	def arch_chroot(self, command: str) -> None:
 		self.chroot_commands.append(command)
+
+	def mkinitcpio(self, flags: list[str]) -> bool:
+		self.mkinitcpio_calls.append(flags)
+		return True
 
 
 def test_cpu_scheduler_stability() -> None:
@@ -124,6 +129,7 @@ def test_hardware_watchdog_disabled_for_supported_vendor(
 	HardwareWatchdogApp().install(installer, GamingConfiguration(disable_watchdog=True))  # type: ignore[arg-type]
 
 	assert (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').read_text() == f'blacklist {module}\n'
+	assert installer.mkinitcpio_calls == [['-P']]
 
 
 def test_hardware_watchdog_no_selection_leaves_enabled(tmp_path: Path) -> None:
@@ -134,6 +140,20 @@ def test_hardware_watchdog_no_selection_leaves_enabled(tmp_path: Path) -> None:
 	app.install(installer, GamingConfiguration(disable_watchdog=False))  # type: ignore[arg-type]
 
 	assert not (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').exists()
+	assert installer.mkinitcpio_calls == []
+
+
+def test_hardware_watchdog_unsupported_vendor_skips_without_writing(
+	tmp_path: Path,
+	monkeypatch: MonkeyPatch,
+) -> None:
+	installer = FakeInstaller(tmp_path)
+	monkeypatch.setattr(SysInfo, 'cpu_vendor', lambda: CPUVendor._UNKNOWN)
+
+	HardwareWatchdogApp().install(installer, GamingConfiguration(disable_watchdog=True))  # type: ignore[arg-type]
+
+	assert not (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').exists()
+	assert installer.mkinitcpio_calls == []
 
 
 def test_cpu_scheduler_install(tmp_path: Path) -> None:

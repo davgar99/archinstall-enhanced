@@ -26,12 +26,15 @@ class PrintServiceApp:
 
 	def _enable_mdns_resolution(self, install_session: Installer) -> None:
 		nsswitch_conf = install_session.target / 'etc/nsswitch.conf'
+		if not nsswitch_conf.exists():
+			return
+
 		content = nsswitch_conf.read_text()
 
 		if 'mdns_minimal' not in content:
 			nsswitch_conf.write_text(
 				content.replace(
-					'resolve [!UNAVAIL=return] files',
-					'resolve [!UNAVAIL=return] mdns_minimal [NOTFOUND=return] files',
+					'resolve [!UNAVAIL=return]',
+					'mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return]',
 				)
 			)

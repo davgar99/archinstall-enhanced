@@ -469,13 +469,8 @@ class GlobalMenu(AbstractMenu[None]):
 			return None
 
 		config: PacmanConfiguration = item.value
-		color_status = tr('Enabled') if config.color else tr('Disabled')
-		candy_status = tr('Enabled') if config.ilove_candy else tr('Disabled')
-		return (
-			f'{tr("Parallel Downloads")}: {config.parallel_downloads}\n'
-			f'{tr("Color")}: {color_status}\n'
-			f'{tr("ILoveCandy")}: {candy_status}'
-		)
+		summary = config.summary()
+		return '\n'.join(summary) if summary else None
 
 	def _prev_kernel(self, item: MenuItem) -> str | None:
 		if item.value:
