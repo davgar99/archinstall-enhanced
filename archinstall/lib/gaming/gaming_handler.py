@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
 from archinstall.applications.gaming_tools import GamingToolsApp
+from archinstall.applications.hardware_watchdog import HardwareWatchdogApp
 from archinstall.applications.ntsync import NTSyncApp
 from archinstall.lib.models.gaming import GamingConfiguration
 
@@ -24,3 +25,4 @@ class GamingHandler:
 			NTSyncApp().install(install_session, gaming_config.ntsync_config)
 
 		GamingToolsApp().install(install_session, gaming_config, users)
+		HardwareWatchdogApp().install(install_session, gaming_config)

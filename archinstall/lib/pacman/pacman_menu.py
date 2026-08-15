@@ -40,6 +40,13 @@ class PacmanMenu(AbstractSubMenu[PacmanConfiguration]):
 				preview_action=lambda item: tr('Enabled') if item.get_value() else tr('Disabled'),
 				key='color',
 			),
+			MenuItem(
+				text=tr('ILoveCandy'),
+				action=select_ilove_candy,
+				value=self._pacman_conf.ilove_candy,
+				preview_action=lambda item: tr('Enabled') if item.get_value() else tr('Disabled'),
+				key='ilove_candy',
+			),
 		]
 
 	@override
@@ -49,22 +56,16 @@ class PacmanMenu(AbstractSubMenu[PacmanConfiguration]):
 		if config is None:
 			return PacmanConfiguration()
 
-		_apply_to_live(config.parallel_downloads)
+		_apply_to_live(config)
 
 		return config
 
 
-def _apply_to_live(parallel_downloads: int) -> None:
-	"""Apply ParallelDownloads to live system pacman.conf for faster installation."""
-	with PACMAN_CONF.open() as f:
-		pacman_conf = f.read().split('\n')
+def _apply_to_live(config: PacmanConfiguration) -> None:
+	"""Apply selected Pacman settings to the live system."""
+	from archinstall.lib.pacman.config import configure_pacman_options
 
-	with PACMAN_CONF.open('w') as fwrite:
-		for line in pacman_conf:
-			if 'ParallelDownloads' in line:
-				fwrite.write(f'ParallelDownloads = {parallel_downloads}\n')
-			else:
-				fwrite.write(f'{line}\n')
+	configure_pacman_options(PACMAN_CONF, config)
 
 
 async def select_parallel_downloads(preset: int = 5) -> int | None:
@@ -110,5 +111,21 @@ async def select_color(preset: bool = True) -> bool | None:
 			return preset
 		case ResultType.Reset:
 			return True
+		case ResultType.Selection:
+			return result.get_value()
+
+
+async def select_ilove_candy(preset: bool = False) -> bool | None:
+	result = await Confirmation(
+		header=tr('Enable ILoveCandy progress bars for pacman'),
+		preset=preset,
+		allow_skip=True,
+	).show()
+
+	match result.type_:
+		case ResultType.Skip:
+			return preset
+		case ResultType.Reset:
+			return False
 		case ResultType.Selection:
 			return result.get_value()

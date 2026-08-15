@@ -276,7 +276,7 @@ class GlobalMenu(AbstractMenu[None]):
 		return app_config
 
 	async def _select_gaming(self, preset: GamingConfiguration | None) -> GamingConfiguration | None:
-		gaming_config = await GamingMenu(preset).show()
+		gaming_config = await GamingMenu(preset, advanced=self._advanced).show()
 		return gaming_config
 
 	async def _select_authentication(self, preset: AuthenticationConfiguration | None) -> AuthenticationConfiguration | None:
@@ -470,7 +470,12 @@ class GlobalMenu(AbstractMenu[None]):
 
 		config: PacmanConfiguration = item.value
 		color_status = tr('Enabled') if config.color else tr('Disabled')
-		return f'{tr("Parallel Downloads")}: {config.parallel_downloads}\n{tr("Color")}: {color_status}'
+		candy_status = tr('Enabled') if config.ilove_candy else tr('Disabled')
+		return (
+			f'{tr("Parallel Downloads")}: {config.parallel_downloads}\n'
+			f'{tr("Color")}: {color_status}\n'
+			f'{tr("ILoveCandy")}: {candy_status}'
+		)
 
 	def _prev_kernel(self, item: MenuItem) -> str | None:
 		if item.value:

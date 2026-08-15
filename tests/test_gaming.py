@@ -1,9 +1,15 @@
 from pathlib import Path
 
+import pytest
+from pytest import MonkeyPatch
+
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
 from archinstall.applications.gaming_tools import GamingToolsApp
+from archinstall.applications.hardware_watchdog import HardwareWatchdogApp
 from archinstall.applications.ntsync import NTSyncApp
 from archinstall.lib.args import ArchConfig, ArchConfigType, Arguments
+from archinstall.lib.gaming.gaming_menu import GamingMenu
+from archinstall.lib.hardware import CPUVendor, SysInfo
 from archinstall.lib.models.gaming import (
 	CPU_SCHEDULER_STABILITY,
 	CPUScheduler,
@@ -63,6 +69,7 @@ def test_gaming_configuration_roundtrip() -> None:
 		gamemode=True,
 		mangohud=False,
 		gamescope=True,
+		disable_watchdog=True,
 	)
 	serialized = gaming_config.json()
 
@@ -72,6 +79,7 @@ def test_gaming_configuration_roundtrip() -> None:
 		'gamemode': True,
 		'mangohud': False,
 		'gamescope': True,
+		'disable_watchdog': True,
 	}
 	assert GamingConfiguration.parse_arg(serialized) == gaming_config
 
@@ -85,6 +93,47 @@ def test_gaming_multilib_requirement() -> None:
 	assert GamingConfiguration(mangohud=True).requires_multilib()
 	assert not GamingConfiguration(gamescope=True).requires_multilib()
 	assert not GamingConfiguration(ntsync_config=NTSyncConfiguration(enabled=True)).requires_multilib()
+	assert not GamingConfiguration(disable_watchdog=True).requires_multilib()
+
+
+def test_hardware_watchdog_modules() -> None:
+	app = HardwareWatchdogApp()
+	assert app.module(CPUVendor.AMD) == 'sp5100_tco'
+	assert app.module(CPUVendor.INTEL) == 'iTCO_wdt'
+	assert app.module(CPUVendor._UNKNOWN) is None
+
+
+def test_hardware_watchdog_is_advanced_only() -> None:
+	assert not GamingMenu(advanced=False)._item_group.find_by_key('disable_watchdog').enabled
+	assert GamingMenu(advanced=True)._item_group.find_by_key('disable_watchdog').enabled
+
+
+@pytest.mark.parametrize(
+	('vendor', 'module'),
+	[(CPUVendor.AMD, 'sp5100_tco'), (CPUVendor.INTEL, 'iTCO_wdt')],
+)
+def test_hardware_watchdog_disabled_for_supported_vendor(
+	tmp_path: Path,
+	monkeypatch: MonkeyPatch,
+	vendor: CPUVendor,
+	module: str,
+) -> None:
+	installer = FakeInstaller(tmp_path)
+	monkeypatch.setattr(SysInfo, 'cpu_vendor', lambda: vendor)
+
+	HardwareWatchdogApp().install(installer, GamingConfiguration(disable_watchdog=True))  # type: ignore[arg-type]
+
+	assert (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').read_text() == f'blacklist {module}\n'
+
+
+def test_hardware_watchdog_no_selection_leaves_enabled(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	app = HardwareWatchdogApp()
+
+	app.install(installer, GamingConfiguration(disable_watchdog=None))  # type: ignore[arg-type]
+	app.install(installer, GamingConfiguration(disable_watchdog=False))  # type: ignore[arg-type]
+
+	assert not (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').exists()
 
 
 def test_cpu_scheduler_install(tmp_path: Path) -> None:
