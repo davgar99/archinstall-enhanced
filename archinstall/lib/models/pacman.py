@@ -35,14 +35,6 @@ class PacmanConfiguration(SubConfig):
 			f'{tr("ILoveCandy")}: {candy_status}',
 		]
 
-	def preview(self) -> str:
-		color_str = tr('Enabled') if self.color else tr('Disabled')
-		candy_str = tr('Enabled') if self.ilove_candy else tr('Disabled')
-		output = '{}: {}\n'.format(tr('Parallel Downloads'), self.parallel_downloads)
-		output += '{}: {}\n'.format(tr('Color'), color_str)
-		output += '{}: {}'.format(tr('ILoveCandy'), candy_str)
-		return output
-
 	@classmethod
 	def parse_arg(cls, args: PacmanConfigSerialization) -> Self:
 		config = cls()
