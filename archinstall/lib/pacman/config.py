@@ -6,6 +6,37 @@ from archinstall.lib.models.pacman import PacmanConfiguration
 from archinstall.lib.pathnames import PACMAN_CONF
 
 
+def configure_pacman_options(path: Path, pacman_config: PacmanConfiguration) -> None:
+	content = path.read_text().splitlines()
+	result: list[str] = []
+	in_options = False
+	candy_found = False
+	candy_inserted = False
+
+	for line in content:
+		section = re.match(r'^\s*\[([^]]+)]', line)
+		if section:
+			if in_options and pacman_config.ilove_candy and not candy_found and not candy_inserted:
+				result.append('ILoveCandy')
+				candy_inserted = True
+			in_options = section.group(1) == 'options'
+
+		if in_options and re.match(r'^#?\s*ParallelDownloads', line):
+			result.append(f'ParallelDownloads = {pacman_config.parallel_downloads}')
+		elif in_options and re.match(r'^#?\s*Color\s*$', line):
+			result.append('Color' if pacman_config.color else '#Color')
+		elif in_options and re.match(r'^#?\s*ILoveCandy\s*$', line):
+			result.append('ILoveCandy' if pacman_config.ilove_candy else '#ILoveCandy')
+			candy_found = True
+		else:
+			result.append(line)
+
+	if in_options and pacman_config.ilove_candy and not candy_found and not candy_inserted:
+		result.append('ILoveCandy')
+
+	path.write_text('\n'.join(result) + '\n')
+
+
 class PacmanConfig:
 	def __init__(self, target: Path | None):
 		self._config_remote_path: Path | None = None
@@ -55,19 +86,8 @@ class PacmanConfig:
 			PACMAN_CONF.copy(self._config_remote_path, preserve_metadata=True)
 
 	def configure(self, pacman_config: PacmanConfiguration) -> None:
-		"""Apply PacmanConfiguration (Color, ParallelDownloads) to the target system's pacman.conf."""
+		"""Apply PacmanConfiguration to the target system's pacman.conf."""
 		if not self._config_remote_path or not self._config_remote_path.exists():
 			return
 
-		content = self._config_remote_path.read_text().splitlines()
-		result = []
-
-		for line in content:
-			if re.match(r'^#?\s*ParallelDownloads', line):
-				result.append(f'ParallelDownloads = {pacman_config.parallel_downloads}')
-			elif re.match(r'^#?\s*Color\s*$', line):
-				result.append('Color' if pacman_config.color else '#Color')
-			else:
-				result.append(line)
-
-		self._config_remote_path.write_text('\n'.join(result) + '\n')
+		configure_pacman_options(self._config_remote_path, pacman_config)

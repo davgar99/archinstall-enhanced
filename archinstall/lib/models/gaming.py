@@ -70,6 +70,7 @@ class GamingConfigSerialization(TypedDict):
 	gamemode: NotRequired[bool]
 	mangohud: NotRequired[bool]
 	gamescope: NotRequired[bool]
+	disable_watchdog: NotRequired[bool]
 
 
 @dataclass
@@ -103,6 +104,7 @@ class GamingConfiguration(SubConfig):
 	gamemode: bool | None = None
 	mangohud: bool | None = None
 	gamescope: bool | None = None
+	disable_watchdog: bool | None = None
 
 	@classmethod
 	def parse_arg(cls, arg: GamingConfigSerialization) -> Self:
@@ -122,6 +124,9 @@ class GamingConfiguration(SubConfig):
 
 		if 'gamescope' in arg:
 			config.gamescope = arg['gamescope']
+
+		if 'disable_watchdog' in arg:
+			config.disable_watchdog = arg['disable_watchdog']
 
 		return config
 
@@ -147,6 +152,9 @@ class GamingConfiguration(SubConfig):
 		if self.gamescope is not None:
 			config['gamescope'] = self.gamescope
 
+		if self.disable_watchdog is not None:
+			config['disable_watchdog'] = self.disable_watchdog
+
 		return config
 
 	@override
@@ -164,6 +172,7 @@ class GamingConfiguration(SubConfig):
 			('GameMode', self.gamemode),
 			('MangoHud', self.mangohud),
 			('Gamescope', self.gamescope),
+			('Disable hardware watchdog', self.disable_watchdog),
 		):
 			if enabled is not None:
 				status = tr('Enabled') if enabled else tr('Disabled')

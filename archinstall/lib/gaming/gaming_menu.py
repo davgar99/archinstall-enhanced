@@ -15,7 +15,7 @@ from archinstall.tui.result import ResultType
 
 
 class GamingMenu(AbstractSubMenu[GamingConfiguration]):
-	def __init__(self, preset: GamingConfiguration | None = None) -> None:
+	def __init__(self, preset: GamingConfiguration | None = None, advanced: bool = False) -> None:
 		self._gaming_config = preset if preset else GamingConfiguration()
 		self._item_group = MenuItemGroup(
 			[
@@ -48,6 +48,13 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					action=select_gamescope,
 					preview_action=self._prev_toggle,
 					key='gamescope',
+				),
+				MenuItem(
+					text=tr('Disable hardware watchdog'),
+					action=select_disable_watchdog,
+					preview_action=self._prev_toggle,
+					key='disable_watchdog',
+					enabled=advanced,
 				),
 			],
 			checkmarks=True,
@@ -127,9 +134,7 @@ async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) 
 
 async def select_ntsync(preset: NTSyncConfiguration | None = None) -> NTSyncConfiguration | None:
 	result = await Confirmation(
-		header=tr(
-			'Enable NTSYNC? Installs ntsync-autoload so the NTSYNC kernel module loads automatically at boot. The driver is still considered experimental.'
-		),
+		header=tr('Enable NTSYNC? The NTSYNC driver is still considered experimental.'),
 		allow_skip=True,
 		preset=preset.enabled if preset else False,
 	).show()
@@ -176,5 +181,12 @@ async def select_mangohud(preset: bool | None = None) -> bool | None:
 async def select_gamescope(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
 		tr('Enable Gamescope? Installs the gaming-focused Wayland compositor'),
+		preset,
+	)
+
+
+async def select_disable_watchdog(preset: bool | None = None) -> bool | None:
+	return await _select_toggle(
+		tr('Disable the hardware watchdog? AMD blacklists sp5100_tco; Intel blacklists iTCO_wdt'),
 		preset,
 	)
