@@ -38,7 +38,6 @@ class Language:
 		return self.name_en
 
 
-_DEFAULT_FONT = 'default8x16'
 _ENV_FONT = os.environ.get('FONT')
 
 
@@ -65,17 +64,16 @@ class TranslationHandler:
 			return self._active_language.console_font
 		return None
 
-	def _set_font(self, font_name: str | None) -> bool:
+	def _set_font(self, font_name: str) -> bool:
 		"""Set the console font via setfont. Only runs on ISO. Returns True on success."""
 		if not running_from_iso():
 			return False
 
-		target = font_name or _DEFAULT_FONT
 		try:
-			SysCommand(['setfont', target])
+			SysCommand(['setfont', font_name])
 			return True
 		except SysCallError as err:
-			debug(f'Failed to set console font {target}: {err}')
+			debug(f'Failed to set console font {font_name}: {err}')
 			return False
 
 	def save_console_font(self) -> None:
@@ -97,8 +95,8 @@ class TranslationHandler:
 			self._font_backup = None
 			self._cmap_backup = None
 
-	def restore_console_font(self) -> None:
-		"""Restore console font (with unicode map) and console map from backup."""
+	def restore_console_font(self, cleanup: bool = True) -> None:
+		"""Restore the console font and console map saved at startup."""
 		if not running_from_iso():
 			return
 
@@ -113,11 +111,12 @@ class TranslationHandler:
 		except SysCallError as err:
 			debug(f'Failed to restore console font: {err}')
 
-		self._font_backup.unlink(missing_ok=True)
-		self._font_backup = None
-		if self._cmap_backup is not None:
-			self._cmap_backup.unlink(missing_ok=True)
-			self._cmap_backup = None
+		if cleanup:
+			self._font_backup.unlink(missing_ok=True)
+			self._font_backup = None
+			if self._cmap_backup is not None:
+				self._cmap_backup.unlink(missing_ok=True)
+				self._cmap_backup = None
 
 	def _get_translations(self) -> list[Language]:
 		"""
@@ -209,7 +208,11 @@ class TranslationHandler:
 		self._active_language = language
 
 		if set_font and not self._using_env_font:
-			self._set_font(language.console_font)
+			if language.console_font:
+				self._set_font(language.console_font)
+			else:
+				# Preserve the ISO console font for languages without an explicit mapping
+				self.restore_console_font(cleanup=False)
 
 	def apply_console_font(self) -> None:
 		"""Apply console font from FONT env var or active language mapping.

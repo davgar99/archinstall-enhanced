@@ -9,6 +9,7 @@ from archinstall.lib.bootloader.utils import validate_bootloader_layout
 from archinstall.lib.configuration import confirm_config
 from archinstall.lib.disk.filesystem import FilesystemHandler
 from archinstall.lib.disk.utils import disk_layouts
+from archinstall.lib.gaming.gaming_handler import GamingHandler
 from archinstall.lib.general.general_menu import PostInstallationAction, select_post_installation
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.installer import Installer, accessibility_tools_in_use, run_custom_user_commands
@@ -17,6 +18,7 @@ from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.models import Bootloader
 from archinstall.lib.models.device import DiskLayoutType, EncryptionType
+from archinstall.lib.models.packages import Repository
 from archinstall.lib.models.users import User
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.packages.util import check_version_upgrade
@@ -54,6 +56,7 @@ def perform_installation(
 	mirror_list_handler: MirrorListHandler,
 	auth_handler: AuthenticationHandler,
 	application_handler: ApplicationHandler,
+	gaming_handler: GamingHandler,
 ) -> None:
 	"""
 	Performs the installation steps on a block device.
@@ -73,7 +76,11 @@ def perform_installation(
 	disk_config = config.disk_config
 	run_mkinitcpio = not config.bootloader_config or not config.bootloader_config.uki
 	locale_config = config.locale_config
-	optional_repositories = config.mirror_config.optional_repositories if config.mirror_config else []
+	optional_repositories = list(config.mirror_config.optional_repositories) if config.mirror_config else []
+	if config.gaming_config and config.gaming_config.requires_multilib() and Repository.Multilib not in optional_repositories:
+		debug('Enabling multilib for selected gaming features')
+		optional_repositories.append(Repository.Multilib)
+
 	mountpoint = disk_config.mountpoint if disk_config.mountpoint else mountpoint
 
 	with Installer(
@@ -138,6 +145,9 @@ def perform_installation(
 
 		if app_config := config.app_config:
 			application_handler.install_applications(installation, app_config)
+
+		if gaming_config := config.gaming_config:
+			gaming_handler.install_gaming(installation, gaming_config, users)
 
 		if profile_config := config.profile_config:
 			profile_handler.install_profile_config(installation, profile_config)
@@ -252,6 +262,7 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 		mirror_list_handler,
 		AuthenticationHandler(),
 		ApplicationHandler(),
+		GamingHandler(),
 	)
 
 

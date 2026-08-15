@@ -190,16 +190,14 @@ class ZramConfiguration(SubConfig):
 		}
 
 	@override
-	def summary(self) -> list[str] | None:
-		out: list[str] = []
+	def summary(self) -> list[str]:
+		status = tr('Enabled') if self.enabled else tr('Disabled')
+		out = [f'{tr("Zram")}: {status}']
 
 		if self.enabled:
-			out.append(tr('Zram enabled'))
+			out.append(f'{tr("Zram algorithm")}: {self.algorithm.value}')
 
-			out.append(tr('Zram algorithm {}').format(self.algorithm))
-			return out
-
-		return None
+		return out
 
 
 @dataclass
@@ -271,23 +269,25 @@ class ApplicationConfiguration(SubConfig):
 	def summary(self) -> list[str]:
 		out: list[str] = []
 
-		if self.bluetooth_config and self.bluetooth_config.enabled:
-			out.append(tr('Bluetooth enabled'))
+		if self.bluetooth_config:
+			status = tr('Enabled') if self.bluetooth_config.enabled else tr('Disabled')
+			out.append(f'{tr("Bluetooth")}: {status}')
 
 		if self.audio_config:
-			out.append(tr('Audio server "{}"').format(self.audio_config.audio))
+			out.append(f'{tr("Audio server")}: {self.audio_config.audio.value}')
 
 		if self.power_management_config:
-			out.append(tr('Power management "{}"').format(self.power_management_config.power_management))
+			out.append(f'{tr("Power management")}: {self.power_management_config.power_management.value}')
 
-		if self.print_service_config and self.print_service_config.enabled:
-			out.append(tr('Print service enabled'))
+		if self.print_service_config:
+			status = tr('Enabled') if self.print_service_config.enabled else tr('Disabled')
+			out.append(f'{tr("Print service")}: {status}')
 
 		if self.firewall_config:
-			out.append(tr('Firewall "{}"').format(self.firewall_config.firewall))
+			out.append(f'{tr("Firewall")}: {self.firewall_config.firewall.value}')
 
 		if self.fonts_config and self.fonts_config.fonts:
 			fonts = ', '.join(f.value for f in self.fonts_config.fonts)
-			out.append(tr('Extra fonts "{}"').format(fonts))
+			out.append(f'{tr("Extra fonts")}: {fonts}')
 
 		return out
