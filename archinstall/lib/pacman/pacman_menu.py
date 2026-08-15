@@ -13,10 +13,8 @@ class PacmanMenu(AbstractSubMenu[PacmanConfiguration]):
 	def __init__(
 		self,
 		pacman_conf: PacmanConfiguration,
-		advanced: bool = False,
 	):
 		self._pacman_conf = pacman_conf
-		self._advanced = advanced
 		menu_options = self._define_menu_options()
 
 		self._item_group = MenuItemGroup(menu_options, sort_items=False, checkmarks=True)
@@ -34,13 +32,12 @@ class PacmanMenu(AbstractSubMenu[PacmanConfiguration]):
 				value=self._pacman_conf.parallel_downloads,
 				preview_action=lambda item: str(item.get_value()),
 				key='parallel_downloads',
-				enabled=self._advanced,
 			),
 			MenuItem(
 				text=tr('Color'),
 				action=select_color,
 				value=self._pacman_conf.color,
-				preview_action=lambda item: str(item.get_value()),
+				preview_action=lambda item: tr('Enabled') if item.get_value() else tr('Disabled'),
 				key='color',
 			),
 		]

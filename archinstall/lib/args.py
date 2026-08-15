@@ -24,6 +24,7 @@ from archinstall.lib.models.authentication import AuthenticationConfiguration
 from archinstall.lib.models.bootloader import Bootloader, BootloaderConfiguration
 from archinstall.lib.models.config import SubConfig
 from archinstall.lib.models.device import DiskEncryption, DiskLayoutConfiguration
+from archinstall.lib.models.gaming import GamingConfiguration
 from archinstall.lib.models.locale import LocaleConfiguration
 from archinstall.lib.models.mirrors import MirrorConfiguration
 from archinstall.lib.models.network import NetworkConfiguration
@@ -81,6 +82,7 @@ class ArchConfigType(StrEnum):
 	NETWORK_CONFIG = 'network_config'
 	BOOTLOADER_CONFIG = 'bootloader_config'
 	APP_CONFIG = 'app_config'
+	GAMING_CONFIG = 'gaming_config'
 	AUTH_CONFIG = 'auth_config'
 	SWAP = 'swap'
 	USERS = 'users'
@@ -117,6 +119,8 @@ class ArchConfigType(StrEnum):
 				return tr('Bootloader')
 			case ArchConfigType.APP_CONFIG:
 				return tr('Application')
+			case ArchConfigType.GAMING_CONFIG:
+				return tr('Gaming')
 			case ArchConfigType.AUTH_CONFIG:
 				return tr('Authentication')
 			case ArchConfigType.SWAP:
@@ -162,6 +166,7 @@ class ArchConfig:
 	network_config: NetworkConfiguration | None = None
 	bootloader_config: BootloaderConfiguration | None = None
 	app_config: ApplicationConfiguration | None = None
+	gaming_config: GamingConfiguration | None = None
 	auth_config: AuthenticationConfiguration | None = None
 	swap: ZramConfiguration | None = None
 	hostname: str = 'archlinux'
@@ -250,6 +255,9 @@ class ArchConfig:
 		if self.app_config:
 			cfg[ArchConfigType.APP_CONFIG] = self.app_config
 
+		if self.gaming_config:
+			cfg[ArchConfigType.GAMING_CONFIG] = self.gaming_config
+
 		return cfg
 
 	@classmethod
@@ -316,6 +324,9 @@ class ArchConfig:
 
 		if audio_config_args is not None or app_config_args is not None:
 			arch_config.app_config = ApplicationConfiguration.parse_arg(app_config_args, audio_config_args)
+
+		if gaming_config := args_config.get('gaming_config', None):
+			arch_config.gaming_config = GamingConfiguration.parse_arg(gaming_config)
 
 		if auth_config_args := args_config.get('auth_config', None):
 			arch_config.auth_config = AuthenticationConfiguration.parse_arg(auth_config_args)

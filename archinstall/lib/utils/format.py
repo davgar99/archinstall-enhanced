@@ -2,6 +2,7 @@ from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING, Any
 
+from archinstall.lib.translationhandler import tr
 from archinstall.lib.utils.encoding import unicode_ljust, unicode_rjust
 from archinstall.tui.rich import BaseRichTable
 
@@ -32,11 +33,11 @@ def as_key_value_pair(
 	table.add_column('value', style='white', max_width=70)
 
 	for label, value in entries.items():
-		if ignore_empty and not value:
+		if ignore_empty and (value == '' or value == []):
 			continue
 
 		if isinstance(value, bool):
-			value = 'Yes' if value else 'No'
+			value = tr('Enabled') if value else tr('Disabled')
 
 		if isinstance(value, list):
 			value = '\n  '.join(str(val) for val in value)

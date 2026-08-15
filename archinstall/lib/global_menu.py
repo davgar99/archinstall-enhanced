@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import override
 
 from archinstall.default_profiles.profile import GreeterType
@@ -8,17 +9,19 @@ from archinstall.lib.bootloader.bootloader_menu import BootloaderMenu
 from archinstall.lib.bootloader.utils import validate_bootloader_layout
 from archinstall.lib.configuration import save_config
 from archinstall.lib.disk.disk_menu import DiskLayoutConfigurationMenu
+from archinstall.lib.gaming.gaming_menu import GamingMenu
 from archinstall.lib.general.general_menu import select_hostname, select_ntp, select_timezone
 from archinstall.lib.general.system_menu import select_kernel, select_swap
 from archinstall.lib.hardware import SysInfo
 from archinstall.lib.locale.locale_menu import LocaleMenu
-from archinstall.lib.menu.abstract_menu import AbstractMenu, SpecialMenuKey
+from archinstall.lib.menu.abstract_menu import AbstractMenu, AbstractSubMenu, SpecialMenuKey
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.mirror.mirror_menu import MirrorMenu
 from archinstall.lib.models.application import ApplicationConfiguration, ZramConfiguration
 from archinstall.lib.models.authentication import AuthenticationConfiguration
 from archinstall.lib.models.bootloader import Bootloader, BootloaderConfiguration
 from archinstall.lib.models.device import DiskLayoutConfiguration, DiskLayoutType, PartitionModification
+from archinstall.lib.models.gaming import GamingConfiguration
 from archinstall.lib.models.locale import LocaleConfiguration
 from archinstall.lib.models.mirrors import MirrorConfiguration
 from archinstall.lib.models.network import NetworkConfiguration, NicType
@@ -34,6 +37,12 @@ from archinstall.lib.translationhandler import Language, tr, translation_handler
 from archinstall.lib.utils.format import as_table
 from archinstall.tui.components import tui
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MsgLevelType, PreviewResult
+
+
+@dataclass
+class _TimeConfiguration:
+	timezone: str
+	ntp: bool
 
 
 class GlobalMenu(AbstractMenu[None]):
@@ -137,6 +146,12 @@ class GlobalMenu(AbstractMenu[None]):
 				key='app_config',
 			),
 			MenuItem(
+				text=tr('Gaming'),
+				action=self._select_gaming,
+				preview_action=self._prev_gaming,
+				key='gaming_config',
+			),
+			MenuItem(
 				text=tr('Network configuration'),
 				action=select_network,
 				value={},
@@ -158,18 +173,11 @@ class GlobalMenu(AbstractMenu[None]):
 				key='packages',
 			),
 			MenuItem(
-				text=tr('Timezone'),
-				action=select_timezone,
+				text=tr('Time configuration'),
+				action=self._select_time_configuration,
 				value='UTC',
-				preview_action=self._prev_tz,
+				preview_action=self._prev_time_configuration,
 				key='timezone',
-			),
-			MenuItem(
-				text=tr('Automatic time sync (NTP)'),
-				action=select_ntp,
-				value=True,
-				preview_action=self._prev_ntp,
-				key='ntp',
 			),
 			MenuItem(
 				text='',
@@ -266,6 +274,10 @@ class GlobalMenu(AbstractMenu[None]):
 	async def _select_applications(self, preset: ApplicationConfiguration | None) -> ApplicationConfiguration | None:
 		app_config = await ApplicationMenu(preset).show()
 		return app_config
+
+	async def _select_gaming(self, preset: GamingConfiguration | None) -> GamingConfiguration | None:
+		gaming_config = await GamingMenu(preset).show()
+		return gaming_config
 
 	async def _select_authentication(self, preset: AuthenticationConfiguration | None) -> AuthenticationConfiguration | None:
 		auth_config = await AuthenticationMenu(preset).show()
@@ -369,17 +381,47 @@ class GlobalMenu(AbstractMenu[None]):
 
 		return None
 
-	def _prev_tz(self, item: MenuItem) -> str | None:
+	def _prev_gaming(self, item: MenuItem) -> str | None:
 		if item.value:
-			return f'{tr("Timezone")}: {item.value}'
+			gaming_config: GamingConfiguration = item.value
+			summary = gaming_config.summary()
+			return '\n'.join(summary) if summary else None
 		return None
 
-	def _prev_ntp(self, item: MenuItem) -> str | None:
-		if item.value is not None:
-			output = f'{tr("NTP")}: '
-			output += tr('Enabled') if item.value else tr('Disabled')
-			return output
-		return None
+	async def _select_time_configuration(self, preset: str) -> str:
+		config = _TimeConfiguration(timezone=preset, ntp=self._arch_config.ntp)
+		group = MenuItemGroup(
+			[
+				MenuItem(
+					text=tr('Timezone'),
+					action=select_timezone,
+					preview_action=lambda item: f'{tr("Timezone")}: {item.value}',
+					key='timezone',
+				),
+				MenuItem(
+					text=tr('Automatic time sync (NTP)'),
+					action=select_ntp,
+					preview_action=lambda item: f'{tr("NTP")}: {tr("Enabled") if item.value else tr("Disabled")}' if item.value is not None else None,
+					key='ntp',
+				),
+			],
+			sort_items=False,
+			checkmarks=True,
+		)
+
+		result = await AbstractSubMenu[_TimeConfiguration](group, config=config).show()
+		if result is None:
+			return preset
+
+		self._arch_config.ntp = result.ntp
+		return result.timezone
+
+	def _prev_time_configuration(self, item: MenuItem) -> str | None:
+		if item.value is None:
+			return None
+
+		ntp_status = tr('Enabled') if self._arch_config.ntp else tr('Disabled')
+		return f'{tr("Timezone")}: {item.value}\n{tr("NTP")}: {ntp_status}'
 
 	def _prev_disk_config(self, item: MenuItem) -> str | None:
 		disk_layout_conf: DiskLayoutConfiguration | None = item.value
@@ -420,17 +462,15 @@ class GlobalMenu(AbstractMenu[None]):
 		return None
 
 	async def _pacman_configuration(self, preset: PacmanConfiguration) -> PacmanConfiguration | None:
-		return await PacmanMenu(preset, advanced=self._advanced).show()
+		return await PacmanMenu(preset).show()
 
 	def _prev_pacman_config(self, item: MenuItem) -> str | None:
 		if not item.value:
 			return None
+
 		config: PacmanConfiguration = item.value
-		output = ''
-		if self._advanced:
-			output += '{}: {}\n'.format(tr('Parallel Downloads'), config.parallel_downloads)
-		output += '{}: {}'.format(tr('Color'), config.color)
-		return output
+		color_status = tr('Enabled') if config.color else tr('Disabled')
+		return f'{tr("Parallel Downloads")}: {config.parallel_downloads}\n{tr("Color")}: {color_status}'
 
 	def _prev_kernel(self, item: MenuItem) -> str | None:
 		if item.value:
