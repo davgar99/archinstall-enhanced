@@ -164,10 +164,7 @@ def test_cpu_scheduler_install(tmp_path: Path) -> None:
 
 	assert installer.packages == ['scx-scheds', 'scx-tools']
 	assert installer.services == ['scx_loader.service']
-	assert (tmp_path / 'etc/scx_loader/config.toml').read_text() == (
-		'default_sched = "scx_lavd"\n'
-		'default_mode = "Gaming"\n'
-	)
+	assert (tmp_path / 'etc/scx_loader/config.toml').read_text() == 'default_sched = "scx_lavd"\ndefault_mode = "Gaming"\n'
 
 
 def test_ntsync_install(tmp_path: Path) -> None:

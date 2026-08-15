@@ -1,29 +1,103 @@
-<!-- <div align="center"> -->
-<img src="https://github.com/archlinux/archinstall/raw/master/docs/logo.png" alt="drawing" width="200"/>
+# Archinstall Opinionated
 
-<!-- </div> -->
-# Arch Installer
-[![Lint Python and Find Syntax Errors](https://github.com/archlinux/archinstall/actions/workflows/flake8.yaml/badge.svg)](https://github.com/archlinux/archinstall/actions/workflows/flake8.yaml)
+<img src="https://github.com/archlinux/archinstall/raw/master/docs/logo.png" alt="Archinstall logo" width="200"/>
 
-Just another guided/automated [Arch Linux](https://wiki.archlinux.org/index.php/Arch_Linux) installer with a twist.
-The installer also doubles as a python library to install Arch Linux and manage services, packages, and other things inside the installed system *(Usually from a live medium or from an existing installation)*.
+This is my opinionated fork of
+[Archinstall](https://github.com/archlinux/archinstall). It is mostly focused on
+gaming and performance, but it also tries to provide a more complete system out
+of the box.
 
-* archinstall [discord](https://discord.gg/aDeMffrxNg) server
-* archinstall [#archinstall:matrix.org](https://matrix.to/#/#archinstall:matrix.org) Matrix channel
-* archinstall [#archinstall@irc.libera.chat:6697](https://web.libera.chat/?channel=#archinstall)
-* archinstall [documentation](https://archinstall.archlinux.page/)
+The main reason I made this fork is that the original installer leaves out a
+lot of optional packages and configuration that most desktop users will
+probably want anyway. This version makes it easier to get a working system
+without having to find and set up all of those extras afterward. It still keeps
+the performance-related options optional and avoids changes that would make the
+system less stable.
 
-# Installation & Usage
-> [!TIP]
-> In the ISO you are root by default. Use sudo if running from an existing system.
+> [!IMPORTANT]
+> This is an independent fork, not the official Arch Linux installer. The
+> `archinstall` package in the Arch repositories installs the upstream version,
+> not the changes documented here.
+
+## What is different from the original Archinstall?
+
+### Gaming configuration
+
+There is a new **Gaming** menu in the guided installer. From there, you can
+choose any of the following:
+
+- sched-ext CPU schedulers, separated into stable and experimental options
+- `scx_loader`, configured to use the selected scheduler in Gaming mode
+- NTSYNC through `ntsync-autoload`
+- GameMode and its 32-bit library
+- MangoHud and its 32-bit library
+- Gamescope
+- an advanced option to disable the AMD or Intel hardware watchdog
+
+Multilib is enabled automatically only when a selected option needs
+`lib32-gamemode` or `lib32-mangohud`.
+
+### A more complete desktop installation
+
+This fork installs some useful optional packages when you select the features
+that need them:
+
+- `rtkit` with PipeWire for real-time audio scheduling
+- Avahi and `nss-mdns` with the print service for network-printer discovery and
+  `.local` hostname resolution
+- the packages needed for the gaming options you select
+
+It does not install the entire gaming stack automatically. If you do not select
+one of these options, its packages will not be installed.
+
+### Other installer changes
+
+- Pacman Parallel Downloads are available without `--advanced`.
+- Pacman's color and `ILoveCandy` options are configurable and saved.
+- Timezone and automatic NTP synchronization share one Time configuration
+  submenu.
+- Configuration summaries consistently use `Setting: Value` and
+  `Enabled`/`Disabled` formatting.
+- Console fonts are restored correctly when changing or reselecting installer
+  languages, including HiDPI console setups.
+
+### A note about performance and stability
+
+This fork is not meant to apply a large collection of hidden performance
+tweaks. It mainly gives you more choices during installation and installs the
+packages needed for those choices. Experimental sched-ext schedulers are marked
+as experimental, and the installer also warns that NTSYNC is still
+experimental. Everything in the Gaming menu can be skipped, and the settings
+can be saved and loaded again later.
+
+## Installation and usage
+
+The easiest way to use this fork is to run it from the source code on an Arch
+Linux live ISO. You are already root on the live ISO, so you do not need to use
+`sudo` there.
 
 ```shell
-pacman-key --init
-pacman -Sy archinstall
-archinstall
+pacman -Sy --needed git
+git clone https://github.com/davgar99/archinstall-opinionated.git
+cd archinstall-opinionated
+python -m archinstall
 ```
 
-Alternative ways to install are `git clone` the repository (and is better since you get the latest code regardless of [build date](https://archlinux.org/packages/?sort=&q=archinstall)) or `pip install --upgrade archinstall`.
+To update an existing clone:
+
+```shell
+git pull --ff-only
+python -m archinstall
+```
+
+Most of the rest of this README comes from the original Archinstall project and
+still applies to this fork. Keep in mind that upstream documentation and support
+may not cover the extra options added here.
+
+- [Upstream Archinstall documentation](https://archinstall.archlinux.page/)
+- [Upstream Discord](https://discord.gg/aDeMffrxNg)
+- [Upstream Matrix channel](https://matrix.to/#/#archinstall:matrix.org)
+- [Upstream IRC channel](https://web.libera.chat/?channel=#archinstall)
 
 ## Upgrade `archinstall` on live Arch ISO image
 
@@ -39,18 +113,18 @@ In case one runs into this issue, any of the following can be used
 * Resize the root partition https://wiki.archlinux.org/title/Archiso#Adjusting_the_size_of_the_root_file_system
 * Specify the boot parameter copytoram=y (https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio-archiso/-/blob/master/docs/README.bootparams#L26) which will copy the root filesystem to tmpfs
 
-## Running the [guided](https://github.com/archlinux/archinstall/blob/master/archinstall/scripts/guided.py) installer
+## Running the guided installer
 
-Assuming you are on an Arch Linux live-ISO or installed via `pip`, `archinstall` will use the `guided` script by default
+When installed from this checkout, `archinstall` uses the guided script by default:
 ```shell
 archinstall
 ```
-similar goes for running the [guided](https://github.com/archlinux/archinstall/blob/master/archinstall/scripts/guided.py) installer using `git`
+The fork can also be run directly from a Git checkout:
 
 ```shell
-git clone https://github.com/archlinux/archinstall
-cd archinstall
-python -m archinstall $@
+git clone https://github.com/davgar99/archinstall-opinionated.git
+cd archinstall-opinionated
+python -m archinstall
 ```
 
 To run alternative scripts using the `--script` parameter
@@ -69,9 +143,9 @@ the `user_configuration.json` contains all general installation configuration, w
 contains the sensitive user configuration such as user password, root password, and encryption password.
 
 An example of the user configuration file can be found here
-[configuration file](https://github.com/archlinux/archinstall/blob/master/examples/config-sample.json)
+[configuration file](https://github.com/davgar99/archinstall-opinionated/blob/master/examples/config-sample.json)
 and an example of the credentials configuration here
-[credentials file](https://github.com/archlinux/archinstall/blob/master/examples/creds-sample.json).
+[credentials file](https://github.com/davgar99/archinstall-opinionated/blob/master/examples/creds-sample.json).
 
 **HINT:** The configuration files can be auto-generated by starting `archinstall`, configuring all desired menu
 points and then going to `Save configuration`.
@@ -130,7 +204,7 @@ All available console fonts can be found in `/usr/share/kbd/consolefonts` and se
 ## Scripting interactive installation
 
 For an example of a fully scripted, interactive installation please refer to the example
-[interactive_installation.py](https://github.com/archlinux/archinstall/blob/master/archinstall/scripts/guided.py)
+[guided.py](https://github.com/davgar99/archinstall-opinionated/blob/master/archinstall/scripts/guided.py)
 
 
 > **To create your own ISO with this script in it:** Follow [ArchISO](https://wiki.archlinux.org/index.php/archiso)'s guide on creating your own ISO.
@@ -138,17 +212,17 @@ For an example of a fully scripted, interactive installation please refer to the
 ## Script non-interactive automated installation
 
 For an example of a fully scripted, automated installation please refer to the example
-[full_automated_installation.py](https://github.com/archlinux/archinstall/blob/master/examples/full_automated_installation.py)
+[full_automated_installation.py](https://github.com/davgar99/archinstall-opinionated/blob/master/examples/full_automated_installation.py)
 
 # Profiles
 
 `archinstall` comes with a set of pre-configured profiles available for selection during the installation process.
 
-- [Desktop](https://github.com/archlinux/archinstall/tree/master/archinstall/default_profiles/desktops)
-- [Server](https://github.com/archlinux/archinstall/tree/master/archinstall/default_profiles/servers)
+- [Desktop](https://github.com/davgar99/archinstall-opinionated/tree/master/archinstall/default_profiles/desktops)
+- [Server](https://github.com/davgar99/archinstall-opinionated/tree/master/archinstall/default_profiles/servers)
 
 The profiles' definitions and the packages they will install can be directly viewed in the menu, or
-[default profiles](https://github.com/archlinux/archinstall/tree/master/archinstall/default_profiles)
+[default profiles](https://github.com/davgar99/archinstall-opinionated/tree/master/archinstall/default_profiles)
 
 
 # Testing
@@ -162,8 +236,8 @@ replace the archinstall version with a newer one and execute the subsequent step
 2. Install the build requirements with `pacman -Sy; pacman -S git python-pip gcc pkgconf`
    *(note that this may or may not work depending on your RAM and current state of the squashfs maximum filesystem free space)*
 3. Uninstall the previous version of archinstall with `pip uninstall --break-system-packages archinstall`
-4. Now clone the latest repository with `git clone https://github.com/archlinux/archinstall`
-5. Enter the repository with `cd archinstall`
+4. Clone this repository with `git clone https://github.com/davgar99/archinstall-opinionated.git`
+5. Enter the repository with `cd archinstall-opinionated`
    *At this stage, you can choose to check out a feature branch for instance with `git checkout v2.3.1-rc1`*
 6. To run the source code, there are 2 different options:
    - Run a specific branch version from source directly using `python -m archinstall`, in most cases this will work just fine, the
@@ -250,7 +324,7 @@ To install Arch Linux alongside an existing Windows installation using  `archins
 
 # Mission Statement
 
-Archinstall promises to ship a [guided installer](https://github.com/archlinux/archinstall/blob/master/archinstall/scripts/guided.py) that follows
+This fork preserves Archinstall's [guided installer](https://github.com/davgar99/archinstall-opinionated/blob/master/archinstall/scripts/guided.py) and aims to follow
 the [Arch Linux Principles](https://wiki.archlinux.org/index.php/Arch_Linux#Principles) as well as a library to manage services, packages, and other Arch Linux aspects.
 
 The guided installer ensures a user-friendly experience, offering optional selections throughout the process. Emphasizing its flexible nature, these options are never obligatory.
@@ -266,4 +340,4 @@ Therefore, Archinstall will try its best to not introduce any breaking changes e
 
 # Contributing
 
-Please see [CONTRIBUTING.md](https://github.com/archlinux/archinstall/blob/master/CONTRIBUTING.md)
+Please see [CONTRIBUTING.md](https://github.com/davgar99/archinstall-opinionated/blob/master/CONTRIBUTING.md)

@@ -22,10 +22,7 @@ class CPUSchedulerApp:
 		config_dir.mkdir(parents=True, exist_ok=True)
 
 		config_path = config_dir / 'config.toml'
-		config_path.write_text(
-			f'default_sched = "{scheduler.value}"\n'
-			'default_mode = "Gaming"\n',
-		)
+		config_path.write_text(f'default_sched = "{scheduler.value}"\ndefault_mode = "Gaming"\n')
 		config_path.chmod(0o644)
 
 		install_session.enable_service('scx_loader.service')

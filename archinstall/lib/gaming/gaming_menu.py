@@ -1,4 +1,4 @@
-from typing import override
+from typing import assert_never, override
 
 from archinstall.lib.menu.abstract_menu import AbstractSubMenu
 from archinstall.lib.menu.helpers import Confirmation, Selection
@@ -128,8 +128,8 @@ async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) 
 			return CPUSchedulerConfiguration(scheduler=result.get_value())
 		case ResultType.Reset:
 			return None
-
-	raise ValueError('Unhandled result type')
+		case _:
+			assert_never(result.type_)
 
 
 async def select_ntsync(preset: NTSyncConfiguration | None = None) -> NTSyncConfiguration | None:
@@ -144,8 +144,10 @@ async def select_ntsync(preset: NTSyncConfiguration | None = None) -> NTSyncConf
 			return preset
 		case ResultType.Selection:
 			return NTSyncConfiguration(enabled=result.get_value())
-		case _:
+		case ResultType.Reset:
 			raise ValueError('Unhandled result type')
+		case _:
+			assert_never(result.type_)
 
 
 async def _select_toggle(header: str, preset: bool | None) -> bool | None:
@@ -160,8 +162,10 @@ async def _select_toggle(header: str, preset: bool | None) -> bool | None:
 			return preset
 		case ResultType.Selection:
 			return result.get_value()
-		case _:
+		case ResultType.Reset:
 			raise ValueError('Unhandled result type')
+		case _:
+			assert_never(result.type_)
 
 
 async def select_gamemode(preset: bool | None = None) -> bool | None:

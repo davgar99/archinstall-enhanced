@@ -168,25 +168,38 @@ class FontsConfiguration:
 		return cls(fonts=[FontPackage(f) for f in arg['fonts']])
 
 
+class ZramConfigSerialization(TypedDict):
+	enabled: bool
+	algorithm: str
+	swappiness_tweaks: NotRequired[bool]
+
+
 @dataclass(frozen=True)
 class ZramConfiguration(SubConfig):
 	enabled: bool
 	algorithm: ZramAlgorithm = ZramAlgorithm.ZSTD
+	swappiness_tweaks: bool = False
 
 	@classmethod
-	def parse_arg(cls, arg: bool | dict[str, Any]) -> Self:
+	def parse_arg(cls, arg: bool | ZramConfigSerialization | dict[str, Any]) -> Self:
 		if isinstance(arg, bool):
 			return cls(enabled=arg)
 
-		enabled = arg.get('enabled', True)
+		enabled = bool(arg.get('enabled', True))
 		algo = arg.get('algorithm', arg.get('algo', ZramAlgorithm.ZSTD.value))
-		return cls(enabled=enabled, algorithm=ZramAlgorithm(algo))
+		swappiness_tweaks = bool(arg.get('swappiness_tweaks', arg.get('swappiness', False)))
+		return cls(
+			enabled=enabled,
+			algorithm=ZramAlgorithm(algo),
+			swappiness_tweaks=swappiness_tweaks,
+		)
 
 	@override
-	def json(self) -> dict[str, bool | str]:
+	def json(self) -> ZramConfigSerialization:
 		return {
 			'enabled': self.enabled,
 			'algorithm': self.algorithm.value,
+			'swappiness_tweaks': self.swappiness_tweaks,
 		}
 
 	@override
@@ -196,6 +209,8 @@ class ZramConfiguration(SubConfig):
 
 		if self.enabled:
 			out.append(f'{tr("Zram algorithm")}: {self.algorithm.value}')
+			tweak_status = tr('Enabled') if self.swappiness_tweaks else tr('Disabled')
+			out.append(f'{tr("Swappiness tweaks")}: {tweak_status}')
 
 		return out
 

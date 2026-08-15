@@ -1,3 +1,4 @@
+import re
 from typing import TYPE_CHECKING
 
 from archinstall.lib.log import debug
@@ -30,11 +31,47 @@ class PrintServiceApp:
 			return
 
 		content = nsswitch_conf.read_text()
+		hosts_match = re.search(r'^([ \t]*hosts:[ \t]*)([^\r\n]*)', content, flags=re.MULTILINE)
+		if hosts_match is None:
+			return
 
-		if 'mdns_minimal' not in content:
-			nsswitch_conf.write_text(
-				content.replace(
-					'resolve [!UNAVAIL=return]',
-					'mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return]',
-				)
+		prefix, services = hosts_match.groups()
+		service_entries, comment_marker, comment = services.partition('#')
+		if re.search(r'\bmdns_minimal\b', service_entries):
+			return
+
+		if 'resolve [!UNAVAIL=return]' in service_entries:
+			new_service_entries = service_entries.replace(
+				'resolve [!UNAVAIL=return]',
+				'mdns_minimal [NOTFOUND=return] resolve [!UNAVAIL=return]',
+				1,
 			)
+		elif re.search(r'\bresolve\b', service_entries):
+			new_service_entries = re.sub(
+				r'\bresolve\b',
+				'mdns_minimal [NOTFOUND=return] resolve',
+				service_entries,
+				count=1,
+			)
+		elif re.search(r'\bdns\b', service_entries):
+			new_service_entries = re.sub(
+				r'\bdns\b',
+				'mdns_minimal [NOTFOUND=return] dns',
+				service_entries,
+				count=1,
+			)
+		elif re.search(r'\bfiles\b', service_entries):
+			new_service_entries = re.sub(
+				r'\bfiles\b',
+				'files mdns_minimal [NOTFOUND=return]',
+				service_entries,
+				count=1,
+			)
+		else:
+			needs_separator = not (service_entries[-1:].isspace() or (not service_entries and prefix[-1:].isspace()))
+			separator = ' ' if needs_separator else ''
+			new_service_entries = f'{service_entries}{separator}mdns_minimal [NOTFOUND=return]'
+
+		new_services = new_service_entries + comment_marker + comment
+		new_content = content[: hosts_match.start()] + prefix + new_services + content[hosts_match.end() :]
+		nsswitch_conf.write_text(new_content)

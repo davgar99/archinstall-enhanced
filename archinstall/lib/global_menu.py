@@ -453,6 +453,8 @@ class GlobalMenu(AbstractMenu[None]):
 			output += tr('Enabled') if item.value.enabled else tr('Disabled')
 			if item.value.enabled:
 				output += f'\n{tr("Compression algorithm")}: {item.value.algorithm.value}'
+				tweak_status = tr('Enabled') if item.value.swappiness_tweaks else tr('Disabled')
+				output += f'\n{tr("Swappiness tweaks")}: {tweak_status}'
 			return output
 		return None
 

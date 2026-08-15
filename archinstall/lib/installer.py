@@ -1025,17 +1025,29 @@ class Installer:
 			self._configure_grub_btrfsd(snapshot_type)
 			self.enable_service('grub-btrfsd.service')
 
-	def setup_swap(self, algo: ZramAlgorithm = ZramAlgorithm.ZSTD) -> None:
+	def setup_swap(
+		self,
+		algo: ZramAlgorithm = ZramAlgorithm.ZSTD,
+		swappiness_tweaks: bool = False,
+	) -> None:
 		info('Setting up swap on zram')
 		self.pacman.strap('zram-generator')
 
 		info(f'Zram compression algorithm: {algo.value}')
 
-		with open(f'{self.target}/etc/systemd/zram-generator.conf', 'w') as zram_conf:
-			zram_conf.write('[zram0]\n')
-			zram_conf.write(f'compression-algorithm = {algo.value}\n')
+		zram_conf = self.target / 'etc/systemd/zram-generator.conf'
+		zram_conf.parent.mkdir(parents=True, exist_ok=True)
+		zram_conf.write_text(f'[zram0]\ncompression-algorithm = {algo.value}\n')
 
 		self.enable_service('systemd-zram-setup@zram0.service')
+
+		sysctl_conf = self.target / 'etc/sysctl.d/99-vm-zram-parameters.conf'
+		if swappiness_tweaks:
+			info('Applying Arch Wiki swap on zram swappiness tweaks')
+			sysctl_conf.parent.mkdir(parents=True, exist_ok=True)
+			sysctl_conf.write_text('vm.swappiness = 180\nvm.watermark_boost_factor = 0\nvm.watermark_scale_factor = 125\nvm.page-cluster = 0\n')
+		else:
+			sysctl_conf.unlink(missing_ok=True)
 
 		self._zram_enabled = True
 
