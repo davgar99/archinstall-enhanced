@@ -83,6 +83,8 @@ def perform_installation(
 
 	mountpoint = disk_config.mountpoint if disk_config.mountpoint else mountpoint
 
+	reboot_requested = False
+
 	with Installer(
 		mountpoint,
 		disk_config,
@@ -206,12 +208,17 @@ def perform_installation(
 				case PostInstallationAction.EXIT:
 					pass
 				case PostInstallationAction.REBOOT:
-					_ = os.system('reboot')  # type: ignore[deprecated]
+					reboot_requested = True
 				case PostInstallationAction.CHROOT:
 					try:
 						installation.drop_to_shell()
 					except Exception:
 						pass
+
+	# Installer.__exit__() has now run, allowing the system to sync and the
+	# installation log to be copied to the target before rebooting.
+	if reboot_requested:
+		_ = os.system('reboot')  # type: ignore[deprecated]
 
 
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
