@@ -38,6 +38,7 @@ class ProfileConfiguration(SubConfig):
 
 		if self.profile:
 			out.append(self.profile.name)
+			out.extend(self.profile.current_selection_names())
 
 			if self.gfx_driver:
 				out.append(tr('{} graphics driver').format(self.gfx_driver.value))
