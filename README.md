@@ -145,8 +145,8 @@ The Arch Linux live environment already runs as root, so `sudo` is not required.
 
 ```bash
 pacman -Sy --needed git
-git clone https://github.com/davgar99/archinstall-opinionated.git
-cd archinstall-opinionated
+git clone https://github.com/davgar99/archinstall-enhanced.git
+cd archinstall-enhanced
 python -m archinstall
 ```
 
@@ -163,8 +163,6 @@ archinstall
 git pull --ff-only
 python -m archinstall
 ```
-
-The repository URL and directory name above will be updated if the project is renamed to `archinstall-enhanced`.
 
 ## Configuration files
 
