@@ -1,343 +1,243 @@
-# Archinstall Opinionated
+# Archinstall Enhanced
 
 <img src="https://github.com/archlinux/archinstall/raw/master/docs/logo.png" alt="Archinstall logo" width="200"/>
 
-This is my opinionated fork of
-[Archinstall](https://github.com/archlinux/archinstall). It is mostly focused on
-gaming and performance, but it also tries to provide a more complete system out
-of the box.
+An enhanced fork of [Archinstall](https://github.com/archlinux/archinstall) focused on making Arch Linux desktop and gaming installations more complete out of the box.
 
-The main reason I made this fork is that the original installer leaves out a
-lot of optional packages and configuration that most desktop users will
-probably want anyway. This version makes it easier to get a working system
-without having to find and set up all of those extras afterward. It still keeps
-the performance-related options optional and avoids changes that would make the
-system less stable.
+This fork adds more gaming, performance, desktop, and system configuration options directly to the Archinstall guided installer. The goal is to make it easier to install a well-configured Arch Linux system without having to manually set up many of these features after the first boot.
+
+Changes included in this fork are intended to be stable, properly implemented, and backed by official documentation, upstream behavior, or established community recommendations whenever possible. Experimental features are clearly identified and remain optional.
+
+This project is not intended to throw random performance tweaks into Archinstall. Features are added because they provide a useful configuration option, solve a real problem, improve the installation experience, or make common desktop and gaming setups easier to configure.
 
 > [!IMPORTANT]
-> This is an independent fork, not the official Arch Linux installer. The
-> `archinstall` package in the Arch repositories installs the upstream version,
-> not the changes documented here.
+> This is an independent fork of Archinstall. It is not the official Arch Linux installer.
+>
+> Installing the `archinstall` package from the Arch Linux repositories will install the official upstream version, not the changes included in this repository.
 
-## What is different from the original Archinstall?
+## Why this fork exists
 
-### Gaming configuration
+Archinstall provides a very good base for installing Arch Linux, but it intentionally keeps the default installer fairly general.
 
-There is a new **Gaming** menu in the guided installer. From there, you can
-choose any of the following:
+For desktop and gaming systems, there are still a number of useful packages, services, and configuration options that users commonly set up manually after installation.
 
-- sched-ext CPU schedulers, separated into stable and experimental options
-- `scx_loader`, configured to use the selected scheduler in Gaming mode
+Archinstall Enhanced tries to bring more of that setup into the installer itself while keeping the familiar Archinstall workflow.
+
+The main goals of the project are:
+
+- provide useful desktop and gaming options during installation
+- make commonly used system configuration easier to set up
+- provide optional performance tuning without forcing it on the user
+- keep experimental features clearly separated from stable features
+- use documented and maintainable configuration methods
+- preserve normal Arch Linux behavior whenever possible
+- remain close enough to upstream Archinstall that upstream changes can still be incorporated cleanly
+
+Most additional features are optional. Users can decide how much or how little they want the installer to configure.
+
+## Main differences from upstream
+
+### Gaming and performance
+
+The guided installer includes a **Gaming** section with optional support for:
+
+- sched-ext CPU schedulers
+- `scx_loader`
+- Gaming mode scheduler configuration
 - NTSYNC through `ntsync-autoload`
-- GameMode and its 32-bit library
-- MangoHud and its 32-bit library
+- GameMode
+- MangoHud
 - Gamescope
-- an advanced option to disable the AMD or Intel hardware watchdog
+- optional AMD and Intel hardware watchdog configuration for advanced users
 
-Multilib is enabled automatically only when a selected option needs
-`lib32-gamemode` or `lib32-mangohud`.
+Stable and experimental sched-ext schedulers are separated so users can tell which options are considered more mature.
 
-### A more complete desktop installation
+Experimental features such as NTSYNC are also identified as experimental instead of being presented as normal system defaults.
 
-This fork installs some useful optional packages when you select the features
-that need them:
+Multilib is enabled automatically only when a selected feature requires a 32-bit package such as:
+
+- `lib32-gamemode`
+- `lib32-mangohud`
+
+If none of the selected options require Multilib, the installer does not enable it unnecessarily.
+
+### Zram
+
+Swap-on-zram can be configured directly through the installer.
+
+The fork also provides optional virtual memory tuning for users who want to adjust the system around zram.
+
+These settings are not silently applied. The additional tuning can be enabled or disabled independently, and the selected configuration is saved along with the rest of the Archinstall configuration.
+
+### Desktop configuration
+
+Archinstall Enhanced can install and configure additional packages when the user selects features that need them.
+
+Examples include:
 
 - `rtkit` with PipeWire for real-time audio scheduling
-- Avahi and `nss-mdns` with the print service for network-printer discovery and
-  `.local` hostname resolution
-- the packages needed for the gaming options you select
+- Avahi for network service discovery
+- `nss-mdns` for `.local` hostname resolution
+- network printer discovery
+- print service configuration
+- Bluetooth configuration
+- power management options
+- firewall configuration
+- additional font packages
 
-It does not install the entire gaming stack automatically. If you do not select
-one of these options, its packages will not be installed.
+The installer does not automatically install every optional component.
 
-### Other installer changes
+If a feature is not selected, the packages and services associated with that feature are left out.
 
-- Pacman Parallel Downloads are available without `--advanced`.
-- Pacman's color and `ILoveCandy` options are configurable and saved.
-- Timezone and automatic NTP synchronization share one Time configuration
-  submenu.
-- Configuration summaries consistently use `Setting: Value` and
-  `Enabled`/`Disabled` formatting.
-- Console fonts are restored correctly when changing or reselecting installer
-  languages, including HiDPI console setups.
+### Pacman configuration
 
-### A note about performance and stability
+Additional Pacman settings are exposed through the guided installer.
 
-This fork is not meant to apply a large collection of hidden performance
-tweaks. It mainly gives you more choices during installation and installs the
-packages needed for those choices. Experimental sched-ext schedulers are marked
-as experimental, and the installer also warns that NTSYNC is still
-experimental. Everything in the Gaming menu can be skipped, and the settings
-can be saved and loaded again later.
+Current options include:
 
-## Installation and usage
+- Parallel Downloads without requiring `--advanced`
+- Pacman color output
+- `ILoveCandy`
 
-The easiest way to use this fork is to run it from the source code on an Arch
-Linux live ISO. You are already root on the live ISO, so you do not need to use
-`sudo` there.
+These settings are also saved and restored through the normal Archinstall configuration system.
 
-```shell
+### Installer improvements
+
+The fork includes several smaller improvements to the guided installation experience.
+
+These include:
+
+- combined timezone and automatic NTP configuration
+- consistent `Setting: Value` configuration summaries
+- consistent `Enabled` and `Disabled` status formatting
+- configuration persistence for the additional menus introduced by the fork
+- proper console font restoration when changing installer languages
+- improved handling of HiDPI console font configurations
+- better network printer and mDNS configuration handling
+
+The goal of these changes is to make the installer easier to use without changing the overall Archinstall workflow.
+
+## Stability and implementation
+
+Archinstall Enhanced is meant to provide useful additions without sacrificing the reliability expected from an operating system installer.
+
+Changes should be based on proper documentation and tested behavior instead of being added simply because a tweak is popular.
+
+When applicable, implementation decisions are based on sources such as:
+
+- Arch Linux documentation
+- the Arch Wiki
+- Linux kernel documentation
+- upstream project documentation
+- upstream Archinstall behavior
+- established community recommendations
+- testing and regression coverage
+
+Features that are still considered experimental should remain optional and should be clearly identified as experimental.
+
+The project also tries to avoid unnecessary defaults that could negatively affect compatibility, security, or system stability.
+
+## Installation
+
+The easiest way to use Archinstall Enhanced is from an official Arch Linux live ISO.
+
+The Arch Linux live environment already runs as root, so `sudo` is not required.
+
+```bash
 pacman -Sy --needed git
 git clone https://github.com/davgar99/archinstall-opinionated.git
 cd archinstall-opinionated
 python -m archinstall
 ```
 
-To update an existing clone:
+You can also install the project into the live environment:
 
-```shell
+```bash
+pip install --break-system-packages .
+archinstall
+```
+
+### Updating an existing clone
+
+```bash
 git pull --ff-only
 python -m archinstall
 ```
 
-Most of the rest of this README comes from the original Archinstall project and
-still applies to this fork. Keep in mind that upstream documentation and support
-may not cover the extra options added here.
+The repository URL and directory name above will be updated if the project is renamed to `archinstall-enhanced`.
 
-- [Upstream Archinstall documentation](https://archinstall.archlinux.page/)
-- [Upstream Discord](https://discord.gg/aDeMffrxNg)
-- [Upstream Matrix channel](https://matrix.to/#/#archinstall:matrix.org)
-- [Upstream IRC channel](https://web.libera.chat/?channel=#archinstall)
+## Configuration files
 
-## Upgrade `archinstall` on live Arch ISO image
+Archinstall can save and load installer configuration using JSON files.
 
-Upgrading archinstall on the ISO needs to be done via a full system upgrade using
+The additional settings introduced by this fork use the existing Archinstall configuration system instead of relying on separate configuration files.
 
-```shell
-pacman -Syu
+Example configuration files are available here:
+
+- [`examples/config-sample.json`](examples/config-sample.json)
+- [`examples/creds-sample.json`](examples/creds-sample.json)
+
+A saved configuration can be loaded with:
+
+```bash
+archinstall --config user_configuration.json --creds user_credentials.json
 ```
 
-When booting from a live USB, the space on the ramdisk is limited and may not be sufficient to allow running a re-installation or upgrade of the installer.
-In case one runs into this issue, any of the following can be used
+User credentials can also be encrypted using Archinstall's existing credentials encryption support.
 
-* Resize the root partition https://wiki.archlinux.org/title/Archiso#Adjusting_the_size_of_the_root_file_system
-* Specify the boot parameter copytoram=y (https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio-archiso/-/blob/master/docs/README.bootparams#L26) which will copy the root filesystem to tmpfs
+## Staying close to upstream
 
-## Running the guided installer
+This fork is based directly on the official Arch Linux Archinstall project.
 
-When installed from this checkout, `archinstall` uses the guided script by default:
-```shell
-archinstall
-```
-The fork can also be run directly from a Git checkout:
+One of the goals of the project is to stay reasonably close to upstream instead of turning the installer into a completely separate codebase.
 
-```shell
-git clone https://github.com/davgar99/archinstall-opinionated.git
-cd archinstall-opinionated
-python -m archinstall
-```
+Upstream changes can be reviewed and incorporated while keeping the additional functionality provided by this fork.
 
-To run alternative scripts using the `--script` parameter
+When an improvement makes sense for Archinstall in general, upstream implementation and discussion should be considered before creating a separate fork-specific solution.
 
-```
-archinstall --script <name>
-```
+## Testing
 
-#### Advanced
-Some additional options that most users do not need are hidden behind the `--advanced` flag and all options/args can be consulted through `-h` or `--help`.
+The repository keeps the upstream testing and linting infrastructure.
 
-## Running from a declarative configuration file or URL
+Useful development checks include:
 
-`archinstall` can be run with a JSON configuration file. There are 2 different configuration files to consider,
-the `user_configuration.json` contains all general installation configuration, whereas the `user_credentials.json`
-contains the sensitive user configuration such as user password, root password, and encryption password.
-
-An example of the user configuration file can be found here
-[configuration file](https://github.com/davgar99/archinstall-opinionated/blob/master/examples/config-sample.json)
-and an example of the credentials configuration here
-[credentials file](https://github.com/davgar99/archinstall-opinionated/blob/master/examples/creds-sample.json).
-
-**HINT:** The configuration files can be auto-generated by starting `archinstall`, configuring all desired menu
-points and then going to `Save configuration`.
-
-To load the configuration file into `archinstall` run the following command
-```shell
-archinstall --config <path to user config file or URL> --creds <path to user credentials config file or URL>
+```bash
+pytest
+ruff check .
+ruff format --check .
+mypy .
 ```
 
-### Credentials configuration file encryption
-By default, all user account credentials are hashed with `yescrypt` and only the hash is stored in the saved `user_credentials.json` file.
-This is not possible for disk encryption password which needs to be stored in plaintext to be able to apply it.
+Installer changes should also be tested in an Arch Linux environment whenever practical.
 
-However, when selecting to save configuration files, `archinstall` will prompt for the option to encrypt the `user_credentials.json` file content.
-A prompt will require to enter a encryption password to encrypt the file. When providing an encrypted `user_configuration.json` as a argument with `--creds <user_credentials.json>`
-there are multiple ways to provide the decryption key:
-* Provide the decryption key via the command line argument `--creds-decryption-key <password>`
-* Store the encryption key in the environment variable `ARCHINSTALL_CREDS_DECRYPTION_KEY` which will be read automatically
-* If none of the above is provided a prompt will be shown to enter the decryption key manually
+Changes involving partitioning, bootloaders, filesystems, encryption, or other installation-critical behavior should be tested using a disposable virtual machine or test disk before being used on a real system.
 
+Do not test experimental partitioning or installation changes against a disk containing important data.
 
-# Help or Issues
+## Upstream Archinstall
 
-If you come across any issues, kindly submit your issue here on GitHub or post your query in the
-[discord](https://discord.gg/aDeMffrxNg) help channel.
+For general Archinstall documentation and information, use the official upstream resources:
 
-When submitting an issue, please:
-* Provide the stacktrace of the output if applicable
-* Attach the `/var/log/archinstall/install.log` to the issue ticket. This helps us help you!
-  * To upload the log from the ISO image and get a shareable URL, run<br>
-    ```shell
-    archinstall share-log
-    ```
+- [Archinstall documentation](https://archinstall.archlinux.page/)
+- [Archinstall GitHub repository](https://github.com/archlinux/archinstall)
+- [Arch Linux Wiki](https://wiki.archlinux.org/)
 
+Problems caused specifically by changes in Archinstall Enhanced should be reported to this repository rather than upstream Archinstall.
 
-# Available Languages
+## Contributing
 
-Archinstall is available in different languages which have been contributed and are maintained by the community.
-The language can be switched inside the installer (first menu entry). Bear in mind that not all languages provide
-full translations as we rely on contributors to do the translations. Each language has an indicator that shows
-how much has been translated.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution guidelines included with the repository.
 
-Any contributions to the translations are more than welcome,
-to get started please follow [the guide](https://github.com/archlinux/archinstall/blob/master/archinstall/locales/README.md)
+For changes specific to this fork, patches should stay focused and include a clear reason for the change.
 
-## Fonts
-The ISO does not ship with all fonts needed for different languages.
-Fonts that use a different character set than Latin will not be displayed correctly. If those languages
-want to be selected then a proper font has to be set manually in the console.
+When adding new performance, gaming, storage, security, or system configuration features, documentation supporting the implementation should be included whenever possible.
 
-All available console fonts can be found in `/usr/share/kbd/consolefonts` and set with `setfont LatGrkCyr-8x16`.
+New features should avoid changing existing Archinstall behavior unless there is a good reason to do so.
 
+## License
 
-# Scripting your own installation
+Archinstall is licensed under the GNU General Public License v3.0.
 
-## Scripting interactive installation
+Archinstall Enhanced keeps the same license.
 
-For an example of a fully scripted, interactive installation please refer to the example
-[guided.py](https://github.com/davgar99/archinstall-opinionated/blob/master/archinstall/scripts/guided.py)
-
-
-> **To create your own ISO with this script in it:** Follow [ArchISO](https://wiki.archlinux.org/index.php/archiso)'s guide on creating your own ISO.
-
-## Script non-interactive automated installation
-
-For an example of a fully scripted, automated installation please refer to the example
-[full_automated_installation.py](https://github.com/davgar99/archinstall-opinionated/blob/master/examples/full_automated_installation.py)
-
-# Profiles
-
-`archinstall` comes with a set of pre-configured profiles available for selection during the installation process.
-
-- [Desktop](https://github.com/davgar99/archinstall-opinionated/tree/master/archinstall/default_profiles/desktops)
-- [Server](https://github.com/davgar99/archinstall-opinionated/tree/master/archinstall/default_profiles/servers)
-
-The profiles' definitions and the packages they will install can be directly viewed in the menu, or
-[default profiles](https://github.com/davgar99/archinstall-opinionated/tree/master/archinstall/default_profiles)
-
-
-# Testing
-
-## Using a Live ISO Image
-
-If you want to test a commit, branch, or bleeding edge release from the repository using the standard Arch Linux Live ISO image,
-replace the archinstall version with a newer one and execute the subsequent steps defined below.
-
-1. You need a working network connection
-2. Install the build requirements with `pacman -Sy; pacman -S git python-pip gcc pkgconf`
-   *(note that this may or may not work depending on your RAM and current state of the squashfs maximum filesystem free space)*
-3. Uninstall the previous version of archinstall with `pip uninstall --break-system-packages archinstall`
-4. Clone this repository with `git clone https://github.com/davgar99/archinstall-opinionated.git`
-5. Enter the repository with `cd archinstall-opinionated`
-   *At this stage, you can choose to check out a feature branch for instance with `git checkout v2.3.1-rc1`*
-6. To run the source code, there are 2 different options:
-   - Run a specific branch version from source directly using `python -m archinstall`, in most cases this will work just fine, the
-      rare case it will not work is if the source has introduced any new dependencies that are not installed yet
-   - Installing the branch version with `pip install --break-system-packages .` and `archinstall`
-
-## Without a Live ISO Image
-
-To test this without a live ISO, the simplest approach is to use a local image and create a loop device.<br>
-This can be done by installing `pacman -S arch-install-scripts util-linux` locally and doing the following:
-
-    # truncate -s 20G testimage.img
-    # losetup --partscan --show ./testimage.img
-    # pip install --upgrade archinstall
-    # python -m archinstall --script guided
-    # qemu-system-x86_64 -enable-kvm -machine q35,accel=kvm -device intel-iommu -cpu host -m 4096 -boot order=d -drive file=./testimage.img,format=raw -drive if=pflash,format=raw,readonly,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd -drive if=pflash,format=raw,readonly,file=/usr/share/edk2/x64/OVMF_VARS.4m.fd
-
-This will create a *20 GB* `testimage.img` and create a loop device which we can use to format and install to.<br>
-`archinstall` is installed and executed in [guided mode](#docs-todo). Once the installation is complete, ~~you can use qemu/kvm to boot the test media.~~<br>
-*(You'd actually need to do some EFI magic in order to point the EFI vars to the partition 0 in the test medium, so this won't work entirely out of the box, but that gives you a general idea of what we're going for here)*
-
-There's also a [Building and Testing](https://github.com/archlinux/archinstall/wiki/Building-and-Testing) guide.<br>
-It will go through everything from packaging, building and running *(with qemu)* the installer against a dev branch.
-
-## Boot an Arch ISO image in a VM
-
-You may want to boot an ISO image in a VM to test `archinstall` in there.
-
-* Download the latest [Arch ISO](https://archlinux.org/download/)
-* Use the the below command to boot the ISO in a VM
-
-```
-qemu-system-x86_64 -enable-kvm \
--machine q35,accel=kvm -device intel-iommu \
--cpu host -m 4096 -boot order=d \
--drive if=pflash,format=raw,readonly,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
--drive if=pflash,format=raw,readonly,file=/usr/share/edk2/x64/OVMF_VARS.4m.fd \
--drive file=./archlinux-2025.12.01-x86_64.iso,format=raw
-```
-
-HINT: For espeakup support
-```
-qemu-system-x86_64 -enable-kvm \
--machine q35,accel=kvm -device intel-iommu \
--cpu host -m 4096 -boot order=d \
--drive if=pflash,format=raw,readonly,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
--drive if=pflash,format=raw,readonly,file=/usr/share/edk2/x64/OVMF_VARS.4m.fd \
--drive file=./archlinux-2025.12.01-x86_64.iso,format=raw \
--device intel-hda -device hda-duplex,audiodev=snd0 \
--audiodev pa,id=snd0,server=/run/user/1000/pulse/native
-```
-
-
-# FAQ
-
-## AUR
-
-`archinstall` will not offer or bundle AUR helpers or AUR packages due to a current consensus. This is not any individual developers decision. The reasons and discussions for this stance on the topic can be found on our mailing list thread: [(optional) AUR helper in archinstall](https://lists.archlinux.org/archives/list/arch-dev-public@lists.archlinux.org/thread/VYOULH2GOJLFM2BXOFLWH3D754YXFPSL/).
-
-## Keyring out-of-date
-For a description of the problem see https://archinstall.archlinux.page/help/known_issues.html#keyring-is-out-of-date-2213 and discussion in issue https://github.com/archlinux/archinstall/issues/2213.
-
-For a quick fix the below command will install the latest keyrings
-
-```pacman -Sy archlinux-keyring```
-
-## How to dual boot with Windows
-
-To install Arch Linux alongside an existing Windows installation using  `archinstall`, follow these steps:
-
-1. Ensure some unallocated space is available for the Linux installation after the Windows installation.
-2. Boot into the ISO and run `archinstall`.
-3. Choose `Disk configuration` -> `Manual partitioning`.
-4. Select the disk on which Windows resides.
-5. Select `Create a new partition`.
-6. Choose a filesystem type.
-7. Determine the start and end sectors for the new partition location (values can be suffixed with various units).
-8. Assign the mountpoint `/` to the new partition.
-9. Assign the `Boot/ESP` partition the mountpoint `/boot` from the partitioning menu.
-10. Confirm your settings and exit to the main menu by choosing `Confirm and exit`.
-11. Modify any additional settings for your installation as necessary.
-12. Start the installation upon completion of setup.
-
-
-# Mission Statement
-
-This fork preserves Archinstall's [guided installer](https://github.com/davgar99/archinstall-opinionated/blob/master/archinstall/scripts/guided.py) and aims to follow
-the [Arch Linux Principles](https://wiki.archlinux.org/index.php/Arch_Linux#Principles) as well as a library to manage services, packages, and other Arch Linux aspects.
-
-The guided installer ensures a user-friendly experience, offering optional selections throughout the process. Emphasizing its flexible nature, these options are never obligatory.
-In addition, the decision to use the guided installer remains entirely with the user, reflecting the Linux philosophy of providing full freedom and flexibility.
-
----
-
-Archinstall primarily functions as a flexible library for managing services, packages, and other elements within an Arch Linux system.
-This core library is the backbone for the guided installer that Archinstall provides. It is also designed to be used by those who wish to script their own custom installations.
-
-Therefore, Archinstall will try its best to not introduce any breaking changes except for major releases which may break backward compatibility after notifying about such changes.
-
-
-# Contributing
-
-Please see [CONTRIBUTING.md](https://github.com/davgar99/archinstall-opinionated/blob/master/CONTRIBUTING.md)
+See [LICENSE](LICENSE) for details.
