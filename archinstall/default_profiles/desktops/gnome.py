@@ -70,16 +70,16 @@ class GnomeProfile(Profile):
 			display_server=DisplayServerType.Wayland,
 		)
 
+	def _selected_flavor(self) -> GnomeFlavor:
+		flavor = self.custom_settings.get(CustomSetting.GnomeFlavor)
+		if flavor is None:
+			return GnomeFlavor.Minimal
+		return GnomeFlavor(flavor)
+
 	@property
 	@override
 	def packages(self) -> list[str]:
-		flavor_str = self.custom_settings.get(CustomSetting.GnomeFlavor)
-
-		if flavor_str is not None:
-			flavor = GnomeFlavor(flavor_str)
-			return flavor.packages()
-		else:
-			return GnomeFlavor.Minimal.packages()
+		return self._selected_flavor().packages()
 
 	@property
 	@override
@@ -99,8 +99,9 @@ class GnomeProfile(Profile):
 		]
 		group = MenuItemGroup(items, sort_items=False)
 
-		default = self.custom_settings.get(CustomSetting.GnomeFlavor, None)
-		group.set_default_by_value(default)
+		preset = self._selected_flavor()
+		group.set_default_by_value(preset)
+		group.set_focus_by_value(preset)
 
 		result = await Selection[GnomeFlavor](
 			group,
