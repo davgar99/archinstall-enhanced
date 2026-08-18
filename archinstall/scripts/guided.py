@@ -5,6 +5,7 @@ import time
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.args import ArchConfig, ArchConfigHandler
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
+from archinstall.lib.bootloader.os_prober import prepare_grub_os_prober
 from archinstall.lib.bootloader.utils import validate_bootloader_layout
 from archinstall.lib.configuration import confirm_config
 from archinstall.lib.disk.filesystem import FilesystemHandler
@@ -127,6 +128,11 @@ def perform_installation(
 			)
 
 		if config.bootloader_config and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER:
+			prepare_grub_os_prober(
+				installation,
+				config.bootloader_config.bootloader,
+				config.bootloader_config.os_prober,
+			)
 			installation.add_bootloader(
 				config.bootloader_config.bootloader,
 				config.bootloader_config.uki,
