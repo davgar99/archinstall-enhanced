@@ -1,10 +1,14 @@
 from collections.abc import Awaitable, Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum, StrEnum, auto
 from functools import cached_property
 from typing import Any, ClassVar, Self, override
 
 from archinstall.lib.translationhandler import tr
+
+_STATUS_MISSING_PREFIX = '[bold yellow]![/bold yellow] '
+_STATUS_CONFIGURED_PREFIX = '  '
+_CONFIG_ACTION_PREFIX = '__config__'
 
 
 class MsgLevelStyle(StrEnum):
@@ -128,6 +132,9 @@ class MenuItemGroup:
 
 		self._filter_pattern: str = ''
 		self._checkmarks: bool = checkmarks
+		self._status_indicators = any(
+			item.key is not None and item.key.startswith(_CONFIG_ACTION_PREFIX) for item in menu_items
+		)
 
 		self._menu_items: list[MenuItem] = menu_items
 		self.focus_item: MenuItem | None = focus_item
@@ -147,6 +154,8 @@ class MenuItemGroup:
 
 	def add_item(self, item: MenuItem) -> None:
 		self._menu_items.append(item)
+		if item.key is not None and item.key.startswith(_CONFIG_ACTION_PREFIX):
+			self._status_indicators = True
 		del self.items  # resetting the cache
 
 	def find_by_id(self, item_id: str) -> MenuItem:
@@ -163,8 +172,42 @@ class MenuItemGroup:
 
 		raise ValueError(f'No item found for key: {key}')
 
+	def _authentication_configured(self, item: MenuItem) -> bool:
+		auth_config = item.value
+		if auth_config is None:
+			return False
+
+		if getattr(auth_config, 'root_enc_password', None) is not None:
+			return True
+
+		has_superuser = getattr(auth_config, 'has_superuser', None)
+		return callable(has_superuser) and bool(has_superuser())
+
+	def _status_prefix(self, item: MenuItem) -> str:
+		if item.read_only or item.key is None or item.key.startswith(_CONFIG_ACTION_PREFIX):
+			return ''
+
+		# Only fields that can block installation are marked as missing. Other
+		# configured or optional fields are padded so the main menu stays aligned.
+		is_required = item.mandatory or item.key == 'auth_config'
+		if not is_required:
+			return _STATUS_CONFIGURED_PREFIX
+
+		if item.key == 'auth_config':
+			configured = self._authentication_configured(item)
+		else:
+			configured = item.has_value()
+
+		return _STATUS_CONFIGURED_PREFIX if configured else _STATUS_MISSING_PREFIX
+
+	def _display_item(self, item: MenuItem) -> MenuItem:
+		return replace(item, text=self._status_prefix(item) + item.text)
+
 	def get_enabled_items(self) -> list[MenuItem]:
-		return [it for it in self.items if self.is_enabled(it)]
+		items = [it for it in self.items if self.is_enabled(it)]
+		if not self._status_indicators:
+			return items
+		return [self._display_item(item) for item in items]
 
 	@classmethod
 	def yes_no(cls) -> Self:
@@ -222,14 +265,10 @@ class MenuItemGroup:
 		items = self.get_enabled_items()
 
 		if self.focus_item and items:
-			try:
-				return items.index(self.focus_item)
-			except ValueError:
-				# on large menus (15k+) when filtering very quickly
-				# the index search is too slow while the items are reduced
-				# by the filter and it will blow up as it cannot find the
-				# focus item
-				pass
+			focus_id = self.focus_item.get_id()
+			for index, item in enumerate(items):
+				if item.get_id() == focus_id:
+					return index
 
 		return None
 
@@ -266,7 +305,7 @@ class MenuItemGroup:
 
 	def focus_index(self, index: int) -> None:
 		enabled = self.get_enabled_items()
-		self.focus_item = enabled[index]
+		self.focus_item = self.find_by_id(enabled[index].get_id())
 
 	def focus_first(self) -> None:
 		if len(self.items) == 0:
