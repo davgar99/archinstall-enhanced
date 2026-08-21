@@ -313,7 +313,7 @@ class GlobalMenu(AbstractMenu[None]):
 			if network_config.type == NicType.MANUAL:
 				output = as_table(network_config.nics)
 			else:
-				output = f'{tr("Network configuration")}:\n{network_config.type.display_msg()}'
+				output = f'{tr("Network configuration")}:\n{network_config.summary()}'
 
 			return output
 		return None
