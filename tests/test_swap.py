@@ -54,10 +54,10 @@ def test_zram_configuration_summary() -> None:
 	('algorithm', 'generator_value'),
 	[
 		(ZramAlgorithm.ZSTD, 'zstd(level=3)'),
-		(ZramAlgorithm.LZO_RLE, 'lzo-rle zstd(level=3) (type=idle,threshold=3000)'),
-		(ZramAlgorithm.LZO, 'lzo zstd(level=3) (type=idle,threshold=3000)'),
-		(ZramAlgorithm.LZ4, 'lz4 zstd(level=3) (type=idle,threshold=3000)'),
-		(ZramAlgorithm.LZ4HC, 'lz4hc zstd(level=3) (type=idle,threshold=3000)'),
+		(ZramAlgorithm.LZO_RLE, 'lzo-rle'),
+		(ZramAlgorithm.LZO, 'lzo'),
+		(ZramAlgorithm.LZ4, 'lz4'),
+		(ZramAlgorithm.LZ4HC, 'lz4hc'),
 	],
 )
 def test_zram_generator_algorithm_profiles(algorithm: ZramAlgorithm, generator_value: str) -> None:
@@ -101,6 +101,6 @@ def test_setup_swap_without_swappiness_tweaks(tmp_path: Path) -> None:
 	)
 
 	zram_conf = tmp_path / 'etc/systemd/zram-generator.conf'
-	assert zram_conf.read_text() == ('[zram0]\ncompression-algorithm = lz4 zstd(level=3) (type=idle,threshold=3000)\n')
+	assert zram_conf.read_text() == '[zram0]\ncompression-algorithm = lz4\n'
 
 	assert not sysctl_conf.exists()

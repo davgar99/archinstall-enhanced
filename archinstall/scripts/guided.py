@@ -15,6 +15,7 @@ from archinstall.lib.disk.utils import disk_layouts
 from archinstall.lib.gaming.gaming_handler import GamingHandler
 from archinstall.lib.general.general_menu import PostInstallationAction, select_post_installation
 from archinstall.lib.global_menu import GlobalMenu
+from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.installer import Installer, accessibility_tools_in_use, run_custom_user_commands
 from archinstall.lib.log import debug, error, info
 from archinstall.lib.menu.util import delayed_warning
@@ -156,9 +157,6 @@ def perform_installation(
 				installation.create_users(config.auth_config.users)
 				auth_handler.setup_auth(installation, config.auth_config, config.hostname)
 
-		if VirtualBoxGuestApp.detected():
-			VirtualBoxGuestApp().install(installation, users)
-
 		if app_config := config.app_config:
 			application_handler.install_applications(installation, app_config, users, config.network_config)
 
@@ -172,6 +170,10 @@ def perform_installation(
 
 		if profile_config := config.profile_config:
 			profile_handler.install_profile_config(installation, profile_config)
+
+		if VirtualBoxGuestApp.detected():
+			virtualbox_package_in_profile = bool(config.profile_config and config.profile_config.gfx_driver == GfxDriver.VMOpenSource)
+			VirtualBoxGuestApp().install(installation, users, install_package=not virtualbox_package_in_profile)
 
 		if config.packages and config.packages[0] != '':
 			installation.add_additional_packages(config.packages)
