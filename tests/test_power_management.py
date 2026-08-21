@@ -49,5 +49,5 @@ def test_tuned_install_is_exclusive(tmp_path: Path) -> None:
 	)
 
 	assert installer.packages == ['tuned', 'tuned-ppd']
-	assert installer.services == ['tuned.service']
+	assert installer.services == ['tuned.service', 'tuned-ppd.service']
 	assert 'power-profiles-daemon' not in installer.packages

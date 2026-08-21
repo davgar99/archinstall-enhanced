@@ -31,6 +31,7 @@ class PowerManagementApp:
 	def tuned_services(self) -> list[str]:
 		return [
 			'tuned.service',
+			'tuned-ppd.service',
 		]
 
 	def install(
