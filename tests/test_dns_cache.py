@@ -2,8 +2,10 @@ from pathlib import Path
 
 import pytest
 
+from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.models.network import DnsResolver, NetworkConfiguration, NicType
 from archinstall.lib.network.network_handler import install_network_config
+from archinstall.tui.menu_item import MenuItem
 
 
 class FakeInstaller:
@@ -64,3 +66,18 @@ def test_dns_cache_configuration_round_trip() -> None:
 
 def test_default_dns_cache_is_backward_compatible() -> None:
 	assert NetworkConfiguration.parse_arg({'type': 'nm'}) == NetworkConfiguration(NicType.NM)
+
+
+def test_dns_cache_is_included_in_network_summary() -> None:
+	config = NetworkConfiguration(NicType.NM, dns_resolver=DnsResolver.SYSTEMD_RESOLVED)
+
+	assert config.summary() == 'Use Network Manager (default backend)\nDNS cache: systemd-resolved'
+
+
+def test_dns_cache_is_included_in_global_menu_preview() -> None:
+	config = NetworkConfiguration(NicType.NM, dns_resolver=DnsResolver.DNSMASQ)
+	item = MenuItem('Network configuration', value=config)
+
+	preview = GlobalMenu._prev_network_config(None, item)  # type: ignore[arg-type]
+
+	assert preview == 'Network configuration:\nUse Network Manager (default backend)\nDNS cache: dnsmasq'
