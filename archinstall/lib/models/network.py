@@ -171,7 +171,7 @@ class WifiNetwork:
 
 	@classmethod
 	def from_wpa(cls, results: str) -> list[Self]:
-		entries = []
+		entries: list[Self] = []
 
 		for line in results.splitlines():
 			line = line.strip()
@@ -222,7 +222,7 @@ class WifiConfiguredNetwork:
 		lines = list_networks.strip().splitlines()
 		lines = lines[1:]  # remove the header row from the wpa_cli output
 
-		networks = []
+		networks: list[Self] = []
 
 		for line in lines:
 			line = line.strip()
@@ -243,7 +243,7 @@ class WifiConfiguredNetwork:
 						flags=flags,
 					)
 				)
-			except (ValueError, IndexError):
+			except ValueError, IndexError:
 				debug('Parsing error for network output')
 
 		return networks
