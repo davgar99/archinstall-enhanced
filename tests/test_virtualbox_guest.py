@@ -1,11 +1,13 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pytest import MonkeyPatch
 
 from archinstall.applications.virtualbox_guest import VirtualBoxGuestApp
-from archinstall.lib.hardware import SysInfo
+from archinstall.lib.hardware import GfxDriver, SysInfo
 from archinstall.lib.models.users import Password, User
+from archinstall.lib.profile.profiles_handler import ProfileHandler
 
 
 class FakeInstaller:
@@ -33,6 +35,44 @@ def test_virtualbox_detection_is_exclusive(virtualization: str, expected: bool, 
 	monkeypatch.setattr(SysInfo, 'virtualization', lambda: virtualization)
 
 	assert VirtualBoxGuestApp.detected() is expected
+
+
+def test_virtualbox_graphics_preview_explains_detected_guest_integration(monkeypatch: MonkeyPatch) -> None:
+	monkeypatch.setattr(SysInfo, 'virtualization', lambda: 'oracle')
+	preview = GfxDriver.VMOpenSource.packages_text()
+
+	assert 'mesa' in preview
+	assert 'virtualbox-guest-utils' in preview
+	assert 'vboxservice.service' in preview
+	assert 'VirtualBox was detected' in preview
+
+
+def test_virtualbox_graphics_preview_omits_guest_package_on_other_hypervisors(monkeypatch: MonkeyPatch) -> None:
+	monkeypatch.setattr(SysInfo, 'virtualization', lambda: 'kvm')
+	preview = GfxDriver.VMOpenSource.packages_text()
+
+	assert 'virtualbox-guest-utils' not in preview
+	assert 'Guest Additions will not be installed' in preview
+
+
+def test_virtualbox_profile_installs_guest_package_only_when_detected(monkeypatch: MonkeyPatch) -> None:
+	installer = MagicMock()
+	installer.kernels = ['linux']
+	monkeypatch.setattr(SysInfo, 'virtualization', lambda: 'oracle')
+
+	ProfileHandler().install_gfx_driver(installer, GfxDriver.VMOpenSource)
+
+	installer.add_additional_packages.assert_called_once_with(['mesa', 'virtualbox-guest-utils'])
+
+
+def test_virtualbox_profile_omits_guest_package_on_kvm(monkeypatch: MonkeyPatch) -> None:
+	installer = MagicMock()
+	installer.kernels = ['linux']
+	monkeypatch.setattr(SysInfo, 'virtualization', lambda: 'kvm')
+
+	ProfileHandler().install_gfx_driver(installer, GfxDriver.VMOpenSource)
+
+	installer.add_additional_packages.assert_called_once_with(['mesa'])
 
 
 def test_virtualbox_guest_integration(tmp_path: Path) -> None:

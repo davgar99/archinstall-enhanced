@@ -8,7 +8,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from archinstall.default_profiles.profile import CustomSetting, GreeterType, Profile
-from archinstall.lib.hardware import GfxDriver, GfxPackage
+from archinstall.lib.hardware import GfxDriver, GfxPackage, SysInfo
 from archinstall.lib.log import debug, error, info
 from archinstall.lib.models.profile import ProfileConfiguration
 from archinstall.lib.networking import fetch_data_from_url
@@ -235,6 +235,8 @@ class ProfileHandler:
 			else:
 				pkg_names = [GfxPackage.NvidiaOpen.value if p == GfxPackage.NvidiaOpenDkms.value else p for p in pkg_names]
 				pkg_names = [p for p in pkg_names if p != GfxPackage.Dkms.value]
+		elif driver == GfxDriver.VMOpenSource and SysInfo.virtualization() == 'oracle':
+			pkg_names.append(GfxPackage.VirtualBoxGuestUtils.value)
 
 		install_session.add_additional_packages(pkg_names)
 

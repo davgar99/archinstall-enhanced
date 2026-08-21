@@ -42,6 +42,7 @@ class GfxPackage(Enum):
 	VulkanIntel = 'vulkan-intel'
 	VulkanRadeon = 'vulkan-radeon'
 	VulkanNouveau = 'vulkan-nouveau'
+	VirtualBoxGuestUtils = 'virtualbox-guest-utils'
 	Xf86VideoAmdgpu = 'xf86-video-amdgpu'
 	Xf86VideoAti = 'xf86-video-ati'
 	Xf86VideoNouveau = 'xf86-video-nouveau'
@@ -77,10 +78,24 @@ class GfxDriver(Enum):
 
 	def packages_text(self) -> str:
 		pkg_names = [p.value for p in self.gfx_packages()]
+		virtualbox_guest = self == GfxDriver.VMOpenSource and SysInfo.virtualization() == 'oracle'
+		if virtualbox_guest:
+			pkg_names.append(GfxPackage.VirtualBoxGuestUtils.value)
 		text = tr('Installed packages') + ':\n'
 
 		for p in sorted(pkg_names):
 			text += f'    - {p}\n'
+
+		if self == GfxDriver.VMOpenSource:
+			if virtualbox_guest:
+				text += '\n' + tr(
+					'VirtualBox was detected. The installer also enables vboxservice.service and grants configured users access to shared folders.'
+				)
+			else:
+				text += '\n' + tr(
+					'VirtualBox was not detected, so Guest Additions will not be installed. This prevents VirtualBox '
+					'packages from being added to KVM, QEMU, VMware, or physical systems.'
+				)
 
 		return text
 
