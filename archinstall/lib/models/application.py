@@ -68,12 +68,18 @@ class FontsConfigSerialization(TypedDict):
 
 
 class ZramAlgorithm(StrEnum):
-	BALANCED = 'lzo-rle zstd(level=3) (type=idle)'
 	ZSTD = auto()
 	LZO_RLE = 'lzo-rle'
 	LZO = auto()
 	LZ4 = auto()
 	LZ4HC = auto()
+
+	def generator_value(self) -> str:
+		# Level 3 is a conservative zstd setting that balances compression,
+		# latency, and CPU use. Other kernel algorithms use their tuned defaults.
+		if self == ZramAlgorithm.ZSTD:
+			return 'zstd(level=3)'
+		return self.value
 
 
 class ApplicationSerialization(TypedDict):
@@ -178,7 +184,7 @@ class ZramConfigSerialization(TypedDict):
 @dataclass(frozen=True)
 class ZramConfiguration(SubConfig):
 	enabled: bool
-	algorithm: ZramAlgorithm = ZramAlgorithm.BALANCED
+	algorithm: ZramAlgorithm = ZramAlgorithm.ZSTD
 	swappiness_tweaks: bool = False
 
 	@classmethod
@@ -187,7 +193,9 @@ class ZramConfiguration(SubConfig):
 			return cls(enabled=arg)
 
 		enabled = bool(arg.get('enabled', True))
-		algo = arg.get('algorithm', arg.get('algo', ZramAlgorithm.BALANCED.value))
+		algo = arg.get('algorithm', arg.get('algo', ZramAlgorithm.ZSTD.value))
+		if algo == 'lzo-rle zstd(level=3) (type=idle)':
+			algo = ZramAlgorithm.ZSTD.value
 		swappiness_tweaks = bool(arg.get('swappiness_tweaks', arg.get('swappiness', False)))
 		return cls(
 			enabled=enabled,
