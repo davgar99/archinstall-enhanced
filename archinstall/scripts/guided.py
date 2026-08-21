@@ -162,7 +162,8 @@ def perform_installation(
 			application_handler.install_applications(installation, app_config, users, config.network_config)
 
 		if gaming_config := config.gaming_config:
-			gaming_handler.install_gaming(installation, gaming_config, users)
+			gfx_driver = config.profile_config.gfx_driver if config.profile_config else None
+			gaming_handler.install_gaming(installation, gaming_config, users, gfx_driver)
 
 		if profile_config := config.profile_config:
 			profile_handler.install_profile_config(installation, profile_config)

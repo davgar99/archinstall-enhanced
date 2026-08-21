@@ -19,6 +19,20 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 		self._gaming_config = preset if preset else GamingConfiguration()
 		self._item_group = MenuItemGroup(
 			[
+				MenuItem(text=tr('Graphics compatibility and compute'), read_only=True),
+				MenuItem(
+					text=tr('Install 32-bit graphics libraries'),
+					action=select_32bit_graphics,
+					preview_action=self._prev_toggle,
+					key='install_32bit_graphics',
+				),
+				MenuItem(
+					text=tr('Install OpenCL support'),
+					action=select_opencl,
+					preview_action=self._prev_toggle,
+					key='install_opencl',
+				),
+				MenuItem(text=tr('Compatibility and performance'), read_only=True),
 				MenuItem(
 					text=tr('Increase vm.max_map_count'),
 					action=select_vm_max_map_count,
@@ -67,6 +81,13 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					preview_action=self._prev_toggle,
 					key='disable_watchdog',
 					enabled=advanced,
+				),
+				MenuItem(text=tr('Controller compatibility'), read_only=True),
+				MenuItem(
+					text=tr('Disable PlayStation controller touchpads as a mouse'),
+					action=select_playstation_touchpad,
+					preview_action=self._prev_toggle,
+					key='disable_playstation_touchpad',
 				),
 			],
 			checkmarks=True,
@@ -202,6 +223,36 @@ async def select_shader_cache(preset: bool | None = None) -> bool | None:
 		tr(
 			'Increase the shader cache limit to 12 GB? A larger cache can reduce shader recompilation and repeat stuttering, '
 			'but it may use more disk space. This applies the CachyOS-recommended limits for Mesa and Nvidia drivers.'
+		),
+		preset,
+	)
+
+
+async def select_32bit_graphics(preset: bool | None = None) -> bool | None:
+	return await _select_toggle(
+		tr(
+			'Install 32-bit OpenGL and Vulkan drivers for the selected GPU? Steam, Wine, Proton, and older games may require them. '
+			'This enables the Multilib repository and uses additional disk space.'
+		),
+		True if preset is None else preset,
+	)
+
+
+async def select_opencl(preset: bool | None = None) -> bool | None:
+	return await _select_toggle(
+		tr(
+			'Install OpenCL compute support for the selected GPU? Applications such as Blender, Darktable, and scientific tools can '
+			'use it for GPU computation. Most games do not require OpenCL.'
+		),
+		preset,
+	)
+
+
+async def select_playstation_touchpad(preset: bool | None = None) -> bool | None:
+	return await _select_toggle(
+		tr(
+			'Disable DualShock 4 and DualSense touchpads as desktop mouse devices? Games can still access the controllers directly, '
+			'but the touchpads will no longer move the desktop pointer through libinput.'
 		),
 		preset,
 	)

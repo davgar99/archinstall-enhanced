@@ -125,12 +125,17 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 
 			# Ask for compression algorithm
 			algo_group = MenuItemGroup.from_enum(ZramAlgorithm, sort_items=False)
-			algo_group.set_default_by_value(ZramAlgorithm.ZSTD)
+			algo_group.set_default_by_value(ZramAlgorithm.BALANCED)
 			algo_group.set_focus_by_value(preset.algorithm)
 
 			algo_result = await Selection[ZramAlgorithm](
 				algo_group,
-				header=tr('Select a zram compression algorithm. Faster algorithms use less CPU; denser algorithms save more memory.') + '\n',
+				header=tr(
+					'Select a zram compression algorithm. Balanced uses fast lzo-rle compression first, then recompresses idle pages with '
+					'zstd level 3 when the kernel supports recompression. Device size, swap priority, and other settings use '
+					'zram-generator defaults.'
+				)
+				+ '\n',
 				allow_skip=True,
 			).show()
 
