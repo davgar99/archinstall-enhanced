@@ -72,6 +72,7 @@ class GamingConfigSerialization(TypedDict):
 	gamescope: NotRequired[bool]
 	disable_watchdog: NotRequired[bool]
 	increase_vm_max_map_count: NotRequired[bool]
+	increase_shader_cache: NotRequired[bool]
 
 
 @dataclass
@@ -107,6 +108,7 @@ class GamingConfiguration(SubConfig):
 	gamescope: bool | None = None
 	disable_watchdog: bool | None = None
 	increase_vm_max_map_count: bool | None = None
+	increase_shader_cache: bool | None = None
 
 	@classmethod
 	def parse_arg(cls, arg: GamingConfigSerialization) -> Self:
@@ -132,6 +134,9 @@ class GamingConfiguration(SubConfig):
 
 		if 'increase_vm_max_map_count' in arg:
 			config.increase_vm_max_map_count = arg['increase_vm_max_map_count']
+
+		if 'increase_shader_cache' in arg:
+			config.increase_shader_cache = arg['increase_shader_cache']
 
 		return config
 
@@ -163,6 +168,9 @@ class GamingConfiguration(SubConfig):
 		if self.increase_vm_max_map_count is not None:
 			config['increase_vm_max_map_count'] = self.increase_vm_max_map_count
 
+		if self.increase_shader_cache is not None:
+			config['increase_shader_cache'] = self.increase_shader_cache
+
 		return config
 
 	@override
@@ -178,6 +186,7 @@ class GamingConfiguration(SubConfig):
 
 		for label, enabled in (
 			('Increase vm.max_map_count', self.increase_vm_max_map_count),
+			('Increase shader cache size', self.increase_shader_cache),
 			('GameMode', self.gamemode),
 			('MangoHud', self.mangohud),
 			('Gamescope', self.gamescope),

@@ -77,6 +77,7 @@ def test_gaming_configuration_roundtrip() -> None:
 		gamescope=True,
 		disable_watchdog=True,
 		increase_vm_max_map_count=True,
+		increase_shader_cache=True,
 	)
 	serialized = gaming_config.json()
 
@@ -88,6 +89,7 @@ def test_gaming_configuration_roundtrip() -> None:
 		'gamescope': True,
 		'disable_watchdog': True,
 		'increase_vm_max_map_count': True,
+		'increase_shader_cache': True,
 	}
 	assert GamingConfiguration.parse_arg(serialized) == gaming_config
 
@@ -103,6 +105,7 @@ def test_gaming_multilib_requirement() -> None:
 	assert not GamingConfiguration(gamescope=True).requires_multilib()
 	assert not GamingConfiguration(ntsync_config=NTSyncConfiguration(enabled=True)).requires_multilib()
 	assert not GamingConfiguration(disable_watchdog=True).requires_multilib()
+	assert not GamingConfiguration(increase_shader_cache=True).requires_multilib()
 
 
 def test_stable_gaming_compatibility_option_available() -> None:
@@ -210,6 +213,16 @@ def test_gaming_tools_install(tmp_path: Path) -> None:
 		'gamescope',
 	]
 	assert installer.chroot_commands == ['usermod -aG gamemode david']
+
+
+def test_shader_cache_limit(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+
+	GamingToolsApp().install(installer, GamingConfiguration(increase_shader_cache=True))  # type: ignore[arg-type]
+
+	assert (tmp_path / 'etc/environment.d/90-gaming-shader-cache.conf').read_text() == (
+		'# Allow Mesa and Nvidia to retain larger shader caches for games.\nMESA_SHADER_CACHE_MAX_SIZE=12G\n__GL_SHADER_DISK_CACHE_SIZE=12000000000\n'
+	)
 
 
 def test_vm_max_map_count_compatibility_tweak(tmp_path: Path) -> None:

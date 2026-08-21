@@ -2,6 +2,7 @@ import subprocess
 import sys
 import time
 
+from archinstall.applications.virtualbox_guest import VirtualBoxGuestApp
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.args import ArchConfig, ArchConfigHandler
 from archinstall.lib.authentication.authentication_handler import AuthenticationHandler
@@ -154,8 +155,11 @@ def perform_installation(
 				installation.create_users(config.auth_config.users)
 				auth_handler.setup_auth(installation, config.auth_config, config.hostname)
 
+		if VirtualBoxGuestApp.detected():
+			VirtualBoxGuestApp().install(installation, users)
+
 		if app_config := config.app_config:
-			application_handler.install_applications(installation, app_config)
+			application_handler.install_applications(installation, app_config, users, config.network_config)
 
 		if gaming_config := config.gaming_config:
 			gaming_handler.install_gaming(installation, gaming_config, users)

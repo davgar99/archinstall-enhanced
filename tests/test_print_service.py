@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from archinstall.applications.print_service import PrintServiceApp
+from archinstall.lib.models.network import DnsResolver
 
 
 class FakeInstaller:
@@ -94,3 +95,17 @@ def test_enable_mdns_resolution_does_not_consume_next_database(tmp_path: Path) -
 	PrintServiceApp().install(FakeInstaller(tmp_path))  # type: ignore[arg-type]
 
 	assert nsswitch_conf.read_text() == 'hosts: mdns_minimal [NOTFOUND=return]\nnetworks: files\n'
+
+
+def test_systemd_resolved_uses_avahi_without_nss_mdns(tmp_path: Path) -> None:
+	nsswitch_conf = tmp_path / 'etc/nsswitch.conf'
+	nsswitch_conf.parent.mkdir(parents=True)
+	content = 'hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns\n'
+	nsswitch_conf.write_text(content)
+	installer = FakeInstaller(tmp_path)
+
+	PrintServiceApp().install(installer, DnsResolver.SYSTEMD_RESOLVED)  # type: ignore[arg-type]
+
+	assert 'avahi' in installer.packages
+	assert 'nss-mdns' not in installer.packages
+	assert nsswitch_conf.read_text() == content

@@ -103,7 +103,7 @@ async def select_driver(options: list[GfxDriver] = [], preset: GfxDriver | None 
 
 
 async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True)) -> ZramConfiguration:
-	prompt = tr('Would you like to use swap on zram?') + '\n'
+	prompt = tr('Enable swap on zram? It stores compressed memory pages in RAM to reduce slower disk swapping.') + '\n'
 
 	group = MenuItemGroup.yes_no()
 	group.set_default_by_value(True)
@@ -130,7 +130,7 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 
 			algo_result = await Selection[ZramAlgorithm](
 				algo_group,
-				header=tr('Select zram compression algorithm:') + '\n',
+				header=tr('Select a zram compression algorithm. Faster algorithms use less CPU; denser algorithms save more memory.') + '\n',
 				allow_skip=True,
 			).show()
 
@@ -147,8 +147,9 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 			# Ask for swappiness & VM performance tweaks
 			tweak_result = await Confirmation(
 				header=tr(
-					'Apply Arch Wiki swap on zram performance tweaks?\n'
-					'(Sets vm.swappiness=180, vm.page-cluster=0, and watermark factors in /etc/sysctl.d/99-vm-zram-parameters.conf)'
+					'Apply the ArchWiki zram memory-management settings? They make the kernel prefer fast compressed zram over '
+					'disk-backed pages and reduce swap read-ahead, which can improve responsiveness under memory pressure. '
+					'The settings are written to /etc/sysctl.d/99-vm-zram-parameters.conf.'
 				),
 				allow_skip=True,
 				preset=preset.swappiness_tweaks,

@@ -27,24 +27,24 @@ class PacmanMenu(AbstractSubMenu[PacmanConfiguration]):
 	def _define_menu_options(self) -> list[MenuItem]:
 		return [
 			MenuItem(
-				text=tr('Parallel Downloads'),
+				text=tr('Parallel downloads'),
 				action=select_parallel_downloads,
 				value=self._pacman_conf.parallel_downloads,
-				preview_action=lambda item: str(item.get_value()),
+				preview_action=lambda item: f'{tr("Parallel downloads")}: {item.get_value()}',
 				key='parallel_downloads',
 			),
 			MenuItem(
 				text=tr('Color'),
 				action=select_color,
 				value=self._pacman_conf.color,
-				preview_action=lambda item: tr('Enabled') if item.get_value() else tr('Disabled'),
+				preview_action=lambda item: f'{tr("Color")}: {tr("Enabled") if item.get_value() else tr("Disabled")}',
 				key='color',
 			),
 			MenuItem(
 				text=tr('ILoveCandy'),
 				action=select_ilove_candy,
 				value=self._pacman_conf.ilove_candy,
-				preview_action=lambda item: tr('Enabled') if item.get_value() else tr('Disabled'),
+				preview_action=lambda item: f'{tr("ILoveCandy")}: {tr("Enabled") if item.get_value() else tr("Disabled")}',
 				key='ilove_candy',
 			),
 		]
@@ -71,7 +71,9 @@ def _apply_to_live(config: PacmanConfiguration) -> None:
 async def select_parallel_downloads(preset: int = 5) -> int | None:
 	max_recommended = 10
 
-	header = tr('Enter the number of parallel downloads (1-{})').format(max_recommended)
+	header = tr(
+		'Parallel downloads let Pacman fetch several packages at once, which can shorten installation time. Enter the number of simultaneous downloads (1-{}).'
+	).format(max_recommended)
 
 	def validator(s: str) -> str | None:
 		try:
@@ -103,7 +105,7 @@ async def select_parallel_downloads(preset: int = 5) -> int | None:
 
 async def select_color(preset: bool = True) -> bool | None:
 	result = await Confirmation(
-		header=tr('Enable colored output for pacman'),
+		header=tr('Enable colored Pacman output? This makes package names, versions, and status messages easier to distinguish.'),
 		preset=preset,
 		allow_skip=True,
 	).show()
@@ -121,7 +123,7 @@ async def select_color(preset: bool = True) -> bool | None:
 
 async def select_ilove_candy(preset: bool = False) -> bool | None:
 	result = await Confirmation(
-		header=tr('Enable ILoveCandy progress bars for pacman'),
+		header=tr("Enable ILoveCandy? This changes Pacman's progress bar appearance only and does not affect package operations."),
 		preset=preset,
 		allow_skip=True,
 	).show()

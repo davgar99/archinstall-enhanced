@@ -15,6 +15,20 @@ This project is not intended to throw random performance tweaks into Archinstall
 >
 > Installing the `archinstall` package from the Arch Linux repositories will install the official upstream version, not the changes included in this repository.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/guided-installer-main-menu.png" alt="Archinstall Enhanced guided installer main menu" width="900" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/gaming-configuration-menu.png" alt="Archinstall Enhanced gaming configuration menu" width="900" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/installation-summary.png" alt="Archinstall Enhanced installation summary" width="900" />
+</p>
+
 ## Why this fork exists
 
 Archinstall provides a very good base for installing Arch Linux, but it intentionally keeps the default installer fairly general.

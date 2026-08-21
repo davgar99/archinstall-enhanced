@@ -29,6 +29,21 @@ class NicType(Enum):
 				return tr('Manual configuration')
 
 
+class DnsResolver(Enum):
+	DEFAULT = 'default'
+	SYSTEMD_RESOLVED = 'systemd-resolved'
+	DNSMASQ = 'dnsmasq'
+
+	def display_msg(self) -> str:
+		match self:
+			case DnsResolver.DEFAULT:
+				return tr('Disabled: Use NetworkManager without a local DNS cache')
+			case DnsResolver.SYSTEMD_RESOLVED:
+				return tr('systemd-resolved: Cache DNS through the local 127.0.0.53 stub')
+			case DnsResolver.DNSMASQ:
+				return tr("dnsmasq: Cache DNS through NetworkManager's local resolver")
+
+
 class _NicSerialization(TypedDict):
 	iface: str | None
 	ip: str | None
@@ -104,45 +119,52 @@ class Nic:
 class _NetworkConfigurationSerialization(TypedDict):
 	type: str
 	nics: NotRequired[list[_NicSerialization]]
+	dns_resolver: NotRequired[str]
 
 
 @dataclass
 class NetworkConfiguration(SubConfig):
 	type: NicType
 	nics: list[Nic] = field(default_factory=list)
+	dns_resolver: DnsResolver = DnsResolver.DEFAULT
 
 	@override
 	def json(self) -> _NetworkConfigurationSerialization:
 		config: _NetworkConfigurationSerialization = {'type': self.type.value}
 		if self.nics:
 			config['nics'] = [n.json() for n in self.nics]
+		if self.dns_resolver != DnsResolver.DEFAULT:
+			config['dns_resolver'] = self.dns_resolver.value
 
 		return config
 
 	@override
 	def summary(self) -> str:
-		return self.type.display_msg()
+		if self.dns_resolver == DnsResolver.DEFAULT:
+			return self.type.display_msg()
+		return f'{self.type.display_msg()}\n{tr("DNS cache")}: {self.dns_resolver.value}'
 
 	@classmethod
 	def parse_arg(cls, config: _NetworkConfigurationSerialization) -> Self | None:
 		nic_type = config.get('type', None)
 		if not nic_type:
 			return None
+		dns_resolver = DnsResolver(config.get('dns_resolver', DnsResolver.DEFAULT.value))
 
 		match NicType(nic_type):
 			case NicType.ISO:
-				return cls(NicType.ISO)
+				return cls(NicType.ISO, dns_resolver=dns_resolver)
 			case NicType.NM:
-				return cls(NicType.NM)
+				return cls(NicType.NM, dns_resolver=dns_resolver)
 			case NicType.NM_IWD:
-				return cls(NicType.NM_IWD)
+				return cls(NicType.NM_IWD, dns_resolver=dns_resolver)
 			case NicType.IWD:
-				return cls(NicType.IWD)
+				return cls(NicType.IWD, dns_resolver=dns_resolver)
 			case NicType.MANUAL:
 				nics_arg = config.get('nics', [])
 				if nics_arg:
 					nics = [Nic.parse_arg(n) for n in nics_arg]
-					return cls(NicType.MANUAL, nics)
+					return cls(NicType.MANUAL, nics, dns_resolver)
 
 		return None
 
