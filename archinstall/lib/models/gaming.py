@@ -67,13 +67,13 @@ class NTSyncConfigSerialization(TypedDict):
 class GamingConfigSerialization(TypedDict):
 	cpu_scheduler_config: NotRequired[CPUSchedulerConfigSerialization]
 	ntsync_config: NotRequired[NTSyncConfigSerialization]
-	steam: NotRequired[bool]
-	protontricks: NotRequired[bool]
-	increase_vm_max_map_count: NotRequired[bool]
 	gamemode: NotRequired[bool]
 	mangohud: NotRequired[bool]
 	gamescope: NotRequired[bool]
 	disable_watchdog: NotRequired[bool]
+	steam: NotRequired[bool]
+	protontricks: NotRequired[bool]
+	increase_vm_max_map_count: NotRequired[bool]
 
 
 @dataclass
@@ -102,15 +102,17 @@ class NTSyncConfiguration:
 
 @dataclass
 class GamingConfiguration(SubConfig):
+	# Keep the existing field order stable because callers may instantiate this
+	# dataclass positionally outside the built-in TUI/config parser.
 	cpu_scheduler_config: CPUSchedulerConfiguration | None = None
 	ntsync_config: NTSyncConfiguration | None = None
-	steam: bool | None = None
-	protontricks: bool | None = None
-	increase_vm_max_map_count: bool | None = None
 	gamemode: bool | None = None
 	mangohud: bool | None = None
 	gamescope: bool | None = None
 	disable_watchdog: bool | None = None
+	steam: bool | None = None
+	protontricks: bool | None = None
+	increase_vm_max_map_count: bool | None = None
 
 	@classmethod
 	def parse_arg(cls, arg: GamingConfigSerialization) -> Self:
@@ -121,15 +123,6 @@ class GamingConfiguration(SubConfig):
 
 		if ntsync_config := arg.get('ntsync_config'):
 			config.ntsync_config = NTSyncConfiguration.parse_arg(ntsync_config)
-
-		if 'steam' in arg:
-			config.steam = arg['steam']
-
-		if 'protontricks' in arg:
-			config.protontricks = arg['protontricks']
-
-		if 'increase_vm_max_map_count' in arg:
-			config.increase_vm_max_map_count = arg['increase_vm_max_map_count']
 
 		if 'gamemode' in arg:
 			config.gamemode = arg['gamemode']
@@ -142,6 +135,15 @@ class GamingConfiguration(SubConfig):
 
 		if 'disable_watchdog' in arg:
 			config.disable_watchdog = arg['disable_watchdog']
+
+		if 'steam' in arg:
+			config.steam = arg['steam']
+
+		if 'protontricks' in arg:
+			config.protontricks = arg['protontricks']
+
+		if 'increase_vm_max_map_count' in arg:
+			config.increase_vm_max_map_count = arg['increase_vm_max_map_count']
 
 		return config
 
@@ -158,15 +160,6 @@ class GamingConfiguration(SubConfig):
 		if self.ntsync_config:
 			config['ntsync_config'] = self.ntsync_config.json()
 
-		if self.steam is not None:
-			config['steam'] = self.steam
-
-		if self.protontricks is not None:
-			config['protontricks'] = self.protontricks
-
-		if self.increase_vm_max_map_count is not None:
-			config['increase_vm_max_map_count'] = self.increase_vm_max_map_count
-
 		if self.gamemode is not None:
 			config['gamemode'] = self.gamemode
 
@@ -178,6 +171,15 @@ class GamingConfiguration(SubConfig):
 
 		if self.disable_watchdog is not None:
 			config['disable_watchdog'] = self.disable_watchdog
+
+		if self.steam is not None:
+			config['steam'] = self.steam
+
+		if self.protontricks is not None:
+			config['protontricks'] = self.protontricks
+
+		if self.increase_vm_max_map_count is not None:
+			config['increase_vm_max_map_count'] = self.increase_vm_max_map_count
 
 		return config
 
