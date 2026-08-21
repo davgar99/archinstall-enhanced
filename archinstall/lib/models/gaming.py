@@ -67,6 +67,9 @@ class NTSyncConfigSerialization(TypedDict):
 class GamingConfigSerialization(TypedDict):
 	cpu_scheduler_config: NotRequired[CPUSchedulerConfigSerialization]
 	ntsync_config: NotRequired[NTSyncConfigSerialization]
+	steam: NotRequired[bool]
+	protontricks: NotRequired[bool]
+	increase_vm_max_map_count: NotRequired[bool]
 	gamemode: NotRequired[bool]
 	mangohud: NotRequired[bool]
 	gamescope: NotRequired[bool]
@@ -101,6 +104,9 @@ class NTSyncConfiguration:
 class GamingConfiguration(SubConfig):
 	cpu_scheduler_config: CPUSchedulerConfiguration | None = None
 	ntsync_config: NTSyncConfiguration | None = None
+	steam: bool | None = None
+	protontricks: bool | None = None
+	increase_vm_max_map_count: bool | None = None
 	gamemode: bool | None = None
 	mangohud: bool | None = None
 	gamescope: bool | None = None
@@ -115,6 +121,15 @@ class GamingConfiguration(SubConfig):
 
 		if ntsync_config := arg.get('ntsync_config'):
 			config.ntsync_config = NTSyncConfiguration.parse_arg(ntsync_config)
+
+		if 'steam' in arg:
+			config.steam = arg['steam']
+
+		if 'protontricks' in arg:
+			config.protontricks = arg['protontricks']
+
+		if 'increase_vm_max_map_count' in arg:
+			config.increase_vm_max_map_count = arg['increase_vm_max_map_count']
 
 		if 'gamemode' in arg:
 			config.gamemode = arg['gamemode']
@@ -131,7 +146,7 @@ class GamingConfiguration(SubConfig):
 		return config
 
 	def requires_multilib(self) -> bool:
-		return self.gamemode is True or self.mangohud is True
+		return self.steam is True or self.gamemode is True or self.mangohud is True
 
 	@override
 	def json(self) -> GamingConfigSerialization:
@@ -142,6 +157,15 @@ class GamingConfiguration(SubConfig):
 
 		if self.ntsync_config:
 			config['ntsync_config'] = self.ntsync_config.json()
+
+		if self.steam is not None:
+			config['steam'] = self.steam
+
+		if self.protontricks is not None:
+			config['protontricks'] = self.protontricks
+
+		if self.increase_vm_max_map_count is not None:
+			config['increase_vm_max_map_count'] = self.increase_vm_max_map_count
 
 		if self.gamemode is not None:
 			config['gamemode'] = self.gamemode
@@ -169,6 +193,9 @@ class GamingConfiguration(SubConfig):
 			out.append(f'{tr("NTSYNC")}: {status}')
 
 		for label, enabled in (
+			('Steam', self.steam),
+			('Protontricks', self.protontricks),
+			('SteamOS vm.max_map_count compatibility', self.increase_vm_max_map_count),
 			('GameMode', self.gamemode),
 			('MangoHud', self.mangohud),
 			('Gamescope', self.gamescope),
