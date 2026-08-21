@@ -20,18 +20,6 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 		self._item_group = MenuItemGroup(
 			[
 				MenuItem(
-					text=tr('Steam'),
-					action=select_steam,
-					preview_action=self._prev_toggle,
-					key='steam',
-				),
-				MenuItem(
-					text=tr('Protontricks'),
-					action=select_protontricks,
-					preview_action=self._prev_toggle,
-					key='protontricks',
-				),
-				MenuItem(
 					text=tr('SteamOS vm.max_map_count compatibility'),
 					action=select_vm_max_map_count,
 					preview_action=self._prev_toggle,
@@ -184,20 +172,6 @@ async def _select_toggle(header: str, preset: bool | None) -> bool | None:
 			raise ValueError('Unhandled result type')
 		case _:
 			assert_never(result.type_)
-
-
-async def select_steam(preset: bool | None = None) -> bool | None:
-	return await _select_toggle(
-		tr('Install Steam from the official Arch multilib repository?'),
-		preset,
-	)
-
-
-async def select_protontricks(preset: bool | None = None) -> bool | None:
-	return await _select_toggle(
-		tr('Install Protontricks for managing Wine/Proton prefixes and game fixes?'),
-		preset,
-	)
 
 
 async def select_vm_max_map_count(preset: bool | None = None) -> bool | None:
