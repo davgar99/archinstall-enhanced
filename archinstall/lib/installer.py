@@ -701,7 +701,7 @@ class Installer:
 
 	def activate_time_synchronization(self) -> None:
 		info('Activating systemd-timesyncd for time synchronization using Arch Linux and ntp.org NTP servers')
-		self.enable_service('systemd-timesyncd')
+		self.enable_service(['systemd-timesyncd.service', 'systemd-time-wait-sync.service'])
 
 	def enable_espeakup(self) -> None:
 		info('Enabling espeakup.service for speech synthesis (accessibility)')

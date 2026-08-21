@@ -16,7 +16,7 @@ class PostInstallationAction(Enum):
 
 async def select_ntp(preset: bool = True) -> bool:
 	result = await Confirmation(
-		header=tr('Enable automatic time synchronization (NTP)?'),
+		header=tr('Enable automatic time synchronization (NTP)? systemd-timesyncd will keep the clock accurate using network time servers.'),
 		allow_skip=True,
 		preset=preset,
 	).show()

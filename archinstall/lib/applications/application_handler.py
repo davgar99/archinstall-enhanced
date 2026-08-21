@@ -8,6 +8,7 @@ from archinstall.applications.power_management import PowerManagementApp
 from archinstall.applications.print_service import PrintServiceApp
 from archinstall.lib.models import Audio
 from archinstall.lib.models.application import ApplicationConfiguration
+from archinstall.lib.models.network import DnsResolver, NetworkConfiguration
 from archinstall.lib.models.users import User
 
 if TYPE_CHECKING:
@@ -18,7 +19,13 @@ class ApplicationHandler:
 	def __init__(self) -> None:
 		pass
 
-	def install_applications(self, install_session: Installer, app_config: ApplicationConfiguration, users: list[User] | None = None) -> None:
+	def install_applications(
+		self,
+		install_session: Installer,
+		app_config: ApplicationConfiguration,
+		users: list[User] | None = None,
+		network_config: NetworkConfiguration | None = None,
+	) -> None:
 		if app_config.bluetooth_config and app_config.bluetooth_config.enabled:
 			BluetoothApp().install(install_session)
 
@@ -36,7 +43,8 @@ class ApplicationHandler:
 			)
 
 		if app_config.print_service_config and app_config.print_service_config.enabled:
-			PrintServiceApp().install(install_session)
+			dns_resolver = network_config.dns_resolver if network_config else DnsResolver.DEFAULT
+			PrintServiceApp().install(install_session, dns_resolver)
 
 		if app_config.firewall_config:
 			FirewallApp().install(

@@ -1,7 +1,7 @@
 import textwrap
 
 from archinstall.lib.installer import Installer
-from archinstall.lib.models.network import NetworkConfiguration, NicType
+from archinstall.lib.models.network import DnsResolver, NetworkConfiguration, NicType
 from archinstall.lib.models.profile import ProfileConfiguration
 
 
@@ -28,6 +28,7 @@ def install_network_config(
 
 			installation.add_additional_packages(packages)
 			installation.enable_service('NetworkManager.service')
+			_configure_dns_cache(installation, network_config.dns_resolver)
 
 			if network_config.type == NicType.NM_IWD:
 				_configure_nm_iwd(installation)
@@ -53,6 +54,27 @@ def _configure_nm_iwd(installation: Installer) -> None:
 
 	iwd_backend_conf = nm_conf_dir / 'wifi_backend.conf'
 	iwd_backend_conf.write_text('[device]\nwifi.backend=iwd\n')
+
+
+def _configure_dns_cache(installation: Installer, resolver: DnsResolver) -> None:
+	if resolver == DnsResolver.DEFAULT:
+		return
+
+	nm_conf_dir = installation.target / 'etc/NetworkManager/conf.d'
+	nm_conf_dir.mkdir(parents=True, exist_ok=True)
+	(nm_conf_dir / 'dns-cache.conf').write_text(f'[main]\ndns={resolver.value}\n')
+
+	if resolver == DnsResolver.SYSTEMD_RESOLVED:
+		installation.enable_service('systemd-resolved.service')
+		installation.systemd_resolved_stub_mode()
+		resolved_conf_dir = installation.target / 'etc/systemd/resolved.conf.d'
+		resolved_conf_dir.mkdir(parents=True, exist_ok=True)
+		(resolved_conf_dir / 'dns-cache.conf').write_text('[Resolve]\nCache=yes\nDNSStubListener=yes\nMulticastDNS=resolve\n')
+	else:
+		installation.add_additional_packages(['dnsmasq'])
+		dnsmasq_dir = installation.target / 'etc/NetworkManager/dnsmasq.d'
+		dnsmasq_dir.mkdir(parents=True, exist_ok=True)
+		(dnsmasq_dir / 'cache.conf').write_text('cache-size=1000\n')
 
 
 def _configure_iwd_standalone(installation: Installer) -> None:

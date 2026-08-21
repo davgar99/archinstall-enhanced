@@ -30,7 +30,7 @@ class PacmanConfiguration(SubConfig):
 		color_status = tr('Enabled') if self.color else tr('Disabled')
 		candy_status = tr('Enabled') if self.ilove_candy else tr('Disabled')
 		return [
-			f'{tr("Parallel Downloads")}: {self.parallel_downloads}',
+			f'{tr("Parallel downloads")}: {self.parallel_downloads}',
 			f'{tr("Color")}: {color_status}',
 			f'{tr("ILoveCandy")}: {candy_status}',
 		]

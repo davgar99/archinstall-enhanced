@@ -26,6 +26,12 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					key='increase_vm_max_map_count',
 				),
 				MenuItem(
+					text=tr('Increase shader cache size'),
+					action=select_shader_cache,
+					preview_action=self._prev_toggle,
+					key='increase_shader_cache',
+				),
+				MenuItem(
 					text=tr('CPU scheduler'),
 					action=select_cpu_scheduler,
 					preview_action=self._prev_cpu_scheduler,
@@ -121,7 +127,10 @@ async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) 
 
 	result = await Selection[CPUScheduler](
 		group,
-		header=tr('Select one sched-ext CPU scheduler\nExperimental schedulers may be unstable'),
+		header=tr(
+			'Select a sched-ext CPU scheduler. It controls how CPU time is distributed between applications.\n'
+			'Gaming mode favors responsiveness; experimental schedulers may be unstable.'
+		),
 		allow_skip=True,
 		allow_reset=True,
 		multi=False,
@@ -140,7 +149,10 @@ async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) 
 
 async def select_ntsync(preset: NTSyncConfiguration | None = None) -> NTSyncConfiguration | None:
 	result = await Confirmation(
-		header=tr('Enable NTSYNC? The NTSYNC driver is still considered experimental.'),
+		header=tr(
+			'Enable NTSYNC? It provides faster Windows-compatible synchronization for Wine and Proton. '
+			'The driver is experimental and may cause compatibility issues.'
+		),
 		allow_skip=True,
 		preset=preset.enabled if preset else False,
 	).show()
@@ -178,7 +190,18 @@ async def select_vm_max_map_count(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
 		tr(
 			'Increase vm.max_map_count to the SteamOS value (2147483642) for memory-map-heavy games? '
-			'This can improve Wine and Proton compatibility, but current Arch defaults are sufficient for most games.'
+			'This can improve Wine and Proton compatibility, but current Arch defaults are sufficient for most games. '
+			'ArchWiki warns that the higher value can break older programs that read core dump files.'
+		),
+		preset,
+	)
+
+
+async def select_shader_cache(preset: bool | None = None) -> bool | None:
+	return await _select_toggle(
+		tr(
+			'Increase the shader cache limit to 12 GB? A larger cache can reduce shader recompilation and repeat stuttering, '
+			'but it may use more disk space. This applies the CachyOS-recommended limits for Mesa and Nvidia drivers.'
 		),
 		preset,
 	)
@@ -186,27 +209,30 @@ async def select_vm_max_map_count(preset: bool | None = None) -> bool | None:
 
 async def select_gamemode(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
-		tr('Enable GameMode? Installs GameMode and its 32-bit library for temporary game performance optimizations'),
+		tr('Enable GameMode? Games can request temporary CPU, process-priority, and power-management optimizations.'),
 		preset,
 	)
 
 
 async def select_mangohud(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
-		tr('Enable MangoHud? Installs the Vulkan and OpenGL performance overlay and its 32-bit library'),
+		tr('Enable MangoHud? It displays FPS, frame times, temperatures, and other performance information in games.'),
 		preset,
 	)
 
 
 async def select_gamescope(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
-		tr('Enable Gamescope? Installs the gaming-focused Wayland compositor'),
+		tr("Enable Gamescope? Valve's gaming compositor can isolate games, control resolution and scaling, and limit frame rates."),
 		preset,
 	)
 
 
 async def select_disable_watchdog(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
-		tr('Disable the hardware watchdog? AMD blacklists sp5100_tco; Intel blacklists iTCO_wdt'),
+		tr(
+			'Disable the hardware watchdog? This may prevent watchdog-related freezes or unwanted resets on affected hardware, '
+			'but the system will lose automatic recovery from some hardware lockups.'
+		),
 		preset,
 	)

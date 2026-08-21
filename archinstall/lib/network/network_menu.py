@@ -3,7 +3,7 @@ from typing import assert_never, override
 
 from archinstall.lib.menu.helpers import Input, Selection
 from archinstall.lib.menu.list_manager import ListManager
-from archinstall.lib.models.network import NetworkConfiguration, Nic, NicType
+from archinstall.lib.models.network import DnsResolver, NetworkConfiguration, Nic, NicType
 from archinstall.lib.networking import list_interfaces
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup
@@ -194,14 +194,17 @@ async def select_network(preset: NetworkConfiguration | None) -> NetworkConfigur
 			return None
 		case ResultType.Selection:
 			config = result.get_value()
+			dns_resolver = DnsResolver.DEFAULT
+			if config in (NicType.NM, NicType.NM_IWD):
+				dns_resolver = await _select_dns_resolver(preset)
 
 			match config:
 				case NicType.ISO:
 					return NetworkConfiguration(NicType.ISO)
 				case NicType.NM:
-					return NetworkConfiguration(NicType.NM)
+					return NetworkConfiguration(NicType.NM, dns_resolver=dns_resolver)
 				case NicType.NM_IWD:
-					return NetworkConfiguration(NicType.NM_IWD)
+					return NetworkConfiguration(NicType.NM_IWD, dns_resolver=dns_resolver)
 				case NicType.IWD:
 					return NetworkConfiguration(NicType.IWD)
 				case NicType.MANUAL:
@@ -212,3 +215,23 @@ async def select_network(preset: NetworkConfiguration | None) -> NetworkConfigur
 						return NetworkConfiguration(NicType.MANUAL, nics)
 
 	return preset
+
+
+async def _select_dns_resolver(preset: NetworkConfiguration | None) -> DnsResolver:
+	items = [MenuItem(resolver.display_msg(), value=resolver) for resolver in DnsResolver]
+	group = MenuItemGroup(items, sort_items=False)
+	if preset:
+		group.set_selected_by_value(preset.dns_resolver)
+
+	header = tr('Choose DNS caching') + '\n'
+	header += (
+		tr(
+			'A local caching stub reuses recent DNS answers, which can make repeated connections and download startup feel faster. '
+			'It does not increase your connection bandwidth. systemd-resolved is recommended for most users.'
+		)
+		+ '\n'
+	)
+	result = await Selection[DnsResolver](group, header=header, allow_skip=False).show()
+	if result.type_ == ResultType.Selection:
+		return result.get_value()
+	return DnsResolver.DEFAULT

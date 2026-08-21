@@ -2,15 +2,18 @@ import re
 from typing import TYPE_CHECKING
 
 from archinstall.lib.log import debug
+from archinstall.lib.models.network import DnsResolver
 
 if TYPE_CHECKING:
 	from archinstall.lib.installer import Installer
 
 
 class PrintServiceApp:
-	@property
-	def packages(self) -> list[str]:
-		return ['cups', 'system-config-printer', 'cups-pk-helper', 'ghostscript', 'avahi', 'nss-mdns']
+	def packages(self, dns_resolver: DnsResolver) -> list[str]:
+		packages = ['cups', 'system-config-printer', 'cups-pk-helper', 'ghostscript', 'avahi']
+		if dns_resolver != DnsResolver.SYSTEMD_RESOLVED:
+			packages.append('nss-mdns')
+		return packages
 
 	@property
 	def services(self) -> list[str]:
@@ -19,11 +22,12 @@ class PrintServiceApp:
 			'avahi-daemon.service',
 		]
 
-	def install(self, install_session: Installer) -> None:
+	def install(self, install_session: Installer, dns_resolver: DnsResolver = DnsResolver.DEFAULT) -> None:
 		debug('Installing print service')
-		install_session.add_additional_packages(self.packages)
+		install_session.add_additional_packages(self.packages(dns_resolver))
 		install_session.enable_service(self.services)
-		self._enable_mdns_resolution(install_session)
+		if dns_resolver != DnsResolver.SYSTEMD_RESOLVED:
+			self._enable_mdns_resolution(install_session)
 
 	def _enable_mdns_resolution(self, install_session: Installer) -> None:
 		nsswitch_conf = install_session.target / 'etc/nsswitch.conf'
