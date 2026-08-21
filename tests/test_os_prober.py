@@ -20,11 +20,7 @@ class FakeInstallation:
 
 
 def test_enable_os_prober_replaces_and_deduplicates_setting() -> None:
-	config = (
-		'#GRUB_DISABLE_OS_PROBER=true\n'
-		'GRUB_TIMEOUT=5\n'
-		'GRUB_DISABLE_OS_PROBER=true\n'
-	)
+	config = '#GRUB_DISABLE_OS_PROBER=true\nGRUB_TIMEOUT=5\nGRUB_DISABLE_OS_PROBER=true\n'
 
 	updated = enable_os_prober_in_grub_config(config)
 

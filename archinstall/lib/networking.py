@@ -1,5 +1,5 @@
 import os
-import random
+import secrets
 import select
 import signal
 import socket
@@ -10,7 +10,7 @@ from pathlib import Path
 from types import FrameType, TracebackType
 from typing import Final, Self
 from urllib.error import URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 
 from archinstall.lib.exceptions import DownloadTimeout, SysCallError
@@ -126,9 +126,10 @@ def enrich_iface_types(interfaces: list[str]) -> dict[str, str]:
 
 
 def fetch_data_from_url(url: str, params: dict[str, str] | None = None, timeout: int = 30) -> bytes:
+	if urlparse(url).scheme not in {'http', 'https'}:
+		raise ValueError(f'Unsupported URL scheme: {url}')
+
 	ssl_context = ssl.create_default_context()
-	ssl_context.check_hostname = False
-	ssl_context.verify_mode = ssl.CERT_NONE
 
 	if params is not None:
 		encoded = urlencode(params)
@@ -137,7 +138,8 @@ def fetch_data_from_url(url: str, params: dict[str, str] | None = None, timeout:
 		full_url = url
 
 	try:
-		response = urlopen(full_url, context=ssl_context, timeout=timeout)
+		# The URL scheme is restricted to HTTP(S) above.
+		response = urlopen(full_url, context=ssl_context, timeout=timeout)  # nosec B310
 		return response.read()
 	except URLError as e:
 		raise ValueError(f'Unable to fetch data from url: {url}\n{e}')
@@ -169,7 +171,7 @@ def build_icmp(payload: bytes) -> bytes:
 def ping(hostname: str, timeout: int = 5) -> int:
 	watchdog = select.epoll()
 	started = time.monotonic()
-	random_identifier = f'archinstall-{random.randint(1000, 9999)}'.encode()
+	random_identifier = f'archinstall-{secrets.randbelow(9000) + 1000}'.encode()
 
 	# Create a raw socket (requires root, which should be fine on archiso)
 	icmp_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)

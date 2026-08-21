@@ -384,7 +384,10 @@ class Size:
 				sectors = math.ceil(norm / sector_size.value)
 				return Size(sectors, Unit.sectors, sector_size)
 			else:
-				value = int(self._normalize() / target_unit.value)
+				target_value = target_unit.value
+				if not isinstance(target_value, int):
+					raise ValueError(f'Cannot convert byte size to {target_unit.name}')
+				value = int(self._normalize() / target_value)
 				return Size(value, target_unit, self.sector_size)
 
 	def as_text(self) -> str:
@@ -467,12 +470,12 @@ class Size:
 			return self.value * self.sector_size.normalize()
 		return int(self.value * self.unit.value)
 
-	def __sub__(self, other: Self) -> Size:
+	def __sub__(self, other: Size) -> Size:
 		src_norm = self._normalize()
 		dest_norm = other._normalize()
 		return Size(abs(src_norm - dest_norm), Unit.B, self.sector_size)
 
-	def __add__(self, other: Self) -> Size:
+	def __add__(self, other: Size) -> Size:
 		src_norm = self._normalize()
 		dest_norm = other._normalize()
 		return Size(abs(src_norm + dest_norm), Unit.B, self.sector_size)
@@ -666,7 +669,7 @@ class SubvolumeModification:
 
 	@classmethod
 	def parse_args(cls, subvol_args: list[_SubvolumeModificationSerialization]) -> list[Self]:
-		mods = []
+		mods: list[Self] = []
 		for entry in subvol_args:
 			if not entry.get('name', None) or not entry.get('mountpoint', None):
 				debug(f'Subvolume arg is missing name: {entry}')

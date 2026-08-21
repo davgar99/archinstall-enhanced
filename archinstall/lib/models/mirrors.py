@@ -48,6 +48,10 @@ class MirrorStatusEntryV3(BaseModel):
 	@property
 	def speed(self) -> float:
 		if self._speed is None:
+			if urllib.parse.urlparse(self.url).scheme not in {'http', 'https'}:
+				debug(f'Unsupported mirror URL scheme: {self.url}')
+				return 0
+
 			if not self._speedtest_retries:
 				self._speedtest_retries = 3
 			elif self._speedtest_retries < 1:
@@ -59,7 +63,8 @@ class MirrorStatusEntryV3(BaseModel):
 				req = urllib.request.Request(url=f'{self.url}core/os/x86_64/core.db')
 
 				try:
-					with urllib.request.urlopen(req, None, 5) as handle, DownloadTimer(timeout=5) as timer:
+					# The mirror URL scheme is restricted to HTTP(S) above.
+					with urllib.request.urlopen(req, None, 5) as handle, DownloadTimer(timeout=5) as timer:  # nosec B310
 						size = len(handle.read())
 
 					assert timer.time is not None
@@ -193,7 +198,7 @@ class CustomRepository:
 
 	@classmethod
 	def parse_args(cls, args: list[dict[str, str]]) -> list[Self]:
-		configs = []
+		configs: list[Self] = []
 		for arg in args:
 			configs.append(
 				cls(
@@ -219,7 +224,7 @@ class CustomServer:
 
 	@classmethod
 	def parse_args(cls, args: list[dict[str, str]]) -> list[Self]:
-		configs = []
+		configs: list[Self] = []
 		for arg in args:
 			configs.append(
 				cls(arg['url']),

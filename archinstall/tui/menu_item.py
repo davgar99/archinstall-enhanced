@@ -132,9 +132,7 @@ class MenuItemGroup:
 
 		self._filter_pattern: str = ''
 		self._checkmarks: bool = checkmarks
-		self._status_indicators = any(
-			item.key is not None and item.key.startswith(_CONFIG_ACTION_PREFIX) for item in menu_items
-		)
+		self._status_indicators = any(item.key is not None and item.key.startswith(_CONFIG_ACTION_PREFIX) for item in menu_items)
 
 		self._menu_items: list[MenuItem] = menu_items
 		self.focus_item: MenuItem | None = focus_item
