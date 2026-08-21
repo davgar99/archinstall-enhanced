@@ -10,7 +10,7 @@ from archinstall.applications.hardware_watchdog import HardwareWatchdogApp
 from archinstall.applications.ntsync import NTSyncApp
 from archinstall.lib.args import ArchConfig, ArchConfigType, Arguments
 from archinstall.lib.gaming.gaming_menu import GamingMenu
-from archinstall.lib.hardware import CPUVendor, GfxDriver, SysInfo
+from archinstall.lib.hardware import CPUVendor, SysInfo
 from archinstall.lib.models.gaming import (
 	CPU_SCHEDULER_STABILITY,
 	CPUScheduler,
@@ -72,13 +72,11 @@ def test_gaming_configuration_roundtrip() -> None:
 	gaming_config = GamingConfiguration(
 		cpu_scheduler_config=CPUSchedulerConfiguration(scheduler=CPUScheduler.LAVD),
 		ntsync_config=NTSyncConfiguration(enabled=True),
-		steam=True,
-		protontricks=True,
-		increase_vm_max_map_count=True,
 		gamemode=True,
 		mangohud=False,
 		gamescope=True,
 		disable_watchdog=True,
+		increase_vm_max_map_count=True,
 	)
 	serialized = gaming_config.json()
 
@@ -89,8 +87,6 @@ def test_gaming_configuration_roundtrip() -> None:
 		'mangohud': False,
 		'gamescope': True,
 		'disable_watchdog': True,
-		'steam': True,
-		'protontricks': True,
 		'increase_vm_max_map_count': True,
 	}
 	assert GamingConfiguration.parse_arg(serialized) == gaming_config
@@ -101,21 +97,16 @@ def test_gaming_configuration_roundtrip() -> None:
 
 
 def test_gaming_multilib_requirement() -> None:
-	assert GamingConfiguration(steam=True).requires_multilib()
 	assert GamingConfiguration(gamemode=True).requires_multilib()
 	assert GamingConfiguration(mangohud=True).requires_multilib()
-	assert not GamingConfiguration(protontricks=True).requires_multilib()
 	assert not GamingConfiguration(increase_vm_max_map_count=True).requires_multilib()
 	assert not GamingConfiguration(gamescope=True).requires_multilib()
 	assert not GamingConfiguration(ntsync_config=NTSyncConfiguration(enabled=True)).requires_multilib()
 	assert not GamingConfiguration(disable_watchdog=True).requires_multilib()
 
 
-def test_stable_gaming_options_available() -> None:
-	menu = GamingMenu(advanced=False)
-	assert menu._item_group.find_by_key('steam').enabled
-	assert menu._item_group.find_by_key('protontricks').enabled
-	assert menu._item_group.find_by_key('increase_vm_max_map_count').enabled
+def test_stable_gaming_compatibility_option_available() -> None:
+	assert GamingMenu(advanced=False)._item_group.find_by_key('increase_vm_max_map_count').enabled
 
 
 def test_hardware_watchdog_modules() -> None:
@@ -202,49 +193,14 @@ def test_ntsync_disabled_does_not_install(tmp_path: Path) -> None:
 	assert installer.services == []
 
 
-@pytest.mark.parametrize(
-	('driver', 'expected'),
-	[
-		(GfxDriver.AmdOpenSource, ['ttf-liberation', 'lib32-mesa', 'lib32-vulkan-radeon']),
-		(GfxDriver.IntelOpenSource, ['ttf-liberation', 'lib32-mesa', 'lib32-vulkan-intel']),
-		(GfxDriver.NvidiaOpenKernel, ['ttf-liberation', 'lib32-nvidia-utils']),
-		(GfxDriver.NvidiaOpenSource, ['ttf-liberation', 'lib32-mesa', 'lib32-vulkan-nouveau']),
-		(
-			GfxDriver.AllOpenSource,
-			[
-				'ttf-liberation',
-				'lib32-mesa',
-				'lib32-vulkan-radeon',
-				'lib32-vulkan-intel',
-				'lib32-vulkan-nouveau',
-			],
-		),
-		(GfxDriver.VMOpenSource, ['ttf-liberation', 'lib32-mesa', 'lib32-vulkan-swrast']),
-	],
-)
-def test_steam_runtime_packages_match_graphics_driver(driver: GfxDriver, expected: list[str]) -> None:
-	assert GamingToolsApp().steam_runtime_packages(driver) == expected
-
-
 def test_gaming_tools_install(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
-	config = GamingConfiguration(
-		steam=True,
-		protontricks=True,
-		gamemode=True,
-		mangohud=True,
-		gamescope=True,
-	)
+	config = GamingConfiguration(gamemode=True, mangohud=True, gamescope=True)
 	user = User('david', Password(enc_password='test'), sudo=True)
 
-	GamingToolsApp().install(installer, config, [user], GfxDriver.AmdOpenSource)  # type: ignore[arg-type]
+	GamingToolsApp().install(installer, config, [user])  # type: ignore[arg-type]
 
 	assert installer.packages == [
-		'ttf-liberation',
-		'lib32-mesa',
-		'lib32-vulkan-radeon',
-		'steam',
-		'protontricks',
 		'gamemode',
 		'lib32-gamemode',
 		'mangohud',
