@@ -71,8 +71,6 @@ class GamingConfigSerialization(TypedDict):
 	mangohud: NotRequired[bool]
 	gamescope: NotRequired[bool]
 	disable_watchdog: NotRequired[bool]
-	steam: NotRequired[bool]
-	protontricks: NotRequired[bool]
 	increase_vm_max_map_count: NotRequired[bool]
 
 
@@ -102,16 +100,12 @@ class NTSyncConfiguration:
 
 @dataclass
 class GamingConfiguration(SubConfig):
-	# Keep the existing field order stable because callers may instantiate this
-	# dataclass positionally outside the built-in TUI/config parser.
 	cpu_scheduler_config: CPUSchedulerConfiguration | None = None
 	ntsync_config: NTSyncConfiguration | None = None
 	gamemode: bool | None = None
 	mangohud: bool | None = None
 	gamescope: bool | None = None
 	disable_watchdog: bool | None = None
-	steam: bool | None = None
-	protontricks: bool | None = None
 	increase_vm_max_map_count: bool | None = None
 
 	@classmethod
@@ -136,19 +130,13 @@ class GamingConfiguration(SubConfig):
 		if 'disable_watchdog' in arg:
 			config.disable_watchdog = arg['disable_watchdog']
 
-		if 'steam' in arg:
-			config.steam = arg['steam']
-
-		if 'protontricks' in arg:
-			config.protontricks = arg['protontricks']
-
 		if 'increase_vm_max_map_count' in arg:
 			config.increase_vm_max_map_count = arg['increase_vm_max_map_count']
 
 		return config
 
 	def requires_multilib(self) -> bool:
-		return self.steam is True or self.gamemode is True or self.mangohud is True
+		return self.gamemode is True or self.mangohud is True
 
 	@override
 	def json(self) -> GamingConfigSerialization:
@@ -172,12 +160,6 @@ class GamingConfiguration(SubConfig):
 		if self.disable_watchdog is not None:
 			config['disable_watchdog'] = self.disable_watchdog
 
-		if self.steam is not None:
-			config['steam'] = self.steam
-
-		if self.protontricks is not None:
-			config['protontricks'] = self.protontricks
-
 		if self.increase_vm_max_map_count is not None:
 			config['increase_vm_max_map_count'] = self.increase_vm_max_map_count
 
@@ -195,8 +177,6 @@ class GamingConfiguration(SubConfig):
 			out.append(f'{tr("NTSYNC")}: {status}')
 
 		for label, enabled in (
-			('Steam', self.steam),
-			('Protontricks', self.protontricks),
 			('SteamOS vm.max_map_count compatibility', self.increase_vm_max_map_count),
 			('GameMode', self.gamemode),
 			('MangoHud', self.mangohud),
