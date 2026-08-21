@@ -5,6 +5,7 @@ from archinstall.applications.gaming_compatibility import GamingCompatibilityApp
 from archinstall.applications.gaming_tools import GamingToolsApp
 from archinstall.applications.hardware_watchdog import HardwareWatchdogApp
 from archinstall.applications.ntsync import NTSyncApp
+from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.models.gaming import GamingConfiguration
 
 if TYPE_CHECKING:
@@ -18,6 +19,7 @@ class GamingHandler:
 		install_session: Installer,
 		gaming_config: GamingConfiguration,
 		users: list[User] | None = None,
+		gfx_driver: GfxDriver | None = None,
 	) -> None:
 		if gaming_config.cpu_scheduler_config:
 			CPUSchedulerApp().install(install_session, gaming_config.cpu_scheduler_config)
@@ -25,6 +27,6 @@ class GamingHandler:
 		if gaming_config.ntsync_config:
 			NTSyncApp().install(install_session, gaming_config.ntsync_config)
 
-		GamingToolsApp().install(install_session, gaming_config, users)
+		GamingToolsApp().install(install_session, gaming_config, users, gfx_driver)
 		GamingCompatibilityApp().install(install_session, gaming_config)
 		HardwareWatchdogApp().install(install_session, gaming_config)
