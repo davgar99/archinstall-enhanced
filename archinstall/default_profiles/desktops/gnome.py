@@ -72,7 +72,7 @@ class GnomeProfile(Profile):
 			return GnomeFlavor.Minimal
 		try:
 			return GnomeFlavor(flavor)
-		except TypeError, ValueError:
+		except (TypeError, ValueError):  # fmt: skip
 			# Persisted configurations can outlive flavor names. Fall back to the
 			# current recommended option instead of aborting profile loading.
 			return GnomeFlavor.Minimal

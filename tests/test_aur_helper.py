@@ -14,11 +14,15 @@ class FakeInstaller:
 		self.target = target
 		self.packages: list[str] = []
 		self.commands: list[tuple[str, str | None, bool]] = []
+		self.sudoers_snapshots: list[str] = []
 
 	def add_additional_packages(self, packages: list[str]) -> None:
 		self.packages.extend(packages)
 
 	def arch_chroot(self, command: str, run_as: str | None = None, peek_output: bool = False) -> None:
+		sudoers_path = self.target / 'etc/sudoers.d/99-archinstall-aur-builder'
+		if sudoers_path.exists():
+			self.sudoers_snapshots.append(sudoers_path.read_text())
 		self.commands.append((command, run_as, peek_output))
 
 
@@ -57,7 +61,24 @@ def test_aur_helper_builds_as_configured_sudo_user(tmp_path: Path) -> None:
 		('git clone --depth=1 https://aur.archlinux.org/yay.git /tmp/archinstall-yay', 'builder', True),
 		('cd /tmp/archinstall-yay && makepkg --syncdeps --install --needed --noconfirm', 'builder', True),
 	]
+	expected_sudoers = (
+		'builder ALL=(root) NOPASSWD: /usr/bin/pacman --noconfirm -S --asdeps *\nbuilder ALL=(root) NOPASSWD: /usr/bin/pacman --noconfirm -U --needed *\n'
+	)
+	assert installer.sudoers_snapshots == [expected_sudoers, expected_sudoers]
 	assert not (tmp_path / 'etc/sudoers.d/99-archinstall-aur-builder').exists()
+
+
+def test_aura_uses_source_package(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	users = [User('builder', Password(enc_password='test'), sudo=True)]
+
+	AurHelperApp().install(installer, AurHelperConfiguration(AurHelper.AURA), users)  # type: ignore[arg-type]
+
+	assert installer.commands[0] == (
+		'git clone --depth=1 https://aur.archlinux.org/aura.git /tmp/archinstall-aura',
+		'builder',
+		True,
+	)
 
 
 def test_aur_helper_requires_non_root_user(tmp_path: Path) -> None:
