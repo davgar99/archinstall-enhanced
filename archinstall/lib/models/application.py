@@ -75,11 +75,12 @@ class ZramAlgorithm(StrEnum):
 	LZ4HC = auto()
 
 	def generator_value(self) -> str:
-		# Level 3 is a conservative zstd setting that balances compression,
-		# latency, and CPU use. Other kernel algorithms use their tuned defaults.
+		# Zstd level 3 is a conservative balance of compression, latency, and CPU use.
+		# Algorithms without a supported level setting remain the fast primary
+		# compressor and use zstd only to recompress cold, poorly compressed pages.
 		if self == ZramAlgorithm.ZSTD:
 			return 'zstd(level=3)'
-		return self.value
+		return f'{self.value} zstd(level=3) (type=idle,threshold=3000)'
 
 
 class ApplicationSerialization(TypedDict):

@@ -93,7 +93,7 @@ Swap-on-zram can be configured directly through the installer.
 
 The fork also provides optional virtual memory tuning for users who want to prioritize compressed RAM over slower disk swap. The installer explains the selected compression algorithm, swappiness behavior, read-ahead adjustment, and the tradeoff between memory pressure and responsiveness.
 
-Zram sizing, swap priority, and other device settings use `zram-generator` defaults. The recommended `zstd` algorithm uses a conservative level 3 setting to balance compression, latency, and CPU use, while the installer continues to display simple algorithm names.
+Zram sizing, swap priority, and other device settings use `zram-generator` defaults. The recommended `zstd` algorithm uses a conservative level 3 setting to balance compression, latency, and CPU use. Other choices keep their selected low-latency algorithm for active pages and use `zstd` level 3 to recompress only cold pages that still occupy at least 3000 bytes. The installer continues to display simple algorithm names.
 
 These settings are not silently applied. The additional tuning can be enabled or disabled independently, and the selected configuration is saved along with the rest of the Archinstall configuration.
 

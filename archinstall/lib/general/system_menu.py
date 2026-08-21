@@ -131,9 +131,9 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 			algo_result = await Selection[ZramAlgorithm](
 				algo_group,
 				header=tr(
-					'Select a zram compression algorithm. zstd is recommended and uses a performance-focused level 3 setting. '
-					'lz4 and lzo-rle prioritize speed, while denser algorithms may use more CPU. Device size, swap priority, and other '
-					'settings use zram-generator defaults.'
+					'Select a zram compression algorithm. zstd is recommended and uses a balanced level 3 setting. '
+					'Other choices use the selected fast algorithm for active pages and zstd level 3 to recompress only cold pages '
+					'that still occupy at least 3000 bytes. Device size, swap priority, and other settings use zram-generator defaults.'
 				)
 				+ '\n',
 				allow_skip=True,
