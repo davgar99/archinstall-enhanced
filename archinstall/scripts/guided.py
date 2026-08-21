@@ -157,11 +157,14 @@ def perform_installation(
 		if app_config := config.app_config:
 			application_handler.install_applications(installation, app_config)
 
-		if gaming_config := config.gaming_config:
-			gaming_handler.install_gaming(installation, gaming_config, users)
-
+		# Install the selected desktop/graphics profile before gaming packages.
+		# Steam depends on virtual Vulkan providers, so having the chosen GPU
+		# driver installed first avoids ambiguous provider selection in pacman.
 		if profile_config := config.profile_config:
 			profile_handler.install_profile_config(installation, profile_config)
+
+		if gaming_config := config.gaming_config:
+			gaming_handler.install_gaming(installation, gaming_config, users)
 
 		if config.packages and config.packages[0] != '':
 			installation.add_additional_packages(config.packages)
