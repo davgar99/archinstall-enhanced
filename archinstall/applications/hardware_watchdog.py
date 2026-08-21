@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, ClassVar
 
+from archinstall.lib.exceptions import RequirementError
 from archinstall.lib.hardware import CPUVendor, SysInfo
 from archinstall.lib.log import debug, warn
 from archinstall.lib.models.gaming import GamingConfiguration
@@ -37,4 +38,5 @@ class HardwareWatchdogApp:
 		# The blacklist must be in place before the initramfs is (re)built, otherwise a
 		# watchdog module already pulled in by mkinitcpio's autodetect hook would still
 		# load at early boot despite the blacklist now present on disk.
-		install_session.mkinitcpio(['-P'])
+		if not install_session.mkinitcpio(['-P']):
+			raise RequirementError('Failed to rebuild initramfs after disabling hardware watchdog')

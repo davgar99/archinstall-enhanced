@@ -71,6 +71,7 @@ class GamingConfigSerialization(TypedDict):
 	mangohud: NotRequired[bool]
 	gamescope: NotRequired[bool]
 	disable_watchdog: NotRequired[bool]
+	increase_vm_max_map_count: NotRequired[bool]
 
 
 @dataclass
@@ -105,6 +106,7 @@ class GamingConfiguration(SubConfig):
 	mangohud: bool | None = None
 	gamescope: bool | None = None
 	disable_watchdog: bool | None = None
+	increase_vm_max_map_count: bool | None = None
 
 	@classmethod
 	def parse_arg(cls, arg: GamingConfigSerialization) -> Self:
@@ -127,6 +129,9 @@ class GamingConfiguration(SubConfig):
 
 		if 'disable_watchdog' in arg:
 			config.disable_watchdog = arg['disable_watchdog']
+
+		if 'increase_vm_max_map_count' in arg:
+			config.increase_vm_max_map_count = arg['increase_vm_max_map_count']
 
 		return config
 
@@ -155,6 +160,9 @@ class GamingConfiguration(SubConfig):
 		if self.disable_watchdog is not None:
 			config['disable_watchdog'] = self.disable_watchdog
 
+		if self.increase_vm_max_map_count is not None:
+			config['increase_vm_max_map_count'] = self.increase_vm_max_map_count
+
 		return config
 
 	@override
@@ -169,6 +177,7 @@ class GamingConfiguration(SubConfig):
 			out.append(f'{tr("NTSYNC")}: {status}')
 
 		for label, enabled in (
+			('SteamOS vm.max_map_count compatibility', self.increase_vm_max_map_count),
 			('GameMode', self.gamemode),
 			('MangoHud', self.mangohud),
 			('Gamescope', self.gamescope),

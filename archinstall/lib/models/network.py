@@ -243,7 +243,7 @@ class WifiConfiguredNetwork:
 						flags=flags,
 					)
 				)
-			except ValueError, IndexError:
+			except (ValueError, IndexError):
 				debug('Parsing error for network output')
 
 		return networks
