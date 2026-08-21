@@ -14,6 +14,12 @@ class GamingToolsApp:
 	def packages(self, gaming_config: GamingConfiguration) -> list[str]:
 		packages: list[str] = []
 
+		if gaming_config.steam:
+			packages.append('steam')
+
+		if gaming_config.protontricks:
+			packages.append('protontricks')
+
 		if gaming_config.gamemode:
 			packages.extend(['gamemode', 'lib32-gamemode'])
 
