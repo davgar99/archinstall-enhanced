@@ -73,6 +73,9 @@ class GamingConfigSerialization(TypedDict):
 	disable_watchdog: NotRequired[bool]
 	increase_vm_max_map_count: NotRequired[bool]
 	increase_shader_cache: NotRequired[bool]
+	install_32bit_graphics: NotRequired[bool]
+	install_opencl: NotRequired[bool]
+	disable_playstation_touchpad: NotRequired[bool]
 
 
 @dataclass
@@ -109,6 +112,9 @@ class GamingConfiguration(SubConfig):
 	disable_watchdog: bool | None = None
 	increase_vm_max_map_count: bool | None = None
 	increase_shader_cache: bool | None = None
+	install_32bit_graphics: bool | None = True
+	install_opencl: bool | None = None
+	disable_playstation_touchpad: bool | None = None
 
 	@classmethod
 	def parse_arg(cls, arg: GamingConfigSerialization) -> Self:
@@ -138,10 +144,19 @@ class GamingConfiguration(SubConfig):
 		if 'increase_shader_cache' in arg:
 			config.increase_shader_cache = arg['increase_shader_cache']
 
+		if 'install_32bit_graphics' in arg:
+			config.install_32bit_graphics = arg['install_32bit_graphics']
+
+		if 'install_opencl' in arg:
+			config.install_opencl = arg['install_opencl']
+
+		if 'disable_playstation_touchpad' in arg:
+			config.disable_playstation_touchpad = arg['disable_playstation_touchpad']
+
 		return config
 
 	def requires_multilib(self) -> bool:
-		return self.gamemode is True or self.mangohud is True
+		return self.install_32bit_graphics is True or self.gamemode is True or self.mangohud is True
 
 	@override
 	def json(self) -> GamingConfigSerialization:
@@ -171,6 +186,15 @@ class GamingConfiguration(SubConfig):
 		if self.increase_shader_cache is not None:
 			config['increase_shader_cache'] = self.increase_shader_cache
 
+		if self.install_32bit_graphics is not None:
+			config['install_32bit_graphics'] = self.install_32bit_graphics
+
+		if self.install_opencl is not None:
+			config['install_opencl'] = self.install_opencl
+
+		if self.disable_playstation_touchpad is not None:
+			config['disable_playstation_touchpad'] = self.disable_playstation_touchpad
+
 		return config
 
 	@override
@@ -185,12 +209,15 @@ class GamingConfiguration(SubConfig):
 			out.append(f'{tr("NTSYNC")}: {status}')
 
 		for label, enabled in (
+			('Install 32-bit graphics libraries', self.install_32bit_graphics),
+			('Install OpenCL support', self.install_opencl),
 			('Increase vm.max_map_count', self.increase_vm_max_map_count),
 			('Increase shader cache size', self.increase_shader_cache),
 			('GameMode', self.gamemode),
 			('MangoHud', self.mangohud),
 			('Gamescope', self.gamescope),
 			('Disable hardware watchdog', self.disable_watchdog),
+			('Disable PlayStation controller touchpads as a mouse', self.disable_playstation_touchpad),
 		):
 			if enabled is not None:
 				status = tr('Enabled') if enabled else tr('Disabled')

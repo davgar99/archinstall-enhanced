@@ -9,14 +9,14 @@ from archinstall.lib.models.application import ZramAlgorithm, ZramConfiguration
 def test_zram_configuration_roundtrip() -> None:
 	config = ZramConfiguration(
 		enabled=True,
-		algorithm=ZramAlgorithm.ZSTD,
+		algorithm=ZramAlgorithm.BALANCED,
 		swappiness_tweaks=True,
 	)
 	serialized = config.json()
 
 	assert serialized == {
 		'enabled': True,
-		'algorithm': 'zstd',
+		'algorithm': 'lzo-rle zstd(level=3) (type=idle)',
 		'swappiness_tweaks': True,
 	}
 	assert ZramConfiguration.parse_arg(serialized) == config
@@ -28,7 +28,7 @@ def test_zram_configuration_roundtrip() -> None:
 
 def test_zram_configuration_parses_legacy_config() -> None:
 	config_bool = ZramConfiguration.parse_arg(True)
-	assert config_bool == ZramConfiguration(enabled=True, algorithm=ZramAlgorithm.ZSTD, swappiness_tweaks=False)
+	assert config_bool == ZramConfiguration(enabled=True, algorithm=ZramAlgorithm.BALANCED, swappiness_tweaks=False)
 
 	config_dict = ZramConfiguration.parse_arg({'enabled': True, 'algorithm': 'lz4'})
 	assert config_dict == ZramConfiguration(enabled=True, algorithm=ZramAlgorithm.LZ4, swappiness_tweaks=False)
@@ -38,10 +38,10 @@ def test_zram_configuration_summary() -> None:
 	config_disabled = ZramConfiguration(enabled=False)
 	assert 'Disabled' in config_disabled.summary()[0]
 
-	config_enabled = ZramConfiguration(enabled=True, algorithm=ZramAlgorithm.ZSTD, swappiness_tweaks=True)
+	config_enabled = ZramConfiguration(enabled=True, algorithm=ZramAlgorithm.BALANCED, swappiness_tweaks=True)
 	summary = config_enabled.summary()
 	assert len(summary) == 3
-	assert 'zstd' in summary[1]
+	assert 'lzo-rle zstd(level=3) (type=idle)' in summary[1]
 	assert 'Enabled' in summary[2]
 
 
@@ -52,15 +52,15 @@ def test_setup_swap_with_swappiness_tweaks(tmp_path: Path) -> None:
 
 	Installer.setup_swap(
 		installer,
-		algo=ZramAlgorithm.ZSTD,
+		algo=ZramAlgorithm.BALANCED,
 		swappiness_tweaks=True,
 	)
 
 	installer.pacman.strap.assert_called_once_with('zram-generator')
-	installer.enable_service.assert_called_once_with('systemd-zram-setup@zram0.service')
+	installer.enable_service.assert_not_called()
 
 	zram_conf = tmp_path / 'etc/systemd/zram-generator.conf'
-	assert zram_conf.read_text() == '[zram0]\ncompression-algorithm = zstd\n'
+	assert zram_conf.read_text() == '[zram0]\ncompression-algorithm = lzo-rle zstd(level=3) (type=idle)\n'
 
 	sysctl_conf = tmp_path / 'etc/sysctl.d/99-vm-zram-parameters.conf'
 	assert sysctl_conf.exists()

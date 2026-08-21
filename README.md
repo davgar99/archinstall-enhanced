@@ -62,6 +62,11 @@ The guided installer includes a **Gaming** section with optional support for:
 - GameMode
 - MangoHud
 - Gamescope
+- an optional larger Mesa and NVIDIA shader cache based on CachyOS guidance
+- an optional SteamOS-style `vm.max_map_count` increase with a compatibility warning
+- 32-bit OpenGL and Vulkan libraries matched to the selected graphics driver
+- optional vendor-matched OpenCL compute support
+- an option to prevent DualShock 4 and DualSense touchpads from controlling the desktop pointer
 - optional AMD and Intel hardware watchdog configuration for advanced users
 
 Stable and experimental sched-ext schedulers are separated so users can tell which options are considered more mature.
@@ -75,11 +80,23 @@ Multilib is enabled automatically only when a selected feature requires a 32-bit
 
 If none of the selected options require Multilib, the installer does not enable it unnecessarily.
 
+When 32-bit graphics support is enabled, the installer selects the appropriate Mesa, Vulkan, or NVIDIA Multilib packages for the graphics driver chosen in the desktop profile. These libraries are commonly needed by Steam, Wine, Proton, and older games.
+
+OpenCL remains a separate opt-in setting because most games do not require it. Mesa Rusticl is used for AMD and Nouveau, Intel Compute Runtime is used for Intel, and the NVIDIA OpenCL runtime is used with NVIDIA's open kernel module. Diagnostic tools and the vendor-neutral ICD loader are installed with the runtime.
+
+The PlayStation controller option installs documented libinput udev rules for DualShock 4 and DualSense touchpads. It prevents the touchpads from moving the desktop pointer without disabling direct controller access in games.
+
+The shader-cache option writes a system-wide configuration with a 12 GB limit for both Mesa and NVIDIA. A larger cache can reduce shader recompilation and related stutter, but it can also use more disk space, so it remains optional.
+
+The `vm.max_map_count` option uses the SteamOS value. The installer explains that the normal Arch Linux default is sufficient for most users and warns about the older core-dump tools that the Arch Wiki identifies as potentially incompatible with unusually high values.
+
 ### Zram
 
 Swap-on-zram can be configured directly through the installer.
 
-The fork also provides optional virtual memory tuning for users who want to adjust the system around zram.
+The fork also provides optional virtual memory tuning for users who want to prioritize compressed RAM over slower disk swap. The installer explains the selected compression algorithm, swappiness behavior, read-ahead adjustment, and the tradeoff between memory pressure and responsiveness.
+
+Zram sizing, swap priority, and other device settings use `zram-generator` defaults. The recommended balanced compression setting uses `lzo-rle` for fast initial compression and, when the kernel supports recompression, zstd level 3 for idle pages.
 
 These settings are not silently applied. The additional tuning can be enabled or disabled independently, and the selected configuration is saved along with the rest of the Archinstall configuration.
 
@@ -103,6 +120,20 @@ The installer does not automatically install every optional component.
 
 If a feature is not selected, the packages and services associated with that feature are left out.
 
+When the installer detects that it is running specifically inside a VirtualBox guest, it installs `virtualbox-guest-utils`, enables `vboxservice.service`, and adds configured users to the `vboxsf` group for shared-folder access. This detection does not run for KVM, QEMU, VMware, or physical installations.
+
+### Networking and DNS caching
+
+NetworkManager installations can optionally use a local DNS cache:
+
+- `systemd-resolved` uses its `127.0.0.53` local stub, enables caching, and receives per-connection DNS information from NetworkManager.
+- `dnsmasq` runs as NetworkManager's local caching resolver with a larger cache.
+- DNS caching can be left disabled to retain NetworkManager's default resolver behavior.
+
+A local DNS cache can make repeated lookups, application connections, and the startup of downloads feel faster. It does not increase sustained download bandwidth.
+
+Printer discovery adapts to the selected resolver. With `systemd-resolved`, Avahi handles printer advertisement while resolved handles and caches mDNS lookups without installing a competing NSS mDNS resolver. The default and `dnsmasq` paths continue to use `nss-mdns` for `.local` name resolution.
+
 ### Pacman configuration
 
 Additional Pacman settings are exposed through the guided installer.
@@ -122,12 +153,15 @@ The fork includes several smaller improvements to the guided installation experi
 These include:
 
 - combined timezone and automatic NTP configuration
+- enabling `systemd-timesyncd.service` and `systemd-time-wait-sync.service` when NTP is selected
 - consistent `Setting: Value` configuration summaries
 - consistent `Enabled` and `Disabled` status formatting
 - configuration persistence for the additional menus introduced by the fork
 - proper console font restoration when changing installer languages
 - improved handling of HiDPI console font configurations
 - better network printer and mDNS configuration handling
+- automatic VirtualBox guest integration when VirtualBox is positively detected
+- clearer descriptions for sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, zram, Pacman, watchdog, and networking options
 
 The goal of these changes is to make the installer easier to use without changing the overall Archinstall workflow.
 

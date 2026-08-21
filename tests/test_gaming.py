@@ -6,11 +6,13 @@ from pytest import MonkeyPatch
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
 from archinstall.applications.gaming_compatibility import GamingCompatibilityApp
 from archinstall.applications.gaming_tools import GamingToolsApp
+from archinstall.applications.graphics_extras import GraphicsExtrasApp
 from archinstall.applications.hardware_watchdog import HardwareWatchdogApp
 from archinstall.applications.ntsync import NTSyncApp
+from archinstall.applications.playstation_controller import PlayStationControllerApp
 from archinstall.lib.args import ArchConfig, ArchConfigType, Arguments
 from archinstall.lib.gaming.gaming_menu import GamingMenu
-from archinstall.lib.hardware import CPUVendor, SysInfo
+from archinstall.lib.hardware import CPUVendor, GfxDriver, SysInfo
 from archinstall.lib.models.gaming import (
 	CPU_SCHEDULER_STABILITY,
 	CPUScheduler,
@@ -78,6 +80,9 @@ def test_gaming_configuration_roundtrip() -> None:
 		disable_watchdog=True,
 		increase_vm_max_map_count=True,
 		increase_shader_cache=True,
+		install_32bit_graphics=True,
+		install_opencl=True,
+		disable_playstation_touchpad=True,
 	)
 	serialized = gaming_config.json()
 
@@ -90,6 +95,9 @@ def test_gaming_configuration_roundtrip() -> None:
 		'disable_watchdog': True,
 		'increase_vm_max_map_count': True,
 		'increase_shader_cache': True,
+		'install_32bit_graphics': True,
+		'install_opencl': True,
+		'disable_playstation_touchpad': True,
 	}
 	assert GamingConfiguration.parse_arg(serialized) == gaming_config
 
@@ -101,11 +109,12 @@ def test_gaming_configuration_roundtrip() -> None:
 def test_gaming_multilib_requirement() -> None:
 	assert GamingConfiguration(gamemode=True).requires_multilib()
 	assert GamingConfiguration(mangohud=True).requires_multilib()
-	assert not GamingConfiguration(increase_vm_max_map_count=True).requires_multilib()
-	assert not GamingConfiguration(gamescope=True).requires_multilib()
-	assert not GamingConfiguration(ntsync_config=NTSyncConfiguration(enabled=True)).requires_multilib()
-	assert not GamingConfiguration(disable_watchdog=True).requires_multilib()
-	assert not GamingConfiguration(increase_shader_cache=True).requires_multilib()
+	assert GamingConfiguration(install_32bit_graphics=True).requires_multilib()
+	assert not GamingConfiguration(install_32bit_graphics=False, increase_vm_max_map_count=True).requires_multilib()
+	assert not GamingConfiguration(install_32bit_graphics=False, gamescope=True).requires_multilib()
+	assert not GamingConfiguration(install_32bit_graphics=False, ntsync_config=NTSyncConfiguration(enabled=True)).requires_multilib()
+	assert not GamingConfiguration(install_32bit_graphics=False, disable_watchdog=True).requires_multilib()
+	assert not GamingConfiguration(install_32bit_graphics=False, increase_shader_cache=True).requires_multilib()
 
 
 def test_stable_gaming_compatibility_option_available() -> None:
@@ -223,6 +232,79 @@ def test_shader_cache_limit(tmp_path: Path) -> None:
 	assert (tmp_path / 'etc/environment.d/90-gaming-shader-cache.conf').read_text() == (
 		'# Allow Mesa and Nvidia to retain larger shader caches for games.\nMESA_SHADER_CACHE_MAX_SIZE=12G\n__GL_SHADER_DISK_CACHE_SIZE=12000000000\n'
 	)
+
+
+@pytest.mark.parametrize(
+	('driver', 'expected'),
+	[
+		(GfxDriver.AmdOpenSource, ['lib32-mesa', 'lib32-vulkan-radeon', 'lib32-vulkan-icd-loader']),
+		(GfxDriver.IntelOpenSource, ['lib32-mesa', 'lib32-vulkan-intel', 'lib32-vulkan-icd-loader']),
+		(GfxDriver.NvidiaOpenKernel, ['lib32-nvidia-utils', 'lib32-vulkan-icd-loader']),
+	],
+)
+def test_32bit_graphics_packages(driver: GfxDriver, expected: list[str]) -> None:
+	config = GamingConfiguration(install_32bit_graphics=True)
+
+	assert GraphicsExtrasApp().packages(config, driver) == expected
+
+
+@pytest.mark.parametrize(
+	('driver', 'runtime'),
+	[
+		(GfxDriver.AmdOpenSource, 'opencl-mesa'),
+		(GfxDriver.IntelOpenSource, 'intel-compute-runtime'),
+		(GfxDriver.NvidiaOpenKernel, 'opencl-nvidia'),
+	],
+)
+def test_opencl_runtime_matches_graphics_driver(driver: GfxDriver, runtime: str) -> None:
+	config = GamingConfiguration(install_32bit_graphics=False, install_opencl=True)
+
+	packages = GraphicsExtrasApp().packages(config, driver)
+
+	assert runtime in packages
+	assert 'ocl-icd' in packages
+	assert 'clinfo' in packages
+
+
+def test_opencl_multilib_matches_nvidia_driver() -> None:
+	config = GamingConfiguration(install_32bit_graphics=True, install_opencl=True)
+
+	packages = GraphicsExtrasApp().packages(config, GfxDriver.NvidiaOpenKernel)
+
+	assert 'lib32-nvidia-utils' in packages
+	assert 'opencl-nvidia' in packages
+	assert 'lib32-opencl-nvidia' in packages
+
+
+def test_mesa_opencl_enables_selected_rusticl_driver(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	config = GamingConfiguration(install_32bit_graphics=False, install_opencl=True)
+
+	GraphicsExtrasApp().install(installer, config, GfxDriver.AmdOpenSource)  # type: ignore[arg-type]
+
+	assert (tmp_path / 'etc/environment.d/90-opencl.conf').read_text() == ('# Enable Mesa Rusticl for the selected graphics driver.\nRUSTICL_ENABLE=radeonsi\n')
+
+
+def test_playstation_touchpad_rule(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+
+	PlayStationControllerApp().install(
+		installer,  # type: ignore[arg-type]
+		GamingConfiguration(disable_playstation_touchpad=True),
+	)
+
+	rules = (tmp_path / 'etc/udev/rules.d/72-playstation-controller-touchpads.rules').read_text()
+	assert 'Sony Interactive Entertainment Wireless Controller Touchpad' in rules
+	assert 'Sony Interactive Entertainment DualSense Wireless Controller Touchpad' in rules
+	assert rules.count('ENV{LIBINPUT_IGNORE_DEVICE}="1"') == 4
+
+
+def test_playstation_touchpad_rule_is_opt_in(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+
+	PlayStationControllerApp().install(installer, GamingConfiguration(disable_playstation_touchpad=False))  # type: ignore[arg-type]
+
+	assert not (tmp_path / 'etc/udev/rules.d/72-playstation-controller-touchpads.rules').exists()
 
 
 def test_vm_max_map_count_compatibility_tweak(tmp_path: Path) -> None:
