@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, cast, override
 
 import pytest
 
@@ -22,6 +23,7 @@ class FakeInstaller:
 
 
 class FailingInstaller(FakeInstaller):
+	@override
 	def arch_chroot(self, command: str, run_as: str | None = None, peek_output: bool = False) -> None:
 		super().arch_chroot(command, run_as, peek_output)
 		raise RuntimeError('AUR build failed')
@@ -31,7 +33,8 @@ def test_aur_helper_configuration_roundtrip() -> None:
 	config = ApplicationConfiguration(aur_helper_config=AurHelperConfiguration(AurHelper.PARU))
 
 	assert config.json()['aur_helper_config'] == {'aur_helper': 'paru'}
-	assert ApplicationConfiguration.parse_arg(config.json()) == config
+	serialized = cast(dict[str, Any], config.json())
+	assert ApplicationConfiguration.parse_arg(serialized) == config
 	assert 'AUR helper: paru' in config.summary()
 
 
