@@ -8,3 +8,10 @@ def test_profile_summary_includes_selected_desktop() -> None:
 	config = ProfileConfiguration(profile=desktop)
 
 	assert config.summary() == ['Desktop', 'Plasma']
+
+
+def test_profile_summary_includes_opencl_selection() -> None:
+	desktop = Profile('Desktop', ProfileType.Desktop)
+	config = ProfileConfiguration(profile=desktop, install_opencl=True)
+
+	assert config.summary() == ['Desktop', 'OpenCL support: Enabled']

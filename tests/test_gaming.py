@@ -81,7 +81,6 @@ def test_gaming_configuration_roundtrip() -> None:
 		increase_vm_max_map_count=True,
 		increase_shader_cache=True,
 		install_32bit_graphics=True,
-		install_opencl=True,
 		disable_playstation_touchpad=True,
 	)
 	serialized = gaming_config.json()
@@ -96,7 +95,6 @@ def test_gaming_configuration_roundtrip() -> None:
 		'increase_vm_max_map_count': True,
 		'increase_shader_cache': True,
 		'install_32bit_graphics': True,
-		'install_opencl': True,
 		'disable_playstation_touchpad': True,
 	}
 	assert GamingConfiguration.parse_arg(serialized) == gaming_config
@@ -243,9 +241,7 @@ def test_shader_cache_limit(tmp_path: Path) -> None:
 	],
 )
 def test_32bit_graphics_packages(driver: GfxDriver, expected: list[str]) -> None:
-	config = GamingConfiguration(install_32bit_graphics=True)
-
-	assert GraphicsExtrasApp().packages(config, driver) == expected
+	assert GraphicsExtrasApp().packages(True, False, driver) == expected
 
 
 @pytest.mark.parametrize(
@@ -257,9 +253,7 @@ def test_32bit_graphics_packages(driver: GfxDriver, expected: list[str]) -> None
 	],
 )
 def test_opencl_runtime_matches_graphics_driver(driver: GfxDriver, runtime: str) -> None:
-	config = GamingConfiguration(install_32bit_graphics=False, install_opencl=True)
-
-	packages = GraphicsExtrasApp().packages(config, driver)
+	packages = GraphicsExtrasApp().packages(False, True, driver)
 
 	assert runtime in packages
 	assert 'ocl-icd' in packages
@@ -267,9 +261,7 @@ def test_opencl_runtime_matches_graphics_driver(driver: GfxDriver, runtime: str)
 
 
 def test_opencl_multilib_matches_nvidia_driver() -> None:
-	config = GamingConfiguration(install_32bit_graphics=True, install_opencl=True)
-
-	packages = GraphicsExtrasApp().packages(config, GfxDriver.NvidiaOpenKernel)
+	packages = GraphicsExtrasApp().packages(True, True, GfxDriver.NvidiaOpenKernel)
 
 	assert 'lib32-nvidia-utils' in packages
 	assert 'opencl-nvidia' in packages
@@ -278,9 +270,8 @@ def test_opencl_multilib_matches_nvidia_driver() -> None:
 
 def test_mesa_opencl_enables_selected_rusticl_driver(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
-	config = GamingConfiguration(install_32bit_graphics=False, install_opencl=True)
 
-	GraphicsExtrasApp().install(installer, config, GfxDriver.AmdOpenSource)  # type: ignore[arg-type]
+	GraphicsExtrasApp().install(installer, False, True, GfxDriver.AmdOpenSource)  # type: ignore[arg-type]
 
 	assert (tmp_path / 'etc/environment.d/90-opencl.conf').read_text() == ('# Enable Mesa Rusticl for the selected graphics driver.\nRUSTICL_ENABLE=radeonsi\n')
 

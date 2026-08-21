@@ -19,18 +19,12 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 		self._gaming_config = preset if preset else GamingConfiguration()
 		self._item_group = MenuItemGroup(
 			[
-				MenuItem(text=tr('Graphics compatibility and compute'), read_only=True),
+				MenuItem(text=tr('Graphics compatibility'), read_only=True),
 				MenuItem(
 					text=tr('Install 32-bit graphics libraries'),
 					action=select_32bit_graphics,
 					preview_action=self._prev_toggle,
 					key='install_32bit_graphics',
-				),
-				MenuItem(
-					text=tr('Install OpenCL support'),
-					action=select_opencl,
-					preview_action=self._prev_toggle,
-					key='install_opencl',
 				),
 				MenuItem(text=tr('Compatibility and performance'), read_only=True),
 				MenuItem(
@@ -235,16 +229,6 @@ async def select_32bit_graphics(preset: bool | None = None) -> bool | None:
 			'This enables the Multilib repository and uses additional disk space.'
 		),
 		True if preset is None else preset,
-	)
-
-
-async def select_opencl(preset: bool | None = None) -> bool | None:
-	return await _select_toggle(
-		tr(
-			'Install OpenCL compute support for the selected GPU? Applications such as Blender, Darktable, and scientific tools can '
-			'use it for GPU computation. Most games do not require OpenCL.'
-		),
-		preset,
 	)
 
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Self, TypedDict, override
+from typing import TYPE_CHECKING, NotRequired, Self, TypedDict, override
 
 from archinstall.default_profiles.profile import GreeterType, Profile
 from archinstall.lib.hardware import GfxDriver
@@ -14,6 +14,7 @@ class _ProfileConfigurationSerialization(TypedDict):
 	profile: ProfileSerialization
 	gfx_driver: str | None
 	greeter: str | None
+	install_opencl: NotRequired[bool | None]
 
 
 @dataclass
@@ -21,16 +22,20 @@ class ProfileConfiguration(SubConfig):
 	profile: Profile | None = None
 	gfx_driver: GfxDriver | None = None
 	greeter: GreeterType | None = None
+	install_opencl: bool | None = None
 
 	@override
 	def json(self) -> _ProfileConfigurationSerialization:
 		from archinstall.lib.profile.profiles_handler import profile_handler
 
-		return {
+		config: _ProfileConfigurationSerialization = {
 			'profile': profile_handler.to_json(self.profile),
 			'gfx_driver': self.gfx_driver.value if self.gfx_driver else None,
 			'greeter': self.greeter.value if self.greeter else None,
 		}
+		if self.install_opencl is not None:
+			config['install_opencl'] = self.install_opencl
+		return config
 
 	@override
 	def summary(self) -> list[str] | None:
@@ -45,6 +50,10 @@ class ProfileConfiguration(SubConfig):
 
 			if self.greeter:
 				out.append(tr('{} greeter').format(self.greeter.value))
+
+			if self.install_opencl is not None:
+				status = tr('Enabled') if self.install_opencl else tr('Disabled')
+				out.append(f'{tr("OpenCL support")}: {status}')
 
 			return out
 
@@ -68,4 +77,5 @@ class ProfileConfiguration(SubConfig):
 			profile,
 			GfxDriver(gfx_driver) if gfx_driver else None,
 			GreeterType(greeter) if greeter else None,
+			arg.get('install_opencl'),
 		)

@@ -2,35 +2,34 @@ from typing import TYPE_CHECKING
 
 from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.log import debug, warn
-from archinstall.lib.models.gaming import GamingConfiguration
 
 if TYPE_CHECKING:
 	from archinstall.lib.installer import Installer
 
 
 class GraphicsExtrasApp:
-	def packages(self, config: GamingConfiguration, driver: GfxDriver | None) -> list[str]:
+	def packages(self, install_32bit: bool, install_opencl: bool, driver: GfxDriver | None) -> list[str]:
 		if driver is None:
 			return []
 
 		packages: list[str] = []
-		if config.install_32bit_graphics:
+		if install_32bit:
 			packages.extend(self._multilib_packages(driver))
-		if config.install_opencl:
-			packages.extend(self._opencl_packages(driver, config.install_32bit_graphics is True))
+		if install_opencl:
+			packages.extend(self._opencl_packages(driver, install_32bit))
 		return list(dict.fromkeys(packages))
 
-	def install(self, install_session: Installer, config: GamingConfiguration, driver: GfxDriver | None) -> None:
-		if driver is None and (config.install_32bit_graphics or config.install_opencl):
+	def install(self, install_session: Installer, install_32bit: bool, install_opencl: bool, driver: GfxDriver | None) -> None:
+		if driver is None and (install_32bit or install_opencl):
 			warn('Skipping graphics extras because no graphics driver was selected')
 			return
 
-		packages = self.packages(config, driver)
+		packages = self.packages(install_32bit, install_opencl, driver)
 		if packages:
 			debug(f'Installing graphics compatibility and compute packages: {packages}')
 			install_session.add_additional_packages(packages)
 
-		if config.install_opencl and driver in (GfxDriver.AllOpenSource, GfxDriver.AmdOpenSource, GfxDriver.NvidiaOpenSource):
+		if install_opencl and driver in (GfxDriver.AllOpenSource, GfxDriver.AmdOpenSource, GfxDriver.NvidiaOpenSource):
 			drivers = {
 				GfxDriver.AllOpenSource: 'radeonsi,iris,nouveau',
 				GfxDriver.AmdOpenSource: 'radeonsi',
