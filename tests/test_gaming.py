@@ -106,7 +106,9 @@ def test_gaming_multilib_requirement() -> None:
 
 
 def test_stable_gaming_compatibility_option_available() -> None:
-	assert GamingMenu(advanced=False)._item_group.find_by_key('increase_vm_max_map_count').enabled
+	item = GamingMenu(advanced=False)._item_group.find_by_key('increase_vm_max_map_count')
+	assert item.enabled
+	assert item.text == 'Increase vm.max_map_count'
 
 
 def test_hardware_watchdog_modules() -> None:
