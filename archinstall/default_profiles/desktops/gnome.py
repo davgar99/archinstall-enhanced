@@ -22,11 +22,7 @@ class GnomeFlavor(StrEnum):
 	def description(self) -> str:
 		match self:
 			case GnomeFlavor.Full:
-				return tr(
-					'Installs the full gnome package group.\n'
-					'Includes all GNOME apps such as Maps, Contacts,\n'
-					'Characters, Calendar, Weather, and more.'
-				)
+				return tr('Installs the full gnome package group.\nIncludes all GNOME apps such as Maps, Contacts,\nCharacters, Calendar, Weather, and more.')
 			case GnomeFlavor.Minimal:
 				return tr(
 					'Installs a minimal GNOME environment.\n'
@@ -76,7 +72,7 @@ class GnomeProfile(Profile):
 			return GnomeFlavor.Minimal
 		try:
 			return GnomeFlavor(flavor)
-		except (TypeError, ValueError):
+		except TypeError, ValueError:
 			# Persisted configurations can outlive flavor names. Fall back to the
 			# current recommended option instead of aborting profile loading.
 			return GnomeFlavor.Minimal

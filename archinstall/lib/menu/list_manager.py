@@ -79,9 +79,9 @@ class ListManager[ValueT]:
 				case _:
 					raise ValueError('Unhandled return type')
 
-			if value in self._base_actions:
+			if isinstance(value, str) and value in self._base_actions:
 				self._data = await self.handle_action(value, None, self._data)
-			elif value in self._terminate_actions:
+			elif isinstance(value, str) and value in self._terminate_actions:
 				break
 			else:  # an entry of the existing selection was chosen
 				selected_entry = result.get_value()

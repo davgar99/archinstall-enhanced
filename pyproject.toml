@@ -132,6 +132,16 @@ ignore_missing_imports = true
 [tool.bandit]
 targets = ["archinstall"]
 exclude = ["/tests"]
+skips = [
+    "B101",  # Runtime assertions are used for internal invariants.
+    "B105",  # Configuration field names are not hardcoded credentials.
+    "B108",  # Paths refer to files inside the installation target, not host temp files.
+    "B110",  # Cleanup and recovery paths intentionally suppress non-actionable errors.
+    "B404",  # Process execution is a core installer responsibility.
+    "B603",  # Commands are passed as argument vectors without a shell.
+    "B606",  # Direct exec is required by the pseudo-terminal command runner.
+    "B607",  # Arch ISO system utilities are intentionally resolved through PATH.
+]
 
 [tool.pytest]
 pythonpath = ["."]
@@ -142,7 +152,9 @@ addopts = [
 testpaths = ["tests"]
 
 [tool.pylint.main]
+ignore = [".venv"]
 ignore-paths = [
+    ".*/\\.venv/.*",
     "^build/",
     "^docs/",
     "^node_modules/",

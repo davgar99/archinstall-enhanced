@@ -82,10 +82,11 @@ class Boot:
 			Boot._active_boot = None
 		else:
 			session_exit_code = self.session.exit_code if self.session else -1
+			reported_exit_code = session_exit_code if session_exit_code else shutdown_exit_code
 
 			raise SysCallError(
 				f'Could not shut down temporary boot of {self.path!r}: {session_exit_code}/{shutdown_exit_code}',
-				exit_code=next(filter(bool, [session_exit_code, shutdown_exit_code])),
+				exit_code=reported_exit_code,
 			)
 
 	def __iter__(self) -> Iterator[bytes]:

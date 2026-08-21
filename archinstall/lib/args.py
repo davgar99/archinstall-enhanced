@@ -760,10 +760,11 @@ class ArchConfigHandler:
 		return json.loads(creds_data)
 
 	def _fetch_from_url(self, url: str) -> str:
-		if urllib.parse.urlparse(url).scheme:
+		if urllib.parse.urlparse(url).scheme in {'http', 'https'}:
 			try:
 				req = Request(url, headers={'User-Agent': 'ArchInstall'})
-				with urlopen(req) as resp:
+				# The URL scheme is restricted to HTTP(S) above.
+				with urlopen(req) as resp:  # nosec B310
 					return resp.read().decode('utf-8')
 			except urllib.error.HTTPError as err:
 				error(f'Could not fetch JSON from {url}: {err}')
