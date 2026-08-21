@@ -43,8 +43,7 @@ def test_virtualbox_graphics_preview_explains_detected_guest_integration(monkeyp
 
 	assert 'mesa' in preview
 	assert 'virtualbox-guest-utils' in preview
-	assert 'vboxservice.service' in preview
-	assert 'VirtualBox was detected' in preview
+	assert 'VirtualBox was detected' not in preview
 
 
 def test_virtualbox_graphics_preview_omits_guest_package_on_other_hypervisors(monkeypatch: MonkeyPatch) -> None:

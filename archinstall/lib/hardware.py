@@ -87,11 +87,7 @@ class GfxDriver(Enum):
 			text += f'    - {p}\n'
 
 		if self == GfxDriver.VMOpenSource:
-			if virtualbox_guest:
-				text += '\n' + tr(
-					'VirtualBox was detected. The installer also enables vboxservice.service and grants configured users access to shared folders.'
-				)
-			else:
+			if not virtualbox_guest:
 				text += '\n' + tr(
 					'VirtualBox was not detected, so Guest Additions will not be installed. This prevents VirtualBox '
 					'packages from being added to KVM, QEMU, VMware, or physical systems.'
