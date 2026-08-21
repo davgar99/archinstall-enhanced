@@ -1,0 +1,51 @@
+import shlex
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from archinstall.lib.log import debug
+from archinstall.lib.models.application import AurHelperConfiguration
+
+if TYPE_CHECKING:
+	from archinstall.lib.installer import Installer
+	from archinstall.lib.models.users import User
+
+
+class AurHelperApp:
+	def install(
+		self,
+		install_session: Installer,
+		config: AurHelperConfiguration,
+		users: list[User] | None,
+	) -> None:
+		if not users:
+			raise ValueError('An AUR helper requires a configured non-root user')
+
+		build_user = next((user for user in users if user.sudo), users[0])
+		username = build_user.username
+		helper = config.aur_helper.value
+		build_dir = f'/tmp/archinstall-{helper}'
+		sudoers_path = install_session.target / 'etc/sudoers.d/99-archinstall-aur-builder'
+
+		debug(f'Building and installing AUR helper {helper} as {username}')
+		install_session.add_additional_packages(['base-devel', 'git'])
+		self._write_temporary_sudoers(sudoers_path, username)
+
+		try:
+			install_session.arch_chroot(
+				f'git clone --depth=1 https://aur.archlinux.org/{helper}.git {shlex.quote(build_dir)}',
+				run_as=username,
+				peek_output=True,
+			)
+			install_session.arch_chroot(
+				f'cd {shlex.quote(build_dir)} && makepkg --syncdeps --install --needed --noconfirm',
+				run_as=username,
+				peek_output=True,
+			)
+		finally:
+			sudoers_path.unlink(missing_ok=True)
+
+	@staticmethod
+	def _write_temporary_sudoers(path: Path, username: str) -> None:
+		path.parent.mkdir(parents=True, exist_ok=True)
+		path.write_text(f'{username} ALL=(root) NOPASSWD: /usr/bin/pacman\n')
+		path.chmod(0o440)
