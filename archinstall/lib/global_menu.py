@@ -377,6 +377,10 @@ class GlobalMenu(AbstractMenu[None]):
 				output += f'{tr("Firewall")}: {firewall_config.firewall.value}'
 				output += '\n'
 
+			if app_config.aur_helper_config:
+				output += f'{tr("AUR helper")}: {app_config.aur_helper_config.aur_helper.value}'
+				output += '\n'
+
 			return output
 
 		return None

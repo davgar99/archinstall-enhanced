@@ -6,6 +6,8 @@ from archinstall.lib.models.application import (
 	ApplicationConfiguration,
 	Audio,
 	AudioConfiguration,
+	AurHelper,
+	AurHelperConfiguration,
 	BluetoothConfiguration,
 	Firewall,
 	FirewallConfiguration,
@@ -84,6 +86,13 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				preview_action=self._prev_fonts,
 				key='fonts_config',
 			),
+			MenuItem(
+				text=tr('AUR helper'),
+				action=select_aur_helper,
+				value=self._app_config.aur_helper_config,
+				preview_action=self._prev_aur_helper,
+				key='aur_helper_config',
+			),
 		]
 
 	def _prev_power_management(self, item: MenuItem) -> str | None:
@@ -128,6 +137,38 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 			packages = ', '.join(f.value for f in config.fonts)
 			return f'{tr("Additional fonts")}: {packages}'
 		return None
+
+	def _prev_aur_helper(self, item: MenuItem) -> str | None:
+		if item.value is not None:
+			config: AurHelperConfiguration = item.value
+			return f'{tr("AUR helper")}: {config.aur_helper.value}'
+		return None
+
+
+async def select_aur_helper(preset: AurHelperConfiguration | None = None) -> AurHelperConfiguration | None:
+	group = MenuItemGroup.from_enum(AurHelper, sort_items=False)
+	if preset:
+		group.set_focus_by_value(preset.aur_helper)
+
+	result = await Selection[AurHelper](
+		group,
+		header=tr(
+			'Warning: AUR packages are community-maintained and can execute arbitrary build scripts. '
+			'Review PKGBUILDs and install only software you trust. Select a helper to build and install it automatically.'
+		)
+		+ '\n',
+		allow_skip=True,
+		allow_reset=True,
+		preview_location='right',
+	).show()
+
+	match result.type_:
+		case ResultType.Skip:
+			return preset
+		case ResultType.Selection:
+			return AurHelperConfiguration(result.get_value())
+		case ResultType.Reset:
+			return None
 
 
 async def select_power_management(preset: PowerManagementConfiguration | None = None) -> PowerManagementConfiguration | None:
