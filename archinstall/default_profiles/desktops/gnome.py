@@ -74,7 +74,12 @@ class GnomeProfile(Profile):
 		flavor = self.custom_settings.get(CustomSetting.GnomeFlavor)
 		if flavor is None:
 			return GnomeFlavor.Minimal
-		return GnomeFlavor(flavor)
+		try:
+			return GnomeFlavor(flavor)
+		except (TypeError, ValueError):
+			# Persisted configurations can outlive flavor names. Fall back to the
+			# current recommended option instead of aborting profile loading.
+			return GnomeFlavor.Minimal
 
 	@property
 	@override

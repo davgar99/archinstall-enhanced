@@ -20,6 +20,12 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 		self._item_group = MenuItemGroup(
 			[
 				MenuItem(
+					text=tr('SteamOS vm.max_map_count compatibility'),
+					action=select_vm_max_map_count,
+					preview_action=self._prev_toggle,
+					key='increase_vm_max_map_count',
+				),
+				MenuItem(
 					text=tr('CPU scheduler'),
 					action=select_cpu_scheduler,
 					preview_action=self._prev_cpu_scheduler,
@@ -166,6 +172,16 @@ async def _select_toggle(header: str, preset: bool | None) -> bool | None:
 			raise ValueError('Unhandled result type')
 		case _:
 			assert_never(result.type_)
+
+
+async def select_vm_max_map_count(preset: bool | None = None) -> bool | None:
+	return await _select_toggle(
+		tr(
+			'Use the SteamOS-compatible vm.max_map_count value for memory-map-heavy games? '
+			'This is optional because current Arch defaults are sufficient for most games.'
+		),
+		preset,
+	)
 
 
 async def select_gamemode(preset: bool | None = None) -> bool | None:

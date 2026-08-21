@@ -1,6 +1,5 @@
 from typing import override
 
-from archinstall.lib.hardware import SysInfo
 from archinstall.lib.menu.abstract_menu import AbstractSubMenu
 from archinstall.lib.menu.helpers import Confirmation, Selection
 from archinstall.lib.models.application import (
@@ -70,7 +69,6 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				text=tr('Power management'),
 				action=select_power_management,
 				preview_action=self._prev_power_management,
-				enabled=SysInfo.has_battery(),
 				key='power_management_config',
 			),
 			MenuItem(

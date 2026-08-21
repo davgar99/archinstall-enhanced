@@ -4,6 +4,7 @@ import pytest
 from pytest import MonkeyPatch
 
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
+from archinstall.applications.gaming_compatibility import GamingCompatibilityApp
 from archinstall.applications.gaming_tools import GamingToolsApp
 from archinstall.applications.hardware_watchdog import HardwareWatchdogApp
 from archinstall.applications.ntsync import NTSyncApp
@@ -75,6 +76,7 @@ def test_gaming_configuration_roundtrip() -> None:
 		mangohud=False,
 		gamescope=True,
 		disable_watchdog=True,
+		increase_vm_max_map_count=True,
 	)
 	serialized = gaming_config.json()
 
@@ -85,6 +87,7 @@ def test_gaming_configuration_roundtrip() -> None:
 		'mangohud': False,
 		'gamescope': True,
 		'disable_watchdog': True,
+		'increase_vm_max_map_count': True,
 	}
 	assert GamingConfiguration.parse_arg(serialized) == gaming_config
 
@@ -96,9 +99,14 @@ def test_gaming_configuration_roundtrip() -> None:
 def test_gaming_multilib_requirement() -> None:
 	assert GamingConfiguration(gamemode=True).requires_multilib()
 	assert GamingConfiguration(mangohud=True).requires_multilib()
+	assert not GamingConfiguration(increase_vm_max_map_count=True).requires_multilib()
 	assert not GamingConfiguration(gamescope=True).requires_multilib()
 	assert not GamingConfiguration(ntsync_config=NTSyncConfiguration(enabled=True)).requires_multilib()
 	assert not GamingConfiguration(disable_watchdog=True).requires_multilib()
+
+
+def test_stable_gaming_compatibility_option_available() -> None:
+	assert GamingMenu(advanced=False)._item_group.find_by_key('increase_vm_max_map_count').enabled
 
 
 def test_hardware_watchdog_modules() -> None:
@@ -200,3 +208,28 @@ def test_gaming_tools_install(tmp_path: Path) -> None:
 		'gamescope',
 	]
 	assert installer.chroot_commands == ['usermod -aG gamemode david']
+
+
+def test_vm_max_map_count_compatibility_tweak(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+
+	GamingCompatibilityApp().install(
+		installer,  # type: ignore[arg-type]
+		GamingConfiguration(increase_vm_max_map_count=True),
+	)
+
+	assert (tmp_path / 'etc/sysctl.d/80-gamecompatibility.conf').read_text() == (
+		'# Improve compatibility for memory-map-heavy games under Wine/Proton.\n'
+		'# Matches the optional SteamOS-compatible value documented by ArchWiki.\n'
+		'vm.max_map_count = 2147483642\n'
+	)
+
+
+def test_vm_max_map_count_tweak_is_opt_in(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	app = GamingCompatibilityApp()
+
+	app.install(installer, GamingConfiguration(increase_vm_max_map_count=None))  # type: ignore[arg-type]
+	app.install(installer, GamingConfiguration(increase_vm_max_map_count=False))  # type: ignore[arg-type]
+
+	assert not (tmp_path / 'etc/sysctl.d/80-gamecompatibility.conf').exists()
