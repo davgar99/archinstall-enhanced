@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from enum import Enum
 from pathlib import Path
@@ -232,6 +233,10 @@ def share_install_log(
 	paste_url: str,
 	max_bytes: int | None = None,
 ) -> str | None:
+	if urllib.parse.urlparse(paste_url).scheme not in {'http', 'https'}:
+		info(f'Unsupported log upload URL: {paste_url}')
+		return None
+
 	log_path = logger.path
 
 	if not log_path.exists():
@@ -246,7 +251,8 @@ def share_install_log(
 
 	try:
 		req = urllib.request.Request(paste_url, data=content)
-		with urllib.request.urlopen(req) as response:
+		# The URL scheme is restricted to HTTP(S) above.
+		with urllib.request.urlopen(req) as response:  # nosec B310
 			url = response.read().decode().strip()
 	except urllib.error.URLError as e:
 		info(f'Upload failed: {e}')

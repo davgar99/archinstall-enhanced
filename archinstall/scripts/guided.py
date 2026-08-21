@@ -1,4 +1,4 @@
-import os
+import subprocess
 import sys
 import time
 
@@ -224,7 +224,7 @@ def perform_installation(
 	# Installer.__exit__() has now run, allowing the system to sync and the
 	# installation log to be copied to the target before rebooting.
 	if reboot_requested:
-		_ = os.system('reboot')  # type: ignore[deprecated]
+		subprocess.run(['reboot'], check=False)
 
 
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
