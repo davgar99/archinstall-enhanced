@@ -1027,7 +1027,7 @@ class Installer:
 
 	def setup_swap(
 		self,
-		algo: ZramAlgorithm = ZramAlgorithm.BALANCED,
+		algo: ZramAlgorithm = ZramAlgorithm.ZSTD,
 		swappiness_tweaks: bool = False,
 	) -> None:
 		info('Setting up swap on zram')
@@ -1037,7 +1037,7 @@ class Installer:
 
 		zram_conf = self.target / 'etc/systemd/zram-generator.conf'
 		zram_conf.parent.mkdir(parents=True, exist_ok=True)
-		zram_conf.write_text(f'[zram0]\ncompression-algorithm = {algo.value}\n')
+		zram_conf.write_text(f'[zram0]\ncompression-algorithm = {algo.generator_value()}\n')
 
 		sysctl_conf = self.target / 'etc/sysctl.d/99-vm-zram-parameters.conf'
 		if swappiness_tweaks:
