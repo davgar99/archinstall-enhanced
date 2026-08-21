@@ -177,7 +177,7 @@ class GamingConfiguration(SubConfig):
 			out.append(f'{tr("NTSYNC")}: {status}')
 
 		for label, enabled in (
-			('SteamOS vm.max_map_count compatibility', self.increase_vm_max_map_count),
+			('Increase vm.max_map_count', self.increase_vm_max_map_count),
 			('GameMode', self.gamemode),
 			('MangoHud', self.mangohud),
 			('Gamescope', self.gamescope),
