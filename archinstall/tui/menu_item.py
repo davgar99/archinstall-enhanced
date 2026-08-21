@@ -199,7 +199,9 @@ class MenuItemGroup:
 		return _STATUS_CONFIGURED_PREFIX if configured else _STATUS_MISSING_PREFIX
 
 	def _display_item(self, item: MenuItem) -> MenuItem:
-		return replace(item, text=self._status_prefix(item) + item.text)
+		new_item = replace(item, text=self._status_prefix(item) + item.text)
+		new_item._id = item.get_id()
+		return new_item
 
 	def get_enabled_items(self) -> list[MenuItem]:
 		items = [it for it in self.items if self.is_enabled(it)]

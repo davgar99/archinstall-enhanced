@@ -76,6 +76,18 @@ def test_status_rendering_preserves_focus_lookup() -> None:
 	assert group.get_focused_index() == 1
 
 
+def test_status_rendering_preserves_focus_lookup_for_keyless_item() -> None:
+	disk = MenuItem('Disk configuration', key='disk_config', mandatory=True)
+	separator = MenuItem('', read_only=True)
+	group = _global_menu_group(disk, separator)
+
+	first_pass = group.get_enabled_items()
+	group.focus_item = first_pass[1]
+
+	group.get_enabled_items()
+	assert group.get_focused_index() == 1
+
+
 def test_regular_submenus_are_unchanged() -> None:
 	optional = MenuItem('Plymouth', key='plymouth')
 	group = MenuItemGroup([optional])

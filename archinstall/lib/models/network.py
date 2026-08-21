@@ -265,7 +265,7 @@ class WifiConfiguredNetwork:
 						flags=flags,
 					)
 				)
-			except ValueError, IndexError:
+			except (ValueError, IndexError):  # fmt: skip
 				debug('Parsing error for network output')
 
 		return networks
