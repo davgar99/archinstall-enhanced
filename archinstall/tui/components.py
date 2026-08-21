@@ -56,6 +56,20 @@ def _translate_bindings(source: BindingsMap | None, target: BindingsMap) -> None
 
 
 class BaseScreen(Screen[Result[ValueT]]):
+	CSS = """
+	.header-text {
+		width: 1fr;
+		padding-left: 2;
+		padding-right: 2;
+	}
+
+	#preview_content {
+		width: 1fr;
+		height: auto;
+		padding: 1 2;
+	}
+	"""
+
 	BINDINGS: ClassVar = [
 		Binding('escape', 'cancel_operation', 'Cancel', show=True),
 		Binding('ctrl+c', 'reset_operation', 'Reset', show=True),

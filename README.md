@@ -65,7 +65,6 @@ The guided installer includes a **Gaming** section with optional support for:
 - an optional larger Mesa and NVIDIA shader cache based on CachyOS guidance
 - an optional SteamOS-style `vm.max_map_count` increase with a compatibility warning
 - 32-bit OpenGL and Vulkan libraries matched to the selected graphics driver
-- optional vendor-matched OpenCL compute support
 - an option to prevent DualShock 4 and DualSense touchpads from controlling the desktop pointer
 - optional AMD and Intel hardware watchdog configuration for advanced users
 
@@ -81,8 +80,6 @@ Multilib is enabled automatically only when a selected feature requires a 32-bit
 If none of the selected options require Multilib, the installer does not enable it unnecessarily.
 
 When 32-bit graphics support is enabled, the installer selects the appropriate Mesa, Vulkan, or NVIDIA Multilib packages for the graphics driver chosen in the desktop profile. These libraries are commonly needed by Steam, Wine, Proton, and older games.
-
-OpenCL remains a separate opt-in setting because most games do not require it. Mesa Rusticl is used for AMD and Nouveau, Intel Compute Runtime is used for Intel, and the NVIDIA OpenCL runtime is used with NVIDIA's open kernel module. Diagnostic tools and the vendor-neutral ICD loader are installed with the runtime.
 
 The PlayStation controller option installs documented libinput udev rules for DualShock 4 and DualSense touchpads. It prevents the touchpads from moving the desktop pointer without disabling direct controller access in games.
 
@@ -119,6 +116,8 @@ Examples include:
 The installer does not automatically install every optional component.
 
 If a feature is not selected, the packages and services associated with that feature are left out.
+
+OpenCL compute support is available as a separate opt-in setting beside the graphics-driver selection. Mesa Rusticl is used for AMD and Nouveau, Intel Compute Runtime is used for Intel, and the NVIDIA OpenCL runtime is used with NVIDIA's open kernel module. Diagnostic tools and the vendor-neutral ICD loader are installed with the runtime.
 
 When the installer detects that it is running specifically inside a VirtualBox guest, it installs `virtualbox-guest-utils`, enables `vboxservice.service`, and adds configured users to the `vboxsf` group for shared-folder access. This detection does not run for KVM, QEMU, VMware, or physical installations.
 

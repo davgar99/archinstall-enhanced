@@ -2,6 +2,7 @@ import subprocess
 import sys
 import time
 
+from archinstall.applications.graphics_extras import GraphicsExtrasApp
 from archinstall.applications.virtualbox_guest import VirtualBoxGuestApp
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.args import ArchConfig, ArchConfigHandler
@@ -162,8 +163,12 @@ def perform_installation(
 			application_handler.install_applications(installation, app_config, users, config.network_config)
 
 		if gaming_config := config.gaming_config:
-			gfx_driver = config.profile_config.gfx_driver if config.profile_config else None
-			gaming_handler.install_gaming(installation, gaming_config, users, gfx_driver)
+			gaming_handler.install_gaming(installation, gaming_config, users)
+
+		gfx_driver = config.profile_config.gfx_driver if config.profile_config else None
+		install_32bit = bool(config.gaming_config and config.gaming_config.install_32bit_graphics)
+		install_opencl = bool(config.profile_config and config.profile_config.install_opencl)
+		GraphicsExtrasApp().install(installation, install_32bit, install_opencl, gfx_driver)
 
 		if profile_config := config.profile_config:
 			profile_handler.install_profile_config(installation, profile_config)

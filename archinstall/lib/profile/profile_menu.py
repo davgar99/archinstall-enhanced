@@ -49,6 +49,15 @@ class ProfileMenu(AbstractSubMenu[ProfileConfiguration]):
 				key='gfx_driver',
 			),
 			MenuItem(
+				text=tr('OpenCL support'),
+				action=select_opencl,
+				value=self._profile_config.install_opencl,
+				preview_action=self._prev_toggle,
+				enabled=self._profile_config.gfx_driver is not None,
+				dependencies=['gfx_driver'],
+				key='install_opencl',
+			),
+			MenuItem(
 				text=tr('Greeter'),
 				action=lambda x: select_greeter(preset=x),
 				value=self._profile_config.greeter if self._profile_config.profile and self._profile_config.profile.is_greeter_supported() else None,
@@ -70,9 +79,12 @@ class ProfileMenu(AbstractSubMenu[ProfileConfiguration]):
 			if not profile.is_graphic_driver_supported():
 				self._item_group.find_by_key('gfx_driver').enabled = False
 				self._item_group.find_by_key('gfx_driver').value = None
+				self._item_group.find_by_key('install_opencl').enabled = False
+				self._item_group.find_by_key('install_opencl').value = None
 			else:
 				self._item_group.find_by_key('gfx_driver').enabled = True
 				self._item_group.find_by_key('gfx_driver').value = GfxDriver.AllOpenSource
+				self._item_group.find_by_key('install_opencl').enabled = True
 
 			if not profile.is_greeter_supported():
 				self._item_group.find_by_key('greeter').enabled = False
@@ -82,6 +94,7 @@ class ProfileMenu(AbstractSubMenu[ProfileConfiguration]):
 				self._item_group.find_by_key('greeter').value = profile.default_greeter_type
 		else:
 			self._item_group.find_by_key('gfx_driver').value = None
+			self._item_group.find_by_key('install_opencl').value = None
 			self._item_group.find_by_key('greeter').value = None
 
 		return profile
@@ -105,9 +118,19 @@ class ProfileMenu(AbstractSubMenu[ProfileConfiguration]):
 						preset=False,
 					).show()
 
-					return driver if result.get_value() else preset
+					driver = driver if result.get_value() else preset
+
+		self._item_group.find_by_key('install_opencl').enabled = driver is not None
+		if driver is None:
+			self._item_group.find_by_key('install_opencl').value = None
 
 		return driver
+
+	def _prev_toggle(self, item: MenuItem) -> str | None:
+		if item.value is None:
+			return None
+		status = tr('Enabled') if item.value else tr('Disabled')
+		return f'{item.text}: {status}'
 
 	def _prev_gfx(self, item: MenuItem) -> str | None:
 		if item.value:
@@ -137,6 +160,25 @@ class ProfileMenu(AbstractSubMenu[ProfileConfiguration]):
 				return text
 
 		return None
+
+
+async def select_opencl(preset: bool | None = None) -> bool | None:
+	result = await Confirmation(
+		header=tr(
+			'Install OpenCL compute support for the selected graphics driver? Applications such as Blender, Darktable, and '
+			'scientific tools can use the GPU for computation. Most games do not require OpenCL.'
+		),
+		allow_skip=True,
+		preset=preset if preset is not None else False,
+	).show()
+
+	match result.type_:
+		case ResultType.Skip:
+			return preset
+		case ResultType.Selection:
+			return result.get_value()
+		case ResultType.Reset:
+			raise ValueError('Unhandled result type')
 
 
 async def select_greeter(

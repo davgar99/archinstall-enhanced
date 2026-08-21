@@ -327,6 +327,10 @@ class ArchConfig:
 
 		if gaming_config := args_config.get('gaming_config', None):
 			arch_config.gaming_config = GamingConfiguration.parse_arg(gaming_config)
+			# OpenCL moved from the Gaming menu to the graphics profile. Preserve
+			# the selection from configurations written by the testing branch.
+			if arch_config.profile_config and arch_config.profile_config.install_opencl is None:
+				arch_config.profile_config.install_opencl = gaming_config.get('install_opencl')
 
 		if auth_config_args := args_config.get('auth_config', None):
 			arch_config.auth_config = AuthenticationConfiguration.parse_arg(auth_config_args)
