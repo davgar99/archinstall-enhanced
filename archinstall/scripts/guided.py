@@ -164,7 +164,8 @@ def perform_installation(
 			profile_handler.install_profile_config(installation, profile_config)
 
 		if gaming_config := config.gaming_config:
-			gaming_handler.install_gaming(installation, gaming_config, users)
+			gfx_driver = config.profile_config.gfx_driver if config.profile_config else None
+			gaming_handler.install_gaming(installation, gaming_config, users, gfx_driver)
 
 		if config.packages and config.packages[0] != '':
 			installation.add_additional_packages(config.packages)
