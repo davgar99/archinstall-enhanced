@@ -33,6 +33,8 @@ class AurHelperApp:
 		package = self._PACKAGES[helper]
 		build_dir = f'/tmp/archinstall-{package}'
 		sudoers_path = install_session.target / 'etc/sudoers.d/99-archinstall-aur-builder'
+		original_contents = sudoers_path.read_bytes() if sudoers_path.exists() else None
+		original_mode = sudoers_path.stat().st_mode & 0o777 if sudoers_path.exists() else None
 
 		debug(f'Building and installing AUR helper {package} as {username}')
 		install_session.add_additional_packages(['base-devel', 'git'])
@@ -50,7 +52,12 @@ class AurHelperApp:
 				peek_output=True,
 			)
 		finally:
-			sudoers_path.unlink(missing_ok=True)
+			if original_contents is None:
+				sudoers_path.unlink(missing_ok=True)
+			else:
+				sudoers_path.write_bytes(original_contents)
+				if original_mode is not None:
+					sudoers_path.chmod(original_mode)
 
 	@staticmethod
 	def _write_temporary_sudoers(path: Path, username: str) -> None:
