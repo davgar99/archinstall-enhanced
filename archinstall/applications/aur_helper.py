@@ -37,9 +37,9 @@ class AurHelperApp:
 
 		debug(f'Building and installing AUR helper {package} as {username}')
 		install_session.add_additional_packages(['base-devel', 'git'])
-		self._write_temporary_sudoers(sudoers_path, username)
 
 		try:
+			self._write_temporary_sudoers(sudoers_path, username)
 			# A failed or interrupted prior build can leave this directory behind.
 			# Remove only the installer-controlled path before cloning so retries are idempotent.
 			install_session.arch_chroot(f'rm -rf -- {shlex.quote(build_dir)}')
