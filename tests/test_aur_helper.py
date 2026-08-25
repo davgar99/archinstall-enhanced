@@ -20,8 +20,7 @@ class FakeInstaller:
 		self.packages.extend(packages)
 
 	def arch_chroot(self, command: str, run_as: str | None = None, peek_output: bool = False) -> None:
-		sudoers_path = self.target / 'etc/sudoers.d/99-archinstall-aur-builder'
-		if sudoers_path.exists():
+		for sudoers_path in (self.target / 'etc/sudoers.d').glob('99-archinstall-aur-builder-*'):
 			self.sudoers_snapshots.append(sudoers_path.read_text())
 		self.commands.append((command, run_as, peek_output))
 
@@ -58,14 +57,15 @@ def test_aur_helper_builds_as_configured_sudo_user(tmp_path: Path) -> None:
 
 	assert installer.packages == ['base-devel', 'git']
 	assert installer.commands == [
+		('rm -rf -- /tmp/archinstall-yay', None, False),
 		('git clone --depth=1 https://aur.archlinux.org/yay.git /tmp/archinstall-yay', 'builder', True),
 		('cd /tmp/archinstall-yay && makepkg --syncdeps --install --needed --noconfirm', 'builder', True),
 	]
 	expected_sudoers = (
 		'builder ALL=(root) NOPASSWD: /usr/bin/pacman --noconfirm -S --asdeps *\nbuilder ALL=(root) NOPASSWD: /usr/bin/pacman --noconfirm -U --needed *\n'
 	)
-	assert installer.sudoers_snapshots == [expected_sudoers, expected_sudoers]
-	assert not (tmp_path / 'etc/sudoers.d/99-archinstall-aur-builder').exists()
+	assert installer.sudoers_snapshots == [expected_sudoers, expected_sudoers, expected_sudoers]
+	assert not list((tmp_path / 'etc/sudoers.d').glob('99-archinstall-aur-builder-*'))
 
 
 def test_aura_uses_source_package(tmp_path: Path) -> None:
@@ -74,7 +74,7 @@ def test_aura_uses_source_package(tmp_path: Path) -> None:
 
 	AurHelperApp().install(installer, AurHelperConfiguration(AurHelper.AURA), users)  # type: ignore[arg-type]
 
-	assert installer.commands[0] == (
+	assert installer.commands[1] == (
 		'git clone --depth=1 https://aur.archlinux.org/aura.git /tmp/archinstall-aura',
 		'builder',
 		True,
@@ -95,4 +95,28 @@ def test_aur_helper_removes_temporary_sudoers_after_failure(tmp_path: Path) -> N
 	with pytest.raises(RuntimeError, match='AUR build failed'):
 		AurHelperApp().install(installer, AurHelperConfiguration(AurHelper.AURA), users)  # type: ignore[arg-type]
 
-	assert not (tmp_path / 'etc/sudoers.d/99-archinstall-aur-builder').exists()
+	assert not list((tmp_path / 'etc/sudoers.d').glob('99-archinstall-aur-builder-*'))
+
+
+def test_aur_helper_does_not_overwrite_existing_sudoers_file(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	users = [User('builder', Password(enc_password='test'), sudo=True)]
+	legacy_path = tmp_path / 'etc/sudoers.d/99-archinstall-aur-builder'
+	legacy_path.parent.mkdir(parents=True)
+	legacy_path.write_text('existing rule\n')
+	legacy_path.chmod(0o400)
+
+	AurHelperApp().install(installer, AurHelperConfiguration(AurHelper.PARU), users)  # type: ignore[arg-type]
+
+	assert legacy_path.read_text() == 'existing rule\n'
+	assert legacy_path.stat().st_mode & 0o777 == 0o400
+
+
+def test_aur_helper_cleans_stale_build_directory_before_clone(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	users = [User('builder', Password(enc_password='test'), sudo=True)]
+
+	AurHelperApp().install(installer, AurHelperConfiguration(AurHelper.PIKAUR), users)  # type: ignore[arg-type]
+
+	assert installer.commands[0] == ('rm -rf -- /tmp/archinstall-pikaur', None, False)
+	assert installer.commands[1][0].startswith('git clone --depth=1 https://aur.archlinux.org/pikaur.git')
