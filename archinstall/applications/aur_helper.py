@@ -1,3 +1,4 @@
+import secrets
 import shlex
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -32,15 +33,16 @@ class AurHelperApp:
 		helper = config.aur_helper
 		package = self._PACKAGES[helper]
 		build_dir = f'/tmp/archinstall-{package}'
-		sudoers_path = install_session.target / 'etc/sudoers.d/99-archinstall-aur-builder'
-		original_contents = sudoers_path.read_bytes() if sudoers_path.exists() else None
-		original_mode = sudoers_path.stat().st_mode & 0o777 if sudoers_path.exists() else None
+		sudoers_path = self._temporary_sudoers_path(install_session.target)
 
 		debug(f'Building and installing AUR helper {package} as {username}')
 		install_session.add_additional_packages(['base-devel', 'git'])
-		self._write_temporary_sudoers(sudoers_path, username)
 
 		try:
+			self._write_temporary_sudoers(sudoers_path, username)
+			# A failed or interrupted prior build can leave this directory behind.
+			# Remove only the installer-controlled path before cloning so retries are idempotent.
+			install_session.arch_chroot(f'rm -rf -- {shlex.quote(build_dir)}')
 			install_session.arch_chroot(
 				f'git clone --depth=1 https://aur.archlinux.org/{package}.git {shlex.quote(build_dir)}',
 				run_as=username,
@@ -52,16 +54,16 @@ class AurHelperApp:
 				peek_output=True,
 			)
 		finally:
-			if original_contents is None:
-				sudoers_path.unlink(missing_ok=True)
-			else:
-				sudoers_path.write_bytes(original_contents)
-				if original_mode is not None:
-					sudoers_path.chmod(original_mode)
+			sudoers_path.unlink(missing_ok=True)
+
+	@staticmethod
+	def _temporary_sudoers_path(target: Path) -> Path:
+		sudoers_dir = target / 'etc/sudoers.d'
+		sudoers_dir.mkdir(parents=True, exist_ok=True)
+		return sudoers_dir / f'99-archinstall-aur-builder-{secrets.token_hex(8)}'
 
 	@staticmethod
 	def _write_temporary_sudoers(path: Path, username: str) -> None:
-		path.parent.mkdir(parents=True, exist_ok=True)
 		path.write_text(
 			f'{username} ALL=(root) NOPASSWD: /usr/bin/pacman --noconfirm -S --asdeps *\n'
 			f'{username} ALL=(root) NOPASSWD: /usr/bin/pacman --noconfirm -U --needed *\n'
