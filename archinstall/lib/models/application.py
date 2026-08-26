@@ -51,6 +51,14 @@ class AudioConfigSerialization(TypedDict):
 	audio: str
 
 
+class MultimediaConfigSerialization(TypedDict):
+	enabled: bool
+
+
+class FirmwareConfigSerialization(TypedDict):
+	enabled: bool
+
+
 class PrintServiceConfigSerialization(TypedDict):
 	enabled: bool
 
@@ -95,19 +103,23 @@ class ZramAlgorithm(StrEnum):
 	LZO = auto()
 	LZ4 = auto()
 	LZ4HC = auto()
+	IBM_842 = '842'
 
 	def generator_value(self) -> str:
-		# Zstd supports a configurable level. The other kernel compressors use
-		# their own defaults; adding idle recompression would require a separate
-		# userspace scheduler to mark and recompress cold pages reliably.
-		if self == ZramAlgorithm.ZSTD:
-			return 'zstd(level=3)'
-		return self.value
+		# Use each tunable compressor's balanced kernel default. LZ4's level is
+		# an acceleration value; LZO, LZO-RLE, and 842 do not support levels.
+		return {
+			ZramAlgorithm.ZSTD: 'zstd(level=3)',
+			ZramAlgorithm.LZ4: 'lz4(level=1)',
+			ZramAlgorithm.LZ4HC: 'lz4hc(level=9)',
+		}.get(self, self.value)
 
 
 class ApplicationSerialization(TypedDict):
 	bluetooth_config: NotRequired[BluetoothConfigSerialization]
 	audio_config: NotRequired[AudioConfigSerialization]
+	multimedia_config: NotRequired[MultimediaConfigSerialization]
+	firmware_config: NotRequired[FirmwareConfigSerialization]
 	power_management_config: NotRequired[PowerManagementConfigSerialization]
 	print_service_config: NotRequired[PrintServiceConfigSerialization]
 	firewall_config: NotRequired[FirewallConfigSerialization]
@@ -129,6 +141,30 @@ class AudioConfiguration:
 		return cls(
 			Audio(arg['audio']),
 		)
+
+
+@dataclass
+class MultimediaConfiguration:
+	enabled: bool
+
+	def json(self) -> MultimediaConfigSerialization:
+		return {'enabled': self.enabled}
+
+	@classmethod
+	def parse_arg(cls, arg: MultimediaConfigSerialization) -> Self:
+		return cls(arg['enabled'])
+
+
+@dataclass
+class FirmwareConfiguration:
+	enabled: bool
+
+	def json(self) -> FirmwareConfigSerialization:
+		return {'enabled': self.enabled}
+
+	@classmethod
+	def parse_arg(cls, arg: FirmwareConfigSerialization) -> Self:
+		return cls(arg['enabled'])
 
 
 @dataclass
@@ -221,7 +257,6 @@ class ZramConfigSerialization(TypedDict):
 class ZramConfiguration(SubConfig):
 	enabled: bool
 	algorithm: ZramAlgorithm = ZramAlgorithm.ZSTD
-	swappiness_tweaks: bool = False
 
 	@classmethod
 	def parse_arg(cls, arg: bool | ZramConfigSerialization | dict[str, Any]) -> Self:
@@ -232,11 +267,9 @@ class ZramConfiguration(SubConfig):
 		algo = arg.get('algorithm', arg.get('algo', ZramAlgorithm.ZSTD.value))
 		if algo == 'lzo-rle zstd(level=3) (type=idle)':
 			algo = ZramAlgorithm.ZSTD.value
-		swappiness_tweaks = bool(arg.get('swappiness_tweaks', arg.get('swappiness', False)))
 		return cls(
 			enabled=enabled,
 			algorithm=ZramAlgorithm(algo),
-			swappiness_tweaks=swappiness_tweaks,
 		)
 
 	@override
@@ -244,7 +277,6 @@ class ZramConfiguration(SubConfig):
 		return {
 			'enabled': self.enabled,
 			'algorithm': self.algorithm.value,
-			'swappiness_tweaks': self.swappiness_tweaks,
 		}
 
 	@override
@@ -254,8 +286,6 @@ class ZramConfiguration(SubConfig):
 
 		if self.enabled:
 			out.append(f'{tr("Zram algorithm")}: {self.algorithm.value}')
-			tweak_status = tr('Enabled') if self.swappiness_tweaks else tr('Disabled')
-			out.append(f'{tr("Swappiness tweaks")}: {tweak_status}')
 
 		return out
 
@@ -264,6 +294,8 @@ class ZramConfiguration(SubConfig):
 class ApplicationConfiguration(SubConfig):
 	bluetooth_config: BluetoothConfiguration | None = None
 	audio_config: AudioConfiguration | None = None
+	multimedia_config: MultimediaConfiguration | None = None
+	firmware_config: FirmwareConfiguration | None = None
 	power_management_config: PowerManagementConfiguration | None = None
 	print_service_config: PrintServiceConfiguration | None = None
 	firewall_config: FirewallConfiguration | None = None
@@ -287,6 +319,12 @@ class ApplicationConfiguration(SubConfig):
 
 		if args and (audio_config := args.get('audio_config')) is not None:
 			app_config.audio_config = AudioConfiguration.parse_arg(audio_config)
+
+		if args and (multimedia_config := args.get('multimedia_config')) is not None:
+			app_config.multimedia_config = MultimediaConfiguration.parse_arg(multimedia_config)
+
+		if args and (firmware_config := args.get('firmware_config')) is not None:
+			app_config.firmware_config = FirmwareConfiguration.parse_arg(firmware_config)
 
 		if args and (power_management_config := args.get('power_management_config')) is not None:
 			app_config.power_management_config = PowerManagementConfiguration.parse_arg(power_management_config)
@@ -315,6 +353,12 @@ class ApplicationConfiguration(SubConfig):
 		if self.audio_config:
 			config['audio_config'] = self.audio_config.json()
 
+		if self.multimedia_config:
+			config['multimedia_config'] = self.multimedia_config.json()
+
+		if self.firmware_config:
+			config['firmware_config'] = self.firmware_config.json()
+
 		if self.power_management_config:
 			config['power_management_config'] = self.power_management_config.json()
 
@@ -342,6 +386,14 @@ class ApplicationConfiguration(SubConfig):
 
 		if self.audio_config:
 			out.append(f'{tr("Audio server")}: {self.audio_config.audio.value}')
+
+		if self.multimedia_config:
+			status = tr('Enabled') if self.multimedia_config.enabled else tr('Disabled')
+			out.append(f'{tr("Multimedia codecs")}: {status}')
+
+		if self.firmware_config:
+			status = tr('Enabled') if self.firmware_config.enabled else tr('Disabled')
+			out.append(f'{tr("Firmware updates")}: {status}')
 
 		if self.power_management_config:
 			out.append(f'{tr("Power management")}: {self.power_management_config.power_management.value}')

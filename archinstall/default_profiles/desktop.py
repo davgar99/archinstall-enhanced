@@ -26,6 +26,7 @@ class DesktopProfile(Profile):
 	@override
 	def packages(self) -> list[str]:
 		return [
+			'fontconfig',
 			'nano',
 			'vim',
 			'openssh',
@@ -33,6 +34,7 @@ class DesktopProfile(Profile):
 			'wget',
 			'smartmontools',
 			'xdg-utils',
+			'xdg-user-dirs',
 		]
 
 	@property
@@ -87,6 +89,11 @@ class DesktopProfile(Profile):
 
 	@override
 	def post_install(self, install_session: Installer) -> None:
+		fontconfig_link = install_session.target / 'etc/fonts/conf.d/70-no-bitmaps-except-emoji.conf'
+		if not fontconfig_link.exists() and not fontconfig_link.is_symlink():
+			fontconfig_link.parent.mkdir(parents=True, exist_ok=True)
+			fontconfig_link.symlink_to('/usr/share/fontconfig/conf.avail/70-no-bitmaps-except-emoji.conf')
+
 		for profile in self.current_selection:
 			profile.post_install(install_session)
 

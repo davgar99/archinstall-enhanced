@@ -699,6 +699,10 @@ class Installer:
 
 		return False
 
+	def set_hardware_clock_utc(self) -> None:
+		info('Setting the hardware clock from the system clock using UTC')
+		self.arch_chroot('hwclock --systohc')
+
 	def activate_time_synchronization(self) -> None:
 		info('Activating systemd-timesyncd for time synchronization using Arch Linux and ntp.org NTP servers')
 		self.enable_service(['systemd-timesyncd.service', 'systemd-time-wait-sync.service'])
@@ -1028,7 +1032,6 @@ class Installer:
 	def setup_swap(
 		self,
 		algo: ZramAlgorithm = ZramAlgorithm.ZSTD,
-		swappiness_tweaks: bool = False,
 	) -> None:
 		info('Setting up swap on zram')
 		self.pacman.strap('zram-generator')
@@ -1037,15 +1040,12 @@ class Installer:
 
 		zram_conf = self.target / 'etc/systemd/zram-generator.conf'
 		zram_conf.parent.mkdir(parents=True, exist_ok=True)
-		zram_conf.write_text(f'[zram0]\ncompression-algorithm = {algo.generator_value()}\n')
+		zram_conf.write_text(f'[zram0]\nzram-size = min(ram, 8192)\ncompression-algorithm = {algo.generator_value()}\n')
 
 		sysctl_conf = self.target / 'etc/sysctl.d/99-vm-zram-parameters.conf'
-		if swappiness_tweaks:
-			info('Applying Arch Wiki swap on zram swappiness tweaks')
-			sysctl_conf.parent.mkdir(parents=True, exist_ok=True)
-			sysctl_conf.write_text('vm.swappiness = 180\nvm.watermark_boost_factor = 0\nvm.watermark_scale_factor = 125\nvm.page-cluster = 0\n')
-		else:
-			sysctl_conf.unlink(missing_ok=True)
+		info('Applying ArchWiki memory-management defaults for swap on zram')
+		sysctl_conf.parent.mkdir(parents=True, exist_ok=True)
+		sysctl_conf.write_text('vm.swappiness = 180\nvm.watermark_boost_factor = 0\nvm.watermark_scale_factor = 125\nvm.page-cluster = 0\n')
 
 		self._zram_enabled = True
 

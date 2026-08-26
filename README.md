@@ -15,6 +15,9 @@ This project is not intended to throw random performance tweaks into Archinstall
 >
 > Installing the `archinstall` package from the Arch Linux repositories will install the official upstream version, not the changes included in this repository.
 
+> [!NOTE]
+> Archinstall Enhanced intentionally provides a broader desktop baseline than upstream Archinstall. A desktop installation may therefore contain more packages and use somewhat more disk space. The additional packages cover common codecs, hardware support, desktop integration, and diagnostic tools; workload-specific and experimental components remain optional so users can keep the system as lean as they prefer.
+
 ## Screenshots
 
 <p align="center">
@@ -49,6 +52,8 @@ The main goals of the project are:
 
 Most additional features are optional. Users can decide how much or how little they want the installer to configure.
 
+The default desktop additions are limited to broadly useful integration and verification packages. Features that are hardware-specific, workload-specific, experimental, or likely to consume significant storage are presented as explicit choices instead of being installed unconditionally.
+
 ## Main differences from upstream
 
 ### Gaming and performance
@@ -58,7 +63,7 @@ The guided installer includes a **Gaming** section with optional support for:
 - sched-ext CPU schedulers
 - `scx_loader`
 - Gaming mode scheduler configuration
-- NTSYNC through `ntsync-autoload`
+- NTSYNC module autoloading through `ntsync-autoload`
 - GameMode
 - MangoHud
 - Gamescope
@@ -70,7 +75,7 @@ The guided installer includes a **Gaming** section with optional support for:
 
 Stable and experimental sched-ext schedulers are separated so users can tell which options are considered more mature.
 
-Experimental features such as NTSYNC are also identified as experimental instead of being presented as normal system defaults.
+NTSYNC remains optional, but is no longer labeled experimental: current official Arch kernels provide the module and current Wine and Proton versions use it automatically when available.
 
 Multilib is enabled automatically only when a selected feature requires a 32-bit package such as:
 
@@ -91,11 +96,15 @@ The `vm.max_map_count` option uses the SteamOS value. The installer explains tha
 
 Swap-on-zram can be configured directly through the installer.
 
-The fork also provides optional virtual memory tuning for users who want to prioritize compressed RAM over slower disk swap. The installer explains the selected compression algorithm, swappiness behavior, read-ahead adjustment, and the tradeoff between memory pressure and responsiveness.
+When zram is enabled, the installer applies the ArchWiki memory-management settings that prioritize compressed RAM over slower disk-backed pages and reduce swap read-ahead. These values are treated as part of the zram setup rather than exposed as a separate toggle.
 
-Zram sizing, swap priority, and other device settings use `zram-generator` defaults. The recommended `zstd` algorithm uses a conservative level 3 setting to balance compression, latency, and CPU use. Other choices use their kernel defaults: `lz4` and `lzo-rle` favor low latency, while `lz4hc` favors denser compression. Idle recompression is not enabled automatically because it requires a separate userspace schedule to mark and process cold pages reliably.
+The installer configures zram to use up to the smaller of physical RAM or 8 GiB. The menu shows only compressor names. Behind the scenes, tunable compressors use their balanced kernel defaults: `zstd` level 3, `lz4` acceleration level 1, and `lz4hc` level 9. `lzo-rle`, `lzo`, and `842` do not support levels and are left unparameterized. Swap priority and other device settings continue to use `zram-generator` defaults. Idle recompression is not enabled automatically because it requires a separate userspace schedule to mark and process cold pages reliably.
 
-These settings are not silently applied. The additional tuning can be enabled or disabled independently, and the selected configuration is saved along with the rest of the Archinstall configuration.
+The selected compressor is saved with the rest of the Archinstall configuration. Older saved configurations containing a separate swappiness-tweak field remain loadable; that legacy field is ignored because the documented values are now part of every enabled zram setup.
+
+### Btrfs
+
+Automatically generated Btrfs layouts use transparent Zstandard compression by default. The installer still allows compression to be disabled or Copy-on-Write to be disabled when a workload requires different behavior.
 
 ### Desktop configuration
 
@@ -104,11 +113,13 @@ Archinstall Enhanced can install and configure additional packages when the user
 Examples include:
 
 - `rtkit` with PipeWire for real-time audio scheduling
+- a complete GStreamer codec set, FFmpeg, and the VA-API GStreamer plugin
 - Avahi for network service discovery
 - `nss-mdns` for `.local` hostname resolution
 - network printer discovery
 - print service configuration
 - Bluetooth configuration
+- optional firmware updates through `fwupd`, including periodic metadata refreshes
 - power management options
 - firewall configuration
 - additional font packages
@@ -118,6 +129,14 @@ The installer does not automatically install every optional component.
 If a feature is not selected, the packages and services associated with that feature are left out.
 
 OpenCL compute support is available as a separate opt-in setting beside the graphics-driver selection. Mesa Rusticl is used for AMD and Nouveau, Intel Compute Runtime is used for Intel, and the NVIDIA OpenCL runtime is used with NVIDIA's open kernel module. Diagnostic tools and the vendor-neutral ICD loader are installed with the runtime.
+
+Selecting a graphics driver also installs `mesa-utils`, `vulkan-tools`, and `libva-utils`. These provide the ArchWiki-documented `eglinfo`/`glxinfo`, `vulkaninfo`, and `vainfo` checks for direct rendering, OpenGL/EGL, Vulkan, and hardware video acceleration after the first boot.
+
+Graphics packages follow the selected hardware profile. Modern Xorg modesetting is used for Nouveau instead of installing the legacy `xf86-video-nouveau` DDX, which current ArchWiki guidance no longer recommends. Optional 32-bit and OpenCL runtimes remain separate choices.
+
+Desktop profiles enable Fontconfig's maintained `70-no-bitmaps-except-emoji.conf` preset to avoid poor bitmap fallbacks while preserving bitmap emoji. Font families remain user-selectable through the existing Additional fonts menu; the installer does not force a subpixel layout or install font families automatically.
+
+The optional multimedia-codec setting installs the GStreamer base, good, bad, and ugly plugin families, `gst-libav`, `gst-plugin-va`, and FFmpeg. PipeWire installations continue to include `gst-plugin-pipewire` for PipeWire integration.
 
 When the installer detects that it is running specifically inside a VirtualBox guest, it installs `virtualbox-guest-utils`, enables `vboxservice.service`, and adds configured users to the `vboxsf` group for shared-folder access. This detection does not run for KVM, QEMU, VMware, or physical installations.
 
@@ -151,7 +170,9 @@ The fork includes several smaller improvements to the guided installation experi
 
 These include:
 
-- combined timezone and automatic NTP configuration
+- grouped main and Gaming menus for a clearer installation flow
+- combined timezone, automatic NTP, and hardware-clock configuration
+- defaulting the UTC hardware-clock update off when a Windows Boot Manager EFI entry is detected, while keeping the choice user-overridable
 - enabling `systemd-timesyncd.service` and `systemd-time-wait-sync.service` when NTP is selected
 - consistent `Setting: Value` configuration summaries
 - consistent `Enabled` and `Disabled` status formatting
@@ -172,13 +193,27 @@ Changes should be based on proper documentation and tested behavior instead of b
 
 When applicable, implementation decisions are based on sources such as:
 
-- Arch Linux documentation
-- the Arch Wiki
+- [Arch Linux documentation](https://archlinux.org/)
+- the [ArchWiki](https://wiki.archlinux.org/)
+- the [CachyOS Wiki](https://wiki.cachyos.org/)
+- [EndeavourOS Discovery](https://discovery.endeavouros.com/)
+- the [Manjaro Wiki](https://wiki.manjaro.org/)
 - Linux kernel documentation
 - upstream project documentation
 - upstream Archinstall behavior
 - established community recommendations
 - testing and regression coverage
+
+Arch Linux and upstream project documentation take priority for package names and configuration behavior. Other Arch-based distributions are useful cross-checks for mature desktop integration and opt-in performance features, but distribution-specific tuning is not copied without checking that it is appropriate for a general Arch installation.
+
+Some defaults deliberately incorporate proven choices from other Linux distributions:
+
+- The zram size, `min(ram, 8192)`, follows [Fedora's system-wide zram configuration](https://fedoraproject.org/wiki/Changes/Scale_ZRAM_to_full_memory_size): a virtual device equal to RAM on smaller systems and capped at 8 GiB.
+- The zram virtual-memory settings (`vm.swappiness=180`, `vm.watermark_boost_factor=0`, `vm.watermark_scale_factor=125`, and `vm.page-cluster=0`) follow the [ArchWiki zram guidance](https://wiki.archlinux.org/title/Zram), which documents their origin in Pop!_OS and supporting Fedora community testing.
+- The optional `vm.max_map_count` value follows the SteamOS gaming-oriented default documented in the [ArchWiki gaming guidance](https://wiki.archlinux.org/title/Gaming).
+- CachyOS, EndeavourOS, and Manjaro documentation and installer defaults are used as comparison points for scheduler integration, hardware support, multimedia, firmware, and desktop-completeness decisions. A setting is adopted only when it also fits upstream kernel or Arch guidance and remains safe across general-purpose hardware.
+
+These projects are references and influences; Archinstall Enhanced is independent of them and does not apply their complete tuning profiles.
 
 Features that are still considered experimental should remain optional and should be clearly identified as experimental.
 

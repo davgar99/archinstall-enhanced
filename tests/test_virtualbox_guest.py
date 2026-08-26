@@ -61,7 +61,7 @@ def test_virtualbox_profile_installs_guest_package_only_when_detected(monkeypatc
 
 	ProfileHandler().install_gfx_driver(installer, GfxDriver.VMOpenSource)
 
-	installer.add_additional_packages.assert_called_once_with(['mesa', 'virtualbox-guest-utils'])
+	installer.add_additional_packages.assert_called_once_with(['mesa-utils', 'vulkan-tools', 'libva-utils', 'mesa', 'virtualbox-guest-utils'])
 
 
 def test_virtualbox_profile_omits_guest_package_on_kvm(monkeypatch: MonkeyPatch) -> None:
@@ -71,7 +71,7 @@ def test_virtualbox_profile_omits_guest_package_on_kvm(monkeypatch: MonkeyPatch)
 
 	ProfileHandler().install_gfx_driver(installer, GfxDriver.VMOpenSource)
 
-	installer.add_additional_packages.assert_called_once_with(['mesa'])
+	installer.add_additional_packages.assert_called_once_with(['mesa-utils', 'vulkan-tools', 'libva-utils', 'mesa'])
 
 
 def test_virtualbox_guest_integration(tmp_path: Path) -> None:

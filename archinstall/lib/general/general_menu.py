@@ -30,6 +30,22 @@ async def select_ntp(preset: bool = True) -> bool:
 			raise ValueError('Unhandled return type')
 
 
+async def select_hardware_clock_utc(preset: bool = True) -> bool:
+	result = await Confirmation(
+		header=tr('Set the hardware clock from the system time using UTC?'),
+		allow_skip=True,
+		preset=preset,
+	).show()
+
+	match result.type_:
+		case ResultType.Skip:
+			return preset
+		case ResultType.Selection:
+			return result.item() == MenuItem.yes()
+		case _:
+			raise ValueError('Unhandled return type')
+
+
 async def select_hostname(preset: str | None = None) -> str | None:
 	result = await Input(
 		header=tr('Enter a hostname'),
