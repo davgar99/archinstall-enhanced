@@ -60,7 +60,7 @@ async def select_driver(options: list[GfxDriver] = [], preset: GfxDriver | None 
 	there for appeal to the general public first and edge cases later)
 	"""
 	if not options:
-		options = [driver for driver in GfxDriver]
+		options = list(GfxDriver)
 
 	items = [
 		MenuItem(
@@ -103,7 +103,7 @@ async def select_driver(options: list[GfxDriver] = [], preset: GfxDriver | None 
 
 
 async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True)) -> ZramConfiguration:
-	prompt = tr('Enable swap on zram? It stores compressed memory pages in RAM to reduce slower disk swapping.') + '\n'
+	prompt = tr('Enable swap on zram?') + '\n'
 
 	group = MenuItemGroup.yes_no()
 	group.set_default_by_value(True)
@@ -130,12 +130,7 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 
 			algo_result = await Selection[ZramAlgorithm](
 				algo_group,
-				header=tr(
-					'Select a zram compression algorithm. zstd is recommended and uses a balanced level 3 setting. '
-					'lz4 and lzo-rle prioritize low latency, while lz4hc prioritizes compression and may use more CPU. '
-					'Device size, swap priority, and other settings use zram-generator defaults.'
-				)
-				+ '\n',
+				header=tr('Select a zram compression algorithm.') + '\n',
 				allow_skip=True,
 			).show()
 
@@ -149,31 +144,9 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 				case _:
 					assert_never(algo_result.type_)
 
-			# Ask for swappiness & VM performance tweaks
-			tweak_result = await Confirmation(
-				header=tr(
-					'Apply the ArchWiki zram memory-management settings? They make the kernel prefer fast compressed zram over '
-					'disk-backed pages and reduce swap read-ahead, which can improve responsiveness under memory pressure. '
-					'The settings are written to /etc/sysctl.d/99-vm-zram-parameters.conf.'
-				),
-				allow_skip=True,
-				preset=preset.swappiness_tweaks,
-			).show()
-
-			match tweak_result.type_:
-				case ResultType.Skip:
-					tweaks = preset.swappiness_tweaks
-				case ResultType.Selection:
-					tweaks = tweak_result.get_value()
-				case ResultType.Reset:
-					raise ValueError('Unhandled result type')
-				case _:
-					assert_never(tweak_result.type_)
-
 			return ZramConfiguration(
 				enabled=True,
 				algorithm=algo,
-				swappiness_tweaks=tweaks,
 			)
 		case ResultType.Reset:
 			raise ValueError('Unhandled result type')

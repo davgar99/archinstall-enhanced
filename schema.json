@@ -107,6 +107,10 @@
             "description": "Set to true to set-up ntp post install",
             "type": "boolean"
         },
+        "hardware_clock_utc": {
+            "description": "Set the hardware clock from synchronized system time using UTC",
+            "type": "boolean"
+        },
         "packages": {
             "description": "List of packages to install post-installation",
             "type": "array",

@@ -11,8 +11,10 @@ from archinstall.lib.models.application import (
 	BluetoothConfiguration,
 	Firewall,
 	FirewallConfiguration,
+	FirmwareConfiguration,
 	FontPackage,
 	FontsConfiguration,
+	MultimediaConfiguration,
 	PowerManagement,
 	PowerManagementConfiguration,
 	PrintServiceConfiguration,
@@ -48,6 +50,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 
 	def _define_menu_options(self) -> list[MenuItem]:
 		return [
+			MenuItem(text=tr('Hardware'), read_only=True),
 			MenuItem(
 				text=tr('Bluetooth'),
 				action=select_bluetooth,
@@ -56,17 +59,40 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				key='bluetooth_config',
 			),
 			MenuItem(
+				text=tr('Print service'),
+				action=select_print_service,
+				preview_action=self._prev_print_service,
+				key='print_service_config',
+			),
+			MenuItem(
+				text=tr('Firmware updates'),
+				action=select_firmware,
+				value=self._app_config.firmware_config,
+				preview_action=self._prev_firmware,
+				key='firmware_config',
+			),
+			MenuItem(text=tr('Media and appearance'), read_only=True),
+			MenuItem(
 				text=tr('Audio'),
 				action=select_audio,
 				preview_action=self._prev_audio,
 				key='audio_config',
 			),
 			MenuItem(
-				text=tr('Print service'),
-				action=select_print_service,
-				preview_action=self._prev_print_service,
-				key='print_service_config',
+				text=tr('Multimedia codecs'),
+				action=select_multimedia,
+				value=self._app_config.multimedia_config,
+				preview_action=self._prev_multimedia,
+				key='multimedia_config',
 			),
+			MenuItem(
+				text=tr('Additional fonts'),
+				action=select_fonts,
+				value=self._app_config.fonts_config,
+				preview_action=self._prev_fonts,
+				key='fonts_config',
+			),
+			MenuItem(text=tr('System'), read_only=True),
 			MenuItem(
 				text=tr('Power management'),
 				action=select_power_management,
@@ -79,13 +105,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				preview_action=self._prev_firewall,
 				key='firewall_config',
 			),
-			MenuItem(
-				text=tr('Additional fonts'),
-				action=select_fonts,
-				value=self._app_config.fonts_config,
-				preview_action=self._prev_fonts,
-				key='fonts_config',
-			),
+			MenuItem(text=tr('Software'), read_only=True),
 			MenuItem(
 				text=tr('AUR helper'),
 				action=select_aur_helper,
@@ -123,6 +143,20 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 			output = f'{tr("Print service")}: '
 			output += tr('Enabled') if print_service_config.enabled else tr('Disabled')
 			return output
+		return None
+
+	def _prev_multimedia(self, item: MenuItem) -> str | None:
+		if item.value is not None:
+			config: MultimediaConfiguration = item.value
+			status = tr('Enabled') if config.enabled else tr('Disabled')
+			return f'{tr("Multimedia codecs")}: {status}'
+		return None
+
+	def _prev_firmware(self, item: MenuItem) -> str | None:
+		if item.value is not None:
+			config: FirmwareConfiguration = item.value
+			status = tr('Enabled') if config.enabled else tr('Disabled')
+			return f'{tr("Firmware updates")}: {status}'
 		return None
 
 	def _prev_firewall(self, item: MenuItem) -> str | None:
@@ -173,9 +207,12 @@ async def select_aur_helper(preset: AurHelperConfiguration | None = None) -> Aur
 
 async def select_power_management(preset: PowerManagementConfiguration | None = None) -> PowerManagementConfiguration | None:
 	group = MenuItemGroup.from_enum(PowerManagement)
+	group.set_default_by_value(PowerManagement.POWER_PROFILES_DAEMON)
 
 	if preset:
 		group.set_focus_by_value(preset.power_management)
+	else:
+		group.set_focus_by_value(PowerManagement.POWER_PROFILES_DAEMON)
 
 	result = await Selection[PowerManagement](
 		group,
@@ -253,11 +290,49 @@ async def select_audio(preset: AudioConfiguration | None = None) -> AudioConfigu
 			raise ValueError('Unhandled result type')
 
 
+async def select_multimedia(preset: MultimediaConfiguration | None = None) -> MultimediaConfiguration | None:
+	result = await Confirmation(
+		header=tr(
+			'Install a complete GStreamer codec set, FFmpeg, and the VA-API GStreamer plugin? '
+			'This supports common audio and video formats and hardware-accelerated playback when the selected GPU supports it.'
+		),
+		allow_skip=True,
+		preset=preset.enabled if preset else True,
+	).show()
+
+	match result.type_:
+		case ResultType.Selection:
+			return MultimediaConfiguration(result.get_value())
+		case ResultType.Skip:
+			return preset
+		case _:
+			raise ValueError('Unhandled result type')
+
+
+async def select_firmware(preset: FirmwareConfiguration | None = None) -> FirmwareConfiguration | None:
+	result = await Confirmation(
+		header=tr('Install firmware update support and enable automatic update-metadata refreshes?'),
+		allow_skip=True,
+		preset=preset.enabled if preset else False,
+	).show()
+
+	match result.type_:
+		case ResultType.Selection:
+			return FirmwareConfiguration(result.get_value())
+		case ResultType.Skip:
+			return preset
+		case _:
+			raise ValueError('Unhandled result type')
+
+
 async def select_firewall(preset: FirewallConfiguration | None = None) -> FirewallConfiguration | None:
 	group = MenuItemGroup.from_enum(Firewall)
+	group.set_default_by_value(Firewall.FWD)
 
 	if preset:
 		group.set_focus_by_value(preset.firewall)
+	else:
+		group.set_focus_by_value(Firewall.FWD)
 
 	result = await Selection[Firewall](
 		group,

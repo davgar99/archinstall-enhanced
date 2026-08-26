@@ -10,7 +10,7 @@ from archinstall.lib.bootloader.utils import validate_bootloader_layout
 from archinstall.lib.configuration import save_config
 from archinstall.lib.disk.disk_menu import DiskLayoutConfigurationMenu
 from archinstall.lib.gaming.gaming_menu import GamingMenu
-from archinstall.lib.general.general_menu import select_hostname, select_ntp, select_timezone
+from archinstall.lib.general.general_menu import select_hardware_clock_utc, select_hostname, select_ntp, select_timezone
 from archinstall.lib.general.system_menu import select_kernel, select_swap
 from archinstall.lib.hardware import SysInfo
 from archinstall.lib.locale.locale_menu import LocaleMenu
@@ -43,6 +43,7 @@ from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MsgLevelType, Pre
 class _TimeConfiguration:
 	timezone: str
 	ntp: bool
+	hardware_clock_utc: bool
 
 
 class GlobalMenu(AbstractMenu[None]):
@@ -55,6 +56,8 @@ class GlobalMenu(AbstractMenu[None]):
 		title: str | None = None,
 	) -> None:
 		self._arch_config = arch_config
+		if self._arch_config.hardware_clock_utc is None:
+			self._arch_config.hardware_clock_utc = not SysInfo.has_windows_bootloader()
 		self._mirror_list_handler = mirror_list_handler
 		self._skip_boot = skip_boot
 		self._advanced = advanced
@@ -72,6 +75,10 @@ class GlobalMenu(AbstractMenu[None]):
 	def _get_menu_options(self) -> list[MenuItem]:
 		menu_options = [
 			MenuItem(
+				text=tr('Language and region'),
+				read_only=True,
+			),
+			MenuItem(
 				text=tr('Archinstall language'),
 				action=self._select_archinstall_language,
 				preview_action=self._prev_archinstall_language,
@@ -83,6 +90,17 @@ class GlobalMenu(AbstractMenu[None]):
 				action=self._locale_selection,
 				preview_action=self._prev_locale,
 				key='locale_config',
+			),
+			MenuItem(
+				text=tr('Time configuration'),
+				action=self._select_time_configuration,
+				value='UTC',
+				preview_action=self._prev_time_configuration,
+				key='timezone',
+			),
+			MenuItem(
+				text=tr('Installation'),
+				read_only=True,
 			),
 			MenuItem(
 				text=tr('Mirrors and repositories'),
@@ -120,6 +138,10 @@ class GlobalMenu(AbstractMenu[None]):
 				key='kernels',
 			),
 			MenuItem(
+				text=tr('System'),
+				read_only=True,
+			),
+			MenuItem(
 				text=tr('Hostname'),
 				value='archlinux',
 				action=select_hostname,
@@ -133,10 +155,21 @@ class GlobalMenu(AbstractMenu[None]):
 				key='auth_config',
 			),
 			MenuItem(
+				text=tr('Network configuration'),
+				action=select_network,
+				value={},
+				preview_action=self._prev_network_config,
+				key='network_config',
+			),
+			MenuItem(
 				text=tr('Profile'),
 				action=self._select_profile,
 				preview_action=self._prev_profile,
 				key='profile_config',
+			),
+			MenuItem(
+				text=tr('Software'),
+				read_only=True,
 			),
 			MenuItem(
 				text=tr('Applications'),
@@ -152,13 +185,6 @@ class GlobalMenu(AbstractMenu[None]):
 				key='gaming_config',
 			),
 			MenuItem(
-				text=tr('Network configuration'),
-				action=select_network,
-				value={},
-				preview_action=self._prev_network_config,
-				key='network_config',
-			),
-			MenuItem(
 				text=tr('Pacman'),
 				action=self._pacman_configuration,
 				value=PacmanConfiguration(),
@@ -171,13 +197,6 @@ class GlobalMenu(AbstractMenu[None]):
 				value=[],
 				preview_action=self._prev_additional_pkgs,
 				key='packages',
-			),
-			MenuItem(
-				text=tr('Time configuration'),
-				action=self._select_time_configuration,
-				value='UTC',
-				preview_action=self._prev_time_configuration,
-				key='timezone',
 			),
 			MenuItem(
 				text='',
@@ -362,6 +381,11 @@ class GlobalMenu(AbstractMenu[None]):
 				output += f'{tr("Audio")}: {audio_config.audio.value}'
 				output += '\n'
 
+			if app_config.multimedia_config:
+				output += f'{tr("Multimedia codecs")}: '
+				output += tr('Enabled') if app_config.multimedia_config.enabled else tr('Disabled')
+				output += '\n'
+
 			if app_config.print_service_config:
 				output += f'{tr("Print service")}: '
 				output += tr('Enabled') if app_config.print_service_config.enabled else tr('Disabled')
@@ -393,7 +417,11 @@ class GlobalMenu(AbstractMenu[None]):
 		return None
 
 	async def _select_time_configuration(self, preset: str) -> str:
-		config = _TimeConfiguration(timezone=preset, ntp=self._arch_config.ntp)
+		config = _TimeConfiguration(
+			timezone=preset,
+			ntp=self._arch_config.ntp,
+			hardware_clock_utc=self._arch_config.hardware_clock_utc is not False,
+		)
 		group = MenuItemGroup(
 			[
 				MenuItem(
@@ -408,6 +436,12 @@ class GlobalMenu(AbstractMenu[None]):
 					preview_action=lambda item: f'{tr("NTP")}: {tr("Enabled") if item.value else tr("Disabled")}' if item.value is not None else None,
 					key='ntp',
 				),
+				MenuItem(
+					text=tr('Set hardware clock from system time (UTC)'),
+					action=select_hardware_clock_utc,
+					preview_action=lambda item: f'{tr("Hardware clock (UTC)")}: {tr("Enabled") if item.value else tr("Disabled")}',
+					key='hardware_clock_utc',
+				),
 			],
 			sort_items=False,
 			checkmarks=True,
@@ -418,6 +452,7 @@ class GlobalMenu(AbstractMenu[None]):
 			return preset
 
 		self._arch_config.ntp = result.ntp
+		self._arch_config.hardware_clock_utc = result.hardware_clock_utc
 		return result.timezone
 
 	def _prev_time_configuration(self, item: MenuItem) -> str | None:
@@ -425,7 +460,8 @@ class GlobalMenu(AbstractMenu[None]):
 			return None
 
 		ntp_status = tr('Enabled') if self._arch_config.ntp else tr('Disabled')
-		return f'{tr("Timezone")}: {item.value}\n{tr("NTP")}: {ntp_status}'
+		hardware_clock_status = tr('Enabled') if self._arch_config.hardware_clock_utc else tr('Disabled')
+		return f'{tr("Timezone")}: {item.value}\n{tr("NTP")}: {ntp_status}\n{tr("Hardware clock (UTC)")}: {hardware_clock_status}'
 
 	def _prev_disk_config(self, item: MenuItem) -> str | None:
 		disk_layout_conf: DiskLayoutConfiguration | None = item.value
@@ -457,8 +493,6 @@ class GlobalMenu(AbstractMenu[None]):
 			output += tr('Enabled') if item.value.enabled else tr('Disabled')
 			if item.value.enabled:
 				output += f'\n{tr("Compression algorithm")}: {item.value.algorithm.value}'
-				tweak_status = tr('Enabled') if item.value.swappiness_tweaks else tr('Disabled')
-				output += f'\n{tr("Swappiness tweaks")}: {tweak_status}'
 			return output
 		return None
 

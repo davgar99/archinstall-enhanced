@@ -91,6 +91,7 @@ class ArchConfigType(StrEnum):
 	HOSTNAME = 'hostname'
 	KERNELS = 'kernels'
 	NTP = 'ntp'
+	HARDWARE_CLOCK_UTC = 'hardware_clock_utc'
 	TIMEZONE = 'timezone'
 	SERVICES = 'services'
 	PACKAGES = 'packages'
@@ -131,6 +132,8 @@ class ArchConfigType(StrEnum):
 				return tr('Kernels')
 			case ArchConfigType.NTP:
 				return tr('Automatic time sync (NTP)')
+			case ArchConfigType.HARDWARE_CLOCK_UTC:
+				return tr('Hardware clock (UTC)')
 			case ArchConfigType.TIMEZONE:
 				return tr('Timezone')
 			case ArchConfigType.SERVICES:
@@ -172,6 +175,7 @@ class ArchConfig:
 	hostname: str = 'archlinux'
 	kernels: list[str] = field(default_factory=lambda: [DEFAULT_KERNEL.value])
 	ntp: bool = True
+	hardware_clock_utc: bool | None = None
 	packages: list[str] = field(default_factory=list)
 	pacman_config: PacmanConfiguration = field(default_factory=PacmanConfiguration)
 	timezone: str = 'UTC'
@@ -213,7 +217,7 @@ class ArchConfig:
 		return base_config
 
 	def plain_cfg(self) -> dict[ArchConfigType, str | list[str] | bool]:
-		return {
+		config: dict[ArchConfigType, str | list[str] | bool] = {
 			ArchConfigType.HOSTNAME: self.hostname,
 			ArchConfigType.KERNELS: self.kernels,
 			ArchConfigType.NTP: self.ntp,
@@ -222,6 +226,9 @@ class ArchConfig:
 			ArchConfigType.PACKAGES: self.packages,
 			ArchConfigType.CUSTOM_COMMANDS: self.custom_commands,
 		}
+		if self.hardware_clock_utc is not None:
+			config[ArchConfigType.HARDWARE_CLOCK_UTC] = self.hardware_clock_utc
+		return config
 
 	def sub_cfg(self) -> dict[ArchConfigType, SubConfig]:
 		cfg: dict[ArchConfigType, SubConfig] = {
@@ -342,6 +349,9 @@ class ArchConfig:
 			arch_config.kernels = kernels
 
 		arch_config.ntp = args_config.get('ntp', True)
+		hardware_clock_utc = args_config.get('hardware_clock_utc')
+		if isinstance(hardware_clock_utc, bool):
+			arch_config.hardware_clock_utc = hardware_clock_utc
 
 		if packages := args_config.get('packages', []):
 			arch_config.packages = packages

@@ -194,7 +194,7 @@ async def select_network(preset: NetworkConfiguration | None) -> NetworkConfigur
 			return None
 		case ResultType.Selection:
 			config = result.get_value()
-			dns_resolver = DnsResolver.DEFAULT
+			dns_resolver = DnsResolver.SYSTEMD_RESOLVED
 			if config in (NicType.NM, NicType.NM_IWD):
 				dns_resolver = await _select_dns_resolver(preset)
 
@@ -222,6 +222,9 @@ async def _select_dns_resolver(preset: NetworkConfiguration | None) -> DnsResolv
 	group = MenuItemGroup(items, sort_items=False)
 	if preset:
 		group.set_selected_by_value(preset.dns_resolver)
+	else:
+		group.set_default_by_value(DnsResolver.SYSTEMD_RESOLVED)
+		group.set_focus_by_value(DnsResolver.SYSTEMD_RESOLVED)
 
 	header = tr('Choose DNS caching') + '\n'
 	header += (

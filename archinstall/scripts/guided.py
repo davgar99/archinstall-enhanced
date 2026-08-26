@@ -125,10 +125,7 @@ def perform_installation(
 			installation.set_mirrors(mirror_list_handler, mirror_config, on_target=True)
 
 		if config.swap and config.swap.enabled:
-			installation.setup_swap(
-				algo=config.swap.algorithm,
-				swappiness_tweaks=config.swap.swappiness_tweaks,
-			)
+			installation.setup_swap(algo=config.swap.algorithm)
 
 		if config.bootloader_config and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER:
 			prepare_grub_os_prober(
@@ -180,6 +177,9 @@ def perform_installation(
 
 		if timezone := config.timezone:
 			installation.set_timezone(timezone)
+
+		if config.hardware_clock_utc is not False:
+			installation.set_hardware_clock_utc()
 
 		if config.ntp:
 			installation.activate_time_synchronization()
