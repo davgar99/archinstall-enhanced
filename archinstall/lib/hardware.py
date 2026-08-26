@@ -5,7 +5,7 @@ from functools import cached_property
 from pathlib import Path
 
 from archinstall.lib.command import SysCommand
-from archinstall.lib.exceptions import SysCallError
+from archinstall.lib.exceptions import RequirementError, SysCallError
 from archinstall.lib.log import debug
 from archinstall.lib.networking import enrich_iface_types, list_interfaces
 from archinstall.lib.translationhandler import tr
@@ -35,17 +35,19 @@ class GfxPackage(Enum):
 	LibvaIntelDriver = 'libva-intel-driver'
 	VplGpuRt = 'vpl-gpu-rt'
 	LibVpl = 'libvpl'
+	LibvaUtils = 'libva-utils'
 	LibvaNvidiaDriver = 'libva-nvidia-driver'
 	Mesa = 'mesa'
+	MesaUtils = 'mesa-utils'
 	NvidiaOpen = 'nvidia-open'
 	NvidiaOpenDkms = 'nvidia-open-dkms'
 	VulkanIntel = 'vulkan-intel'
 	VulkanRadeon = 'vulkan-radeon'
 	VulkanNouveau = 'vulkan-nouveau'
+	VulkanTools = 'vulkan-tools'
 	VirtualBoxGuestUtils = 'virtualbox-guest-utils'
 	Xf86VideoAmdgpu = 'xf86-video-amdgpu'
 	Xf86VideoAti = 'xf86-video-ati'
-	Xf86VideoNouveau = 'xf86-video-nouveau'
 
 
 class GfxDriver(Enum):
@@ -96,7 +98,11 @@ class GfxDriver(Enum):
 		return text
 
 	def gfx_packages(self) -> list[GfxPackage]:
-		packages: list[GfxPackage] = []
+		packages = [
+			GfxPackage.MesaUtils,
+			GfxPackage.VulkanTools,
+			GfxPackage.LibvaUtils,
+		]
 
 		match self:
 			case GfxDriver.AllOpenSource:
@@ -104,7 +110,6 @@ class GfxDriver(Enum):
 					GfxPackage.Mesa,
 					GfxPackage.Xf86VideoAmdgpu,
 					GfxPackage.Xf86VideoAti,
-					GfxPackage.Xf86VideoNouveau,
 					GfxPackage.LibvaIntelDriver,
 					GfxPackage.IntelMediaDriver,
 					GfxPackage.VplGpuRt,
@@ -138,7 +143,6 @@ class GfxDriver(Enum):
 			case GfxDriver.NvidiaOpenSource:
 				packages += [
 					GfxPackage.Mesa,
-					GfxPackage.Xf86VideoNouveau,
 					GfxPackage.VulkanNouveau,
 				]
 			case GfxDriver.VMOpenSource:
@@ -288,6 +292,15 @@ class SysInfo:
 			return b'none' not in b''.join(result).lower()
 		except SysCallError as err:
 			debug(f'System is not running in a VM: {err}')
+
+		return False
+
+	@staticmethod
+	def has_windows_bootloader() -> bool:
+		try:
+			return 'windows boot manager' in SysCommand('efibootmgr').decode().lower()
+		except (RequirementError, SysCallError) as err:
+			debug(f'Could not inspect EFI boot entries for Windows: {err}')
 
 		return False
 

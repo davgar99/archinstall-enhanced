@@ -244,6 +244,22 @@ def test_32bit_graphics_packages(driver: GfxDriver, expected: list[str]) -> None
 	assert GraphicsExtrasApp().packages(True, False, driver) == expected
 
 
+@pytest.mark.parametrize('driver', list(GfxDriver))
+def test_graphics_profiles_include_verification_tools(driver: GfxDriver) -> None:
+	packages = {package.value for package in driver.gfx_packages()}
+
+	assert {'mesa-utils', 'vulkan-tools', 'libva-utils'} <= packages
+
+
+@pytest.mark.parametrize('driver', [GfxDriver.AllOpenSource, GfxDriver.NvidiaOpenSource])
+def test_nouveau_profiles_use_xorg_modesetting(driver: GfxDriver) -> None:
+	packages = {package.value for package in driver.gfx_packages()}
+
+	assert 'mesa' in packages
+	assert 'vulkan-nouveau' in packages
+	assert 'xf86-video-nouveau' not in packages
+
+
 @pytest.mark.parametrize(
 	('driver', 'runtime'),
 	[

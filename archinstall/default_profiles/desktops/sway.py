@@ -35,6 +35,7 @@ class SwayProfile(Profile):
 			'pavucontrol',
 			'foot',
 			'xorg-xwayland',
+			'xdg-desktop-portal-wlr',
 		] + additional
 
 	@property

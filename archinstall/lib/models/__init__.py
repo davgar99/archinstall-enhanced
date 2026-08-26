@@ -1,4 +1,12 @@
-from archinstall.lib.models.application import ApplicationConfiguration, Audio, AudioConfiguration, BluetoothConfiguration, PrintServiceConfiguration
+from archinstall.lib.models.application import (
+	ApplicationConfiguration,
+	Audio,
+	AudioConfiguration,
+	BluetoothConfiguration,
+	FirmwareConfiguration,
+	MultimediaConfiguration,
+	PrintServiceConfiguration,
+)
 from archinstall.lib.models.bootloader import Bootloader
 from archinstall.lib.models.device import (
 	BDevice,
@@ -49,6 +57,7 @@ __all__ = [
 	'EncryptionType',
 	'Fido2Device',
 	'FilesystemType',
+	'FirmwareConfiguration',
 	'LocalPackage',
 	'LocaleConfiguration',
 	'LsblkInfo',
@@ -59,6 +68,7 @@ __all__ = [
 	'MirrorConfiguration',
 	'MirrorRegion',
 	'ModificationStatus',
+	'MultimediaConfiguration',
 	'NetworkConfiguration',
 	'Nic',
 	'NicType',

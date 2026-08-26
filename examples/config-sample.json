@@ -153,6 +153,7 @@
   },
   "no_pkg_lookups": false,
   "ntp": true,
+  "hardware_clock_utc": true,
   "offline": false,
   "packages": [],
   "pacman_config": {

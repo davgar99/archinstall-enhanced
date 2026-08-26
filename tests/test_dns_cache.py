@@ -1,11 +1,15 @@
+import asyncio
 from pathlib import Path
 
 import pytest
 
 from archinstall.lib.global_menu import GlobalMenu
+from archinstall.lib.menu.helpers import Selection
 from archinstall.lib.models.network import DnsResolver, NetworkConfiguration, NicType
 from archinstall.lib.network.network_handler import install_network_config
+from archinstall.lib.network.network_menu import _select_dns_resolver
 from archinstall.tui.menu_item import MenuItem
+from archinstall.tui.result import Result
 
 
 class FakeInstaller:
@@ -81,3 +85,15 @@ def test_dns_cache_is_included_in_global_menu_preview() -> None:
 	preview = GlobalMenu._prev_network_config(None, item)  # type: ignore[arg-type]
 
 	assert preview == 'Network configuration:\nUse Network Manager (default backend)\nDNS cache: dnsmasq'
+
+
+def test_systemd_resolved_is_the_interactive_default(monkeypatch: pytest.MonkeyPatch) -> None:
+	async def select_focused(selection: Selection[DnsResolver]) -> Result[DnsResolver]:
+		assert selection._group.default_item is not None
+		assert selection._group.default_item.value == DnsResolver.SYSTEMD_RESOLVED
+		assert selection._group.focus_item is not None
+		return Result.selection(selection._group.focus_item.value)
+
+	monkeypatch.setattr(Selection, 'show', select_focused)
+
+	assert asyncio.run(_select_dns_resolver(None)) == DnsResolver.SYSTEMD_RESOLVED

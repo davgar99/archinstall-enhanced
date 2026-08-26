@@ -29,32 +29,6 @@ class AudioApp:
 			'rtkit',
 		]
 
-	def _enable_pipewire(
-		self,
-		install_session: Installer,
-		users: list[User] | None = None,
-	) -> None:
-		if users is None:
-			return
-
-		for user in users:
-			# Create the full path for enabling the pipewire systemd items
-			service_dir = install_session.target / 'home' / user.username / '.config' / 'systemd' / 'user' / 'default.target.wants'
-			service_dir.mkdir(parents=True, exist_ok=True)
-
-			# Set ownership of the entire user catalogue
-			install_session.arch_chroot(f'chown -R {user.username}:{user.username} /home/{user.username}')
-
-			# symlink in the correct pipewire systemd items
-			install_session.arch_chroot(
-				f'ln -sf /usr/lib/systemd/user/pipewire-pulse.service /home/{user.username}/.config/systemd/user/default.target.wants/pipewire-pulse.service',
-				run_as=user.username,
-			)
-			install_session.arch_chroot(
-				f'ln -sf /usr/lib/systemd/user/pipewire-pulse.socket /home/{user.username}/.config/systemd/user/default.target.wants/pipewire-pulse.socket',
-				run_as=user.username,
-			)
-
 	def install(
 		self,
 		install_session: Installer,
@@ -76,6 +50,5 @@ class AudioApp:
 		match audio_config.audio:
 			case Audio.PIPEWIRE:
 				install_session.add_additional_packages(self.pipewire_packages)
-				self._enable_pipewire(install_session, users)
 			case Audio.PULSEAUDIO:
 				install_session.add_additional_packages(self.pulseaudio_packages)

@@ -543,12 +543,16 @@ async def select_mount_options() -> list[str]:
 	prompt = tr('Would you like to use compression or disable CoW?') + '\n'
 	compression = tr('Use compression')
 	disable_cow = tr('Disable Copy-on-Write')
+	no_options = tr('No additional mount options')
 
 	items = [
 		MenuItem(compression, value=BtrfsMountOption.compress.value),
 		MenuItem(disable_cow, value=BtrfsMountOption.nodatacow.value),
+		MenuItem(no_options, value=''),
 	]
 	group = MenuItemGroup(items, sort_items=False)
+	group.set_default_by_value(BtrfsMountOption.compress.value)
+	group.set_focus_by_value(BtrfsMountOption.compress.value)
 
 	result = await Selection[str](
 		group,
@@ -558,9 +562,9 @@ async def select_mount_options() -> list[str]:
 
 	match result.type_:
 		case ResultType.Skip:
-			return []
+			return [BtrfsMountOption.compress.value]
 		case ResultType.Selection:
-			return [result.get_value()]
+			return [value] if (value := result.get_value()) else []
 		case _:
 			raise ValueError('Unhandled result type')
 
@@ -846,7 +850,7 @@ async def suggest_lvm_layout(
 		raise ValueError('Unable to find boot partition in partition modifications')
 
 	total_vol_available = sum(
-		[p.length for p in other_part],
+		(p.length for p in other_part),
 		Size(0, Unit.B, SectorSize.default()),
 	)
 	root_vol_size = process_root_partition_size(total_vol_available, SectorSize.default())

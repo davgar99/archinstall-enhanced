@@ -26,13 +26,26 @@ class DesktopProfile(Profile):
 	@override
 	def packages(self) -> list[str]:
 		return [
-			'nano',
-			'vim',
-			'openssh',
+			'7zip',
+			'bash-completion',
+			'curl',
+			'fontconfig',
+			'git',
 			'htop',
-			'wget',
+			'less',
+			'man-db',
+			'man-pages',
+			'nano',
+			'openssh',
+			'pacman-contrib',
+			'rsync',
 			'smartmontools',
+			'unzip',
+			'vim',
+			'wget',
+			'xdg-desktop-portal-gtk',
 			'xdg-utils',
+			'xdg-user-dirs',
 		]
 
 	@property
@@ -87,6 +100,11 @@ class DesktopProfile(Profile):
 
 	@override
 	def post_install(self, install_session: Installer) -> None:
+		fontconfig_link = install_session.target / 'etc/fonts/conf.d/70-no-bitmaps-except-emoji.conf'
+		if not fontconfig_link.exists() and not fontconfig_link.is_symlink():
+			fontconfig_link.parent.mkdir(parents=True, exist_ok=True)
+			fontconfig_link.symlink_to('/usr/share/fontconfig/conf.avail/70-no-bitmaps-except-emoji.conf')
+
 		for profile in self.current_selection:
 			profile.post_install(install_session)
 
@@ -102,6 +120,7 @@ class DesktopProfile(Profile):
 	def install(self, install_session: Installer) -> None:
 		# Install common packages for all desktop environments
 		install_session.add_additional_packages(self.packages)
+		install_session.enable_service('paccache.timer')
 
 		xorg_installed = False
 

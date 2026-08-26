@@ -4,7 +4,9 @@ from archinstall.applications.audio import AudioApp
 from archinstall.applications.aur_helper import AurHelperApp
 from archinstall.applications.bluetooth import BluetoothApp
 from archinstall.applications.firewall import FirewallApp
+from archinstall.applications.firmware import FirmwareApp
 from archinstall.applications.fonts import FontsApp
+from archinstall.applications.multimedia import MultimediaApp
 from archinstall.applications.power_management import PowerManagementApp
 from archinstall.applications.print_service import PrintServiceApp
 from archinstall.lib.models import Audio
@@ -36,6 +38,12 @@ class ApplicationHandler:
 				app_config.audio_config,
 				users,
 			)
+
+		if app_config.multimedia_config:
+			MultimediaApp().install(install_session, app_config.multimedia_config)
+
+		if app_config.firmware_config:
+			FirmwareApp().install(install_session, app_config.firmware_config)
 
 		if app_config.power_management_config:
 			PowerManagementApp().install(

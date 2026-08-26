@@ -19,14 +19,20 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 		self._gaming_config = preset if preset else GamingConfiguration()
 		self._item_group = MenuItemGroup(
 			[
-				MenuItem(text=tr('Graphics compatibility'), read_only=True),
+				MenuItem(text=tr('Graphics'), read_only=True),
 				MenuItem(
 					text=tr('Install 32-bit graphics libraries'),
 					action=select_32bit_graphics,
 					preview_action=self._prev_toggle,
 					key='install_32bit_graphics',
 				),
-				MenuItem(text=tr('Compatibility and performance'), read_only=True),
+				MenuItem(text=tr('Compatibility'), read_only=True),
+				MenuItem(
+					text=tr('NTSYNC'),
+					action=select_ntsync,
+					preview_action=self._prev_ntsync,
+					key='ntsync_config',
+				),
 				MenuItem(
 					text=tr('Increase vm.max_map_count'),
 					action=select_vm_max_map_count,
@@ -39,6 +45,7 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					preview_action=self._prev_toggle,
 					key='increase_shader_cache',
 				),
+				MenuItem(text=tr('Performance'), read_only=True),
 				MenuItem(
 					text=tr('CPU scheduler'),
 					action=select_cpu_scheduler,
@@ -46,17 +53,12 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					key='cpu_scheduler_config',
 				),
 				MenuItem(
-					text=tr('NTSYNC'),
-					action=select_ntsync,
-					preview_action=self._prev_ntsync,
-					key='ntsync_config',
-				),
-				MenuItem(
 					text=tr('GameMode'),
 					action=select_gamemode,
 					preview_action=self._prev_toggle,
 					key='gamemode',
 				),
+				MenuItem(text=tr('Tools'), read_only=True),
 				MenuItem(
 					text=tr('MangoHud'),
 					action=select_mangohud,
@@ -69,19 +71,20 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					preview_action=self._prev_toggle,
 					key='gamescope',
 				),
+				MenuItem(text=tr('Controllers'), read_only=True),
+				MenuItem(
+					text=tr('Disable PlayStation controller touchpads as a mouse'),
+					action=select_playstation_touchpad,
+					preview_action=self._prev_toggle,
+					key='disable_playstation_touchpad',
+				),
+				MenuItem(text=tr('Advanced'), read_only=True, enabled=advanced),
 				MenuItem(
 					text=tr('Disable hardware watchdog'),
 					action=select_disable_watchdog,
 					preview_action=self._prev_toggle,
 					key='disable_watchdog',
 					enabled=advanced,
-				),
-				MenuItem(text=tr('Controller compatibility'), read_only=True),
-				MenuItem(
-					text=tr('Disable PlayStation controller touchpads as a mouse'),
-					action=select_playstation_touchpad,
-					preview_action=self._prev_toggle,
-					key='disable_playstation_touchpad',
 				),
 			],
 			checkmarks=True,
@@ -165,11 +168,11 @@ async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) 
 async def select_ntsync(preset: NTSyncConfiguration | None = None) -> NTSyncConfiguration | None:
 	result = await Confirmation(
 		header=tr(
-			'Enable NTSYNC? It provides faster Windows-compatible synchronization for Wine and Proton. '
-			'The driver is experimental and may cause compatibility issues.'
+			'Enable NTSYNC autoload? NTSYNC provides efficient Windows-compatible synchronization for Wine and Proton. '
+			'Official Arch kernels support it, and current Wine and Proton versions use it automatically when available.'
 		),
 		allow_skip=True,
-		preset=preset.enabled if preset else False,
+		preset=preset.enabled if preset else True,
 	).show()
 
 	match result.type_:
@@ -226,7 +229,8 @@ async def select_32bit_graphics(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
 		tr(
 			'Install 32-bit OpenGL and Vulkan drivers for the selected GPU? Steam, Wine, Proton, and older games may require them. '
-			'This enables the Multilib repository and uses additional disk space.'
+			'This enables the Multilib repository\n'
+			'    and uses additional disk space.'
 		),
 		True if preset is None else preset,
 	)

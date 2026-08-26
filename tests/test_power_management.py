@@ -1,8 +1,13 @@
+import asyncio
 from pathlib import Path
 
+from pytest import MonkeyPatch
+
 from archinstall.applications.power_management import PowerManagementApp
-from archinstall.lib.applications.application_menu import ApplicationMenu
+from archinstall.lib.applications.application_menu import ApplicationMenu, select_power_management
+from archinstall.lib.menu.helpers import Selection
 from archinstall.lib.models.application import PowerManagement, PowerManagementConfiguration
+from archinstall.tui.result import Result
 
 
 class FakeInstaller:
@@ -24,6 +29,18 @@ class FakeInstaller:
 def test_power_management_menu_available_without_battery_gate() -> None:
 	item = ApplicationMenu()._item_group.find_by_key('power_management_config')
 	assert item.enabled
+
+
+def test_power_profiles_daemon_is_the_interactive_default(monkeypatch: MonkeyPatch) -> None:
+	async def select_focused(selection: Selection[PowerManagement]) -> Result[PowerManagement]:
+		assert selection._group.default_item is not None
+		assert selection._group.default_item.value == PowerManagement.POWER_PROFILES_DAEMON
+		assert selection._group.focus_item is not None
+		return Result.selection(selection._group.focus_item.value)
+
+	monkeypatch.setattr(Selection, 'show', select_focused)
+
+	assert asyncio.run(select_power_management()) == PowerManagementConfiguration(PowerManagement.POWER_PROFILES_DAEMON)
 
 
 def test_power_profiles_daemon_install_is_exclusive(tmp_path: Path) -> None:
