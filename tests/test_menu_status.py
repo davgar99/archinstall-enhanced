@@ -54,10 +54,19 @@ def test_master_markers_and_two_column_gutter() -> None:
 
 def test_section_has_one_leading_row_and_information_does_not() -> None:
 	section = MenuItem('Section', role=MenuItemRole.SECTION)
+	initial_section = MenuItem('Initial section', role=MenuItemRole.SECTION, space_before=False)
 	information = MenuItem('Information', role=MenuItemRole.INFORMATION)
 	assert _menu_prompt(section).plain == '\nSection'
 	assert _menu_prompt(section).plain.count('\n') == 1
+	assert _menu_prompt(initial_section).plain == 'Initial section'
 	assert _menu_prompt(information).plain == 'Information'
+
+
+def test_first_global_section_aligns_with_initial_preview(menu_under_test: GlobalMenu) -> None:
+	first = menu_under_test._item_group.items[0]
+	assert first.text == 'Language and region'
+	assert first.role is MenuItemRole.SECTION
+	assert _menu_prompt(first).plain == 'Language and region'
 
 
 def test_main_actions_are_grouped_and_indented(menu_under_test: GlobalMenu) -> None:

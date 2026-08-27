@@ -78,6 +78,7 @@ class GlobalMenu(AbstractMenu[None]):
 			MenuItem(
 				text=tr('Language and region'),
 				role=MenuItemRole.SECTION,
+				space_before=False,
 			),
 			MenuItem(
 				text=tr('Archinstall language'),

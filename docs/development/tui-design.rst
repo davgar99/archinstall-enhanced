@@ -9,8 +9,9 @@ is ``Archinstall Enhanced``; an available-update notice may follow it.
 Menus
 -----
 
-Grouped menus use ``MenuItemRole.SECTION`` for subtitles. Rendering adds exactly
-one blank terminal row before every section subtitle, including the first one.
+Grouped menus use ``MenuItemRole.SECTION`` for subtitles. Rendering normally
+adds exactly one blank terminal row before a section. The first main-menu
+subtitle disables that space so it aligns with the first preview line.
 Informational rows use ``MenuItemRole.INFORMATION`` and do not receive section
 spacing. Labels remain plain translated text; markup and status prefixes are
 presentation metadata so filtering and focus lookup use the real label.

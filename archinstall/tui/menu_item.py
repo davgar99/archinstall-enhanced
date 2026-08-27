@@ -79,6 +79,7 @@ class MenuItem:
 	key: str | None = None
 	role: MenuItemRole = MenuItemRole.OPTION
 	state: MenuItemState = MenuItemState.NEUTRAL
+	space_before: bool = True
 
 	_id: str = ''
 

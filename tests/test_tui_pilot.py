@@ -22,7 +22,7 @@ def test_master_layout_header_sections_preview_and_footer_at_supported_sizes() -
 	async def exercise(size: tuple[int, int]) -> None:
 		app = _PresentationApp()
 		items = [
-			MenuItem('Global', role=MenuItemRole.SECTION),
+			MenuItem('Global', role=MenuItemRole.SECTION, space_before=False),
 			MenuItem('Disk configuration', state=MenuItemState.BLOCKING, preview_action=lambda _item: 'Disk details'),
 			MenuItem('Applications', role=MenuItemRole.SECTION),
 			MenuItem('Audio'),
@@ -49,7 +49,7 @@ def test_master_layout_header_sections_preview_and_footer_at_supported_sizes() -
 			assert options.region.width > 0
 			assert screen.query_one('#preview_content', Label).region.x >= options.region.right
 			assert screen.query_one(Footer).display
-			assert _prompt(options, 0).plain == '\nGlobal'
+			assert _prompt(options, 0).plain == 'Global'
 			assert _prompt(options, 2).plain == '\nApplications'
 			assert _prompt(options, 4).plain == '\nGaming'
 			assert _prompt(options, 6).plain == '\nActions'

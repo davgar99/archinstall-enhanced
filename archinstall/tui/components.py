@@ -30,7 +30,8 @@ ValueT = TypeVar('ValueT')
 
 def _menu_prompt(item: MenuItem) -> Text:
 	if item.role is MenuItemRole.SECTION:
-		return Text(f'\n{item.text}', style='bold white')
+		prefix = '\n' if item.space_before else ''
+		return Text(f'{prefix}{item.text}', style='bold white')
 	if item.role is MenuItemRole.INFORMATION:
 		return Text(item.text)
 	prompt = Text()
