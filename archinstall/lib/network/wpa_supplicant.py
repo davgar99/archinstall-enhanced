@@ -1,8 +1,18 @@
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from archinstall.lib.log import debug
 from archinstall.lib.models.network import WifiNetwork
+
+
+def _decode_config_value(value: str) -> str:
+	if value.startswith('"') and value.endswith('"'):
+		try:
+			return str(json.loads(value))
+		except json.JSONDecodeError:
+			return value[1:-1]
+	return value
 
 
 @dataclass
@@ -11,11 +21,11 @@ class WpaSupplicantNetwork:
 
 	@property
 	def psk(self) -> str:
-		return self.mappings['psk'].strip('"')
+		return _decode_config_value(self.mappings['psk'])
 
 	@property
 	def ssid(self) -> str:
-		return self.mappings['ssid'].strip('"')
+		return _decode_config_value(self.mappings['ssid'])
 
 	def to_config_entry(self) -> str:
 		wpa_net_config = '\n'
@@ -60,7 +70,7 @@ class WpaSupplicantConfig:
 		return 'ctrl_interface=/run/wpa_supplicant\nupdate_config=1'
 
 	def get_existing_network(self, ssid: str) -> WpaSupplicantNetwork | None:
-		ssid = f'"{ssid}"'
+		ssid = json.dumps(ssid, ensure_ascii=False)
 
 		for network in self._wpa_networks:
 			if network.mappings['ssid'] == ssid:
@@ -76,13 +86,13 @@ class WpaSupplicantConfig:
 		if not existing_network:
 			wpa_net_config = WpaSupplicantNetwork(
 				mappings={
-					'ssid': f'"{network.ssid}"',
-					'psk': f'"{psk}"',
+					'ssid': json.dumps(network.ssid, ensure_ascii=False),
+					'psk': json.dumps(psk, ensure_ascii=False),
 				}
 			)
 			self._wpa_networks.append(wpa_net_config)
 		else:
-			existing_network.mappings['psk'] = f'"{psk}"'
+			existing_network.mappings['psk'] = json.dumps(psk, ensure_ascii=False)
 
 	def write_config(self) -> None:
 		debug('writing wpa_supplicant config')
