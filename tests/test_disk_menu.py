@@ -2,10 +2,28 @@ import asyncio
 
 from pytest import MonkeyPatch
 
-from archinstall.lib.disk.disk_menu import select_lvm_config
+from archinstall.lib.disk.disk_menu import DiskLayoutConfigurationMenu, select_lvm_config
 from archinstall.lib.menu.helpers import Confirmation, Selection
 from archinstall.lib.models.device import DiskLayoutConfiguration, DiskLayoutType, LvmConfiguration, LvmLayoutType
 from archinstall.tui.result import Result
+
+
+def test_lvm_status_is_visible_when_unconfigured() -> None:
+	menu = DiskLayoutConfigurationMenu(None)
+	item = menu._item_group.find_by_key('lvm_config')
+
+	assert item.get_display_value() == 'Not configured'
+	assert item.preview_action is not None
+	assert item.preview_action(item) == 'LVM: Not configured'
+
+
+def test_lvm_status_names_configured_layout() -> None:
+	preset = LvmConfiguration(config_type=LvmLayoutType.Default, vol_groups=[])
+	disk_config = DiskLayoutConfiguration(config_type=DiskLayoutType.Default, lvm_config=preset)
+	menu = DiskLayoutConfigurationMenu(disk_config)
+	item = menu._item_group.find_by_key('lvm_config')
+
+	assert item.get_display_value() == 'Configured (Default layout)'
 
 
 def test_lvm_menu_exposes_none_default_and_back(monkeypatch: MonkeyPatch) -> None:

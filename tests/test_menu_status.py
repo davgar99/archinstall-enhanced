@@ -52,6 +52,12 @@ def test_master_markers_and_two_column_gutter() -> None:
 	assert [item.text for item in items] == ['Configured', 'Warning', 'Blocking', 'Optional']
 
 
+def test_display_value_is_rendered_without_changing_filterable_text() -> None:
+	item = MenuItem('LVM', display_action=lambda _value: 'Not configured')
+	assert _menu_prompt(item).plain == '  LVM: Not configured'
+	assert item.text == 'LVM'
+
+
 def test_section_has_one_leading_row_and_information_does_not() -> None:
 	section = MenuItem('Section', role=MenuItemRole.SECTION)
 	initial_section = MenuItem('Initial section', role=MenuItemRole.SECTION, space_before=False)

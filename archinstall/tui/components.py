@@ -42,6 +42,8 @@ def _menu_prompt(item: MenuItem) -> Text:
 	if item.role is MenuItemRole.ACTION:
 		prompt.append('  ')
 	prompt.append(item.text)
+	if display_value := item.get_display_value():
+		prompt.append(f': {display_value}')
 	return prompt
 
 

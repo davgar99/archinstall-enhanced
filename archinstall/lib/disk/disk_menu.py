@@ -91,6 +91,7 @@ class DiskLayoutConfigurationMenu(AbstractSubMenu[DiskMenuConfig]):
 				text='LVM',
 				action=self._select_lvm_config,
 				value=self._disk_menu_config.lvm_config,
+				display_action=self._display_lvm_config,
 				preview_action=self._prev_lvm_config,
 				dependencies=[self._check_dep_lvm],
 				key='lvm_config',
@@ -238,9 +239,14 @@ class DiskLayoutConfigurationMenu(AbstractSubMenu[DiskMenuConfig]):
 
 		return None
 
+	def _display_lvm_config(self, value: LvmConfiguration | None) -> str:
+		if value is None:
+			return tr('Not configured')
+		return '{} ({})'.format(tr('Configured'), value.config_type.display_msg())
+
 	def _prev_lvm_config(self, item: MenuItem) -> str | None:
 		if not item.value:
-			return None
+			return f'LVM: {tr("Not configured")}'
 
 		lvm_config: LvmConfiguration = item.value
 
