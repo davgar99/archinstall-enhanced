@@ -473,29 +473,42 @@ async def select_lvm_config(
 	disk_config: DiskLayoutConfiguration,
 	preset: LvmConfiguration | None = None,
 ) -> LvmConfiguration | None:
-	preset_value = preset.config_type.display_msg() if preset else None
 	default_mode = LvmLayoutType.Default.display_msg()
+	no_lvm = tr('Do not use LVM')
+	back = tr('Back')
 
-	items = [MenuItem(default_mode, value=default_mode)]
-	group = MenuItemGroup(items)
-	group.set_focus_by_value(preset_value)
+	items = [
+		MenuItem(no_lvm, value=no_lvm),
+		MenuItem(default_mode, value=default_mode),
+		MenuItem(back, value=back),
+	]
+	group = MenuItemGroup(items, sort_items=False)
+	group.set_focus_by_value(default_mode if preset else no_lvm)
 
 	result = await Selection[str](
 		group,
-		allow_reset=True,
+		header=tr('Select a LVM option'),
+		allow_reset=False,
 		allow_skip=True,
 	).show()
 
 	match result.type_:
 		case ResultType.Skip:
 			return preset
-		case ResultType.Reset:
-			return None
 		case ResultType.Selection:
-			if result.get_value() == default_mode:
+			selection = result.get_value()
+			if selection == back:
+				return preset
+			if selection == default_mode:
 				return await suggest_lvm_layout(disk_config)
+			if selection == no_lvm and preset is not None:
+				prompt = tr('Remove the current LVM configuration? Dependent disk encryption settings will also be cleared.') + '\n'
+				confirmed = await Confirmation(header=prompt, allow_skip=False, preset=False).show()
+				if not confirmed.get_value():
+					return preset
+			return None
 
-	return None
+	return preset
 
 
 def _boot_partition(sector_size: SectorSize, using_gpt: bool) -> PartitionModification:

@@ -4,6 +4,7 @@ from archinstall.lib.args import USER_CONFIG_FILE, USER_CREDS_FILE, ArchConfig
 from archinstall.lib.log import debug
 from archinstall.lib.menu.helpers import Confirmation, Selection
 from archinstall.lib.menu.util import get_password, prompt_dir
+from archinstall.lib.models.device import ModificationStatus
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup
 from archinstall.tui.result import ResultType
@@ -11,16 +12,16 @@ from archinstall.tui.result import ResultType
 
 async def confirm_config(config: ArchConfig) -> bool:
 	header = f'{tr("The specified configuration will be applied")}. '
-	header += tr('Would you like to continue?') + '\n'
+	header += tr('Continue to the final confirmation?') + '\n'
 
 	group = MenuItemGroup.yes_no()
-	group.set_preview_for_all(lambda x: config.user_config_to_json())
+	group.set_preview_for_all(lambda _item: config.as_summary())
 
 	result = await Confirmation(
 		group=group,
 		header=header,
 		allow_skip=False,
-		preset=True,
+		preset=False,
 		preview_location='bottom',
 		preview_header=tr('Configuration preview'),
 	).show()
@@ -28,7 +29,39 @@ async def confirm_config(config: ArchConfig) -> bool:
 	if not result.get_value():
 		return False
 
+	destructive_targets = _destructive_targets(config)
+	if destructive_targets:
+		warning = tr('WARNING: DATA WILL BE PERMANENTLY DELETED') + '\n\n'
+		warning += tr('The following drives contain destructive changes:') + '\n'
+		warning += '\n'.join(f'- {target}' for target in destructive_targets) + '\n\n'
+		warning += tr('This cannot be undone. Erase the listed data and install?') + '\n'
+		result = await Confirmation(
+			header=warning,
+			allow_skip=False,
+			preset=False,
+		).show()
+		if not result.get_value():
+			return False
+
 	return True
+
+
+def _destructive_targets(config: ArchConfig) -> list[str]:
+	if config.disk_config is None:
+		return []
+
+	targets: list[str] = []
+	for modification in config.disk_config.device_modifications:
+		partition_data_loss = any(partition.status in {ModificationStatus.MODIFY, ModificationStatus.DELETE} for partition in modification.partitions)
+		if not modification.wipe and not partition_data_loss:
+			continue
+
+		info = modification.device.device_info
+		size = info.total_size.format_highest()
+		scope = tr('entire drive') if modification.wipe else tr('selected partitions')
+		targets.append(f'{info.path} — {info.model} — {size} ({scope})')
+
+	return targets
 
 
 async def save_config(config: ArchConfig) -> None:
