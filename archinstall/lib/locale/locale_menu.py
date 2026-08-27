@@ -78,7 +78,6 @@ async def select_locale_lang(preset: str | None = None) -> str | None:
 
 	items = [MenuItem(ll, value=ll) for ll in locale_lang]
 	group = MenuItemGroup(items, sort_items=True)
-	group.set_focus_by_value(preset)
 
 	result = await Selection[str](
 		header=tr('Locale language'),
@@ -101,7 +100,6 @@ async def select_locale_enc(preset: str | None = None) -> str | None:
 
 	items = [MenuItem(le, value=le) for le in locale_enc]
 	group = MenuItemGroup(items, sort_items=True)
-	group.set_focus_by_value(preset)
 
 	result = await Selection[str](
 		header=tr('Locale encoding'),
@@ -132,7 +130,6 @@ async def select_kb_layout(preset: str | None = None) -> str | None:
 
 	items = [MenuItem(lang, value=lang) for lang in sorted_kb_lang]
 	group = MenuItemGroup(items, sort_items=False)
-	group.set_focus_by_value(preset)
 
 	result = await Selection[str](
 		header=tr('Keyboard layout'),
@@ -154,7 +151,6 @@ async def select_console_font(preset: str | None = None) -> str | None:
 
 	items = [MenuItem(f, value=f) for f in fonts]
 	group = MenuItemGroup(items, sort_items=False)
-	group.set_focus_by_value(preset)
 
 	result = await Selection[str](
 		header=tr('Console font'),

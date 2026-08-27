@@ -174,7 +174,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 				+ '[/]\n'
 			)
 
-			result = await Confirmation(header=prompt, allow_skip=True, preset=False).show()
+			result = await Confirmation(header=prompt, allow_skip=True).show()
 
 			match result.type_:
 				case ResultType.Skip:
@@ -190,7 +190,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 	async def _select_uki(self, preset: bool) -> bool:
 		prompt = tr('Would you like to use unified kernel images?') + '\n'
 
-		result = await Confirmation(header=prompt, allow_skip=True, preset=preset).show()
+		result = await Confirmation(header=prompt, allow_skip=True).show()
 
 		match result.type_:
 			case ResultType.Skip:
@@ -235,7 +235,6 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 		result = await Confirmation(
 			header=prompt,
 			allow_skip=True,
-			preset=preset,
 		).show()
 
 		match result.type_:
@@ -253,7 +252,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 			'Leave this disabled unless you need automatic dual-boot detection.\n'
 		)
 
-		result = await Confirmation(header=prompt, allow_skip=True, preset=preset).show()
+		result = await Confirmation(header=prompt, allow_skip=True).show()
 
 		match result.type_:
 			case ResultType.Skip:
@@ -287,7 +286,6 @@ async def select_bootloader(
 	items = [MenuItem(o.value, value=o) for o in options]
 	group = MenuItemGroup(items)
 	group.set_default_by_value(default)
-	group.set_focus_by_value(preset)
 
 	result = await Selection[Bootloader](
 		group,
@@ -307,7 +305,6 @@ async def select_bootloader(
 async def select_plymouth_theme(preset: PlymouthTheme | None = None) -> PlymouthTheme | None:
 	items = [MenuItem(t.value, value=t) for t in PlymouthTheme]
 	group = MenuItemGroup(items, sort_items=False)
-	group.set_focus_by_value(preset)
 
 	result = await Selection[PlymouthTheme](
 		group,

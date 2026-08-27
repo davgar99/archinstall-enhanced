@@ -23,3 +23,16 @@ def running_from_iso() -> bool:
 def generate_password(length: int = 64) -> str:
 	haystack = string.printable  # digits, ascii_letters, punctuation (!"#$[] etc) and whitespace
 	return ''.join(secrets.choice(haystack) for _ in range(length))
+
+
+def format_duration(seconds: float) -> str:
+	"""Render a duration as '45s', '2m 38s' or '1h 02m 05s', dropping leading zero units."""
+	total = max(0, int(seconds))
+	hours, remainder = divmod(total, 3600)
+	minutes, secs = divmod(remainder, 60)
+
+	if hours:
+		return f'{hours}h {minutes:02d}m {secs:02d}s'
+	if minutes:
+		return f'{minutes}m {secs:02d}s'
+	return f'{secs}s'

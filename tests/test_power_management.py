@@ -31,16 +31,21 @@ def test_power_management_menu_available_without_battery_gate() -> None:
 	assert item.enabled
 
 
-def test_power_profiles_daemon_is_the_interactive_default(monkeypatch: MonkeyPatch) -> None:
+def test_power_management_menu_marks_recommended_and_focuses_first(monkeypatch: MonkeyPatch) -> None:
 	async def select_focused(selection: Selection[PowerManagement]) -> Result[PowerManagement]:
-		assert selection._group.default_item is not None
-		assert selection._group.default_item.value == PowerManagement.POWER_PROFILES_DAEMON
-		assert selection._group.focus_item is not None
-		return Result.selection(selection._group.focus_item.value)
+		group = selection._group
+		# power-profiles-daemon stays labelled as the recommended option...
+		assert group.default_item is not None
+		assert group.default_item.value == PowerManagement.POWER_PROFILES_DAEMON
+		# ...while the cursor starts on the first option like every other prompt.
+		first = group.get_enabled_items()[0]
+		assert group.focus_item is first
+		return Result.selection(first.value)
 
 	monkeypatch.setattr(Selection, 'show', select_focused)
 
-	assert asyncio.run(select_power_management()) == PowerManagementConfiguration(PowerManagement.POWER_PROFILES_DAEMON)
+	first_power_mgmt = next(iter(PowerManagement))
+	assert asyncio.run(select_power_management()) == PowerManagementConfiguration(first_power_mgmt)
 
 
 def test_power_profiles_daemon_install_is_exclusive(tmp_path: Path) -> None:

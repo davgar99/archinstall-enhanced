@@ -1,9 +1,11 @@
 import logging
 import os
+import stat
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 
@@ -11,11 +13,13 @@ from archinstall.lib.utils.util import timestamp
 
 
 class Logger:
-	def __init__(self, path: Path | None = None) -> None:
-		if path is None:
-			path = Path('/var/log/archinstall')
-
-		self._path: Path = path
+	def __init__(self, path: Path | None = None, fallback_path: Path | None = None) -> None:
+		self._path = path or Path('/var/log/archinstall')
+		self._configured_path = self._path
+		self._fallback_path = fallback_path or Path('/tmp') / f'archinstall-{os.getuid()}'
+		self._resolved = False
+		self._writable = False
+		self._initialization_error_reported = False
 
 	@property
 	def path(self) -> Path:
@@ -24,33 +28,80 @@ class Logger:
 	@path.setter
 	def path(self, value: Path) -> None:
 		self._path = value
+		self._configured_path = value
+		self._resolved = False
+		self._writable = False
+		self._initialization_error_reported = False
 
 	@property
 	def directory(self) -> Path:
 		return self._path
 
-	def _check_permissions(self) -> None:
-		log_file = self.path
+	def _report_initialization_failure(self, failures: list[tuple[Path, OSError]]) -> None:
+		"""Report setup failures without calling back into the logger."""
+		if self._initialization_error_reported:
+			return
 
-		try:
-			self._path.mkdir(exist_ok=True, parents=True)
-			log_file.touch(exist_ok=True)
+		self._initialization_error_reported = True
+		details = '; '.join(f'{path}: {error}' for path, error in failures)
+		sys.stderr.write(f'archinstall: unable to initialize file logging ({details}); using stderr\n')
 
-			with log_file.open('a') as f:
-				f.write('')
-		except PermissionError:
-			# Fallback to creating the log file in the current folder
-			logger._path = Path('./').absolute()
+	def _prepare_directory(self, directory: Path, private: bool = False) -> None:
+		directory.mkdir(exist_ok=True, parents=True, mode=0o700 if private else 0o755)
+		if private:
+			metadata = directory.lstat()
+			if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.getuid():
+				raise PermissionError(f'Unsafe fallback log directory: {directory}')
+			directory.chmod(0o700)
 
-			warn(f'Not enough permission to place log file at {log_file}, creating it in {logger.path} instead')
+		with (directory / 'install.log').open('a') as file:
+			file.write('')
+
+	def _resolve_directory(self) -> bool:
+		if self._resolved:
+			return self._writable
+
+		self._resolved = True
+		failures: list[tuple[Path, OSError]] = []
+		fallback = self._fallback_path
+		candidates = [(self._configured_path, False)]
+		if fallback != self._configured_path:
+			candidates.append((fallback, True))
+
+		for directory, private in candidates:
+			try:
+				self._prepare_directory(directory, private)
+			except OSError as exception:
+				failures.append((directory, exception))
+				continue
+
+			self._path = directory
+			self._writable = True
+			if failures:
+				sys.stderr.write(f'archinstall: logging to fallback directory {directory}\n')
+			return True
+
+		self._report_initialization_failure(failures)
+		return False
 
 	def log(self, level: int, content: str) -> None:
-		self._check_permissions()
-
-		with self.path.open('a') as f:
-			ts = timestamp()
+		if not self._resolve_directory():
 			level_name = logging.getLevelName(level)
-			f.write(f'[{ts}] - {level_name} - {content}\n')
+			sys.stderr.write(f'[{level_name}] {content}\n')
+			return
+
+		try:
+			with self.path.open('a') as f:
+				ts = timestamp()
+				level_name = logging.getLevelName(level)
+				f.write(f'[{ts}] - {level_name} - {content}\n')
+		except OSError as exception:
+			# A mount can become read-only after initialization. Reporting this
+			# directly avoids the recursive failure mode of the old fallback.
+			self._writable = False
+			self._report_initialization_failure([(self.path, exception)])
+			level_name = logging.getLevelName(level)
+			sys.stderr.write(f'[{level_name}] {content}\n')
 
 	def get_content(self, max_bytes: int | None = None) -> bytes:
 		content = self.path.read_bytes()
@@ -65,6 +116,30 @@ class Logger:
 
 
 logger = Logger()
+
+
+class _LogOutputState:
+	def __init__(self) -> None:
+		self.tui_active = False
+		self.status_sink: Callable[[str], None] | None = None
+
+
+_log_output_state = _LogOutputState()
+
+
+def set_tui_logging(active: bool, status_sink: Callable[[str], None] | None = None) -> None:
+	_log_output_state.tui_active = active
+	_log_output_state.status_sink = status_sink
+
+
+def tui_logging_active() -> bool:
+	"""Return whether Textual currently owns terminal output."""
+	return _log_output_state.tui_active
+
+
+def _safe_status_message(message: str) -> bool:
+	lowered = message.lower()
+	return not any(secret in lowered for secret in ('password', 'passphrase', 'token', 'secret', 'credential'))
 
 
 def _supports_color() -> bool:
@@ -226,7 +301,11 @@ def log(
 
 	journal_log(text, level=level)
 
-	if level != logging.DEBUG:
+	sink = _log_output_state.status_sink
+	if level != logging.DEBUG and sink is not None and _safe_status_message(text):
+		sink(text)
+
+	if level != logging.DEBUG and not _log_output_state.tui_active:
 		print(text)
 
 

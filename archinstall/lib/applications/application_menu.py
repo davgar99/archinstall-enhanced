@@ -6,8 +6,6 @@ from archinstall.lib.models.application import (
 	ApplicationConfiguration,
 	Audio,
 	AudioConfiguration,
-	AurHelper,
-	AurHelperConfiguration,
 	BluetoothConfiguration,
 	Firewall,
 	FirewallConfiguration,
@@ -20,7 +18,7 @@ from archinstall.lib.models.application import (
 	PrintServiceConfiguration,
 )
 from archinstall.lib.translationhandler import tr
-from archinstall.tui.menu_item import MenuItem, MenuItemGroup
+from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MenuItemRole
 from archinstall.tui.result import ResultType
 
 
@@ -50,7 +48,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 
 	def _define_menu_options(self) -> list[MenuItem]:
 		return [
-			MenuItem(text=tr('Hardware'), read_only=True),
+			MenuItem(text=tr('Hardware'), role=MenuItemRole.SECTION),
 			MenuItem(
 				text=tr('Bluetooth'),
 				action=select_bluetooth,
@@ -71,7 +69,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				preview_action=self._prev_firmware,
 				key='firmware_config',
 			),
-			MenuItem(text=tr('Media and appearance'), read_only=True),
+			MenuItem(text=tr('Media and appearance'), role=MenuItemRole.SECTION),
 			MenuItem(
 				text=tr('Audio'),
 				action=select_audio,
@@ -92,7 +90,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				preview_action=self._prev_fonts,
 				key='fonts_config',
 			),
-			MenuItem(text=tr('System'), read_only=True),
+			MenuItem(text=tr('System'), role=MenuItemRole.SECTION),
 			MenuItem(
 				text=tr('Power management'),
 				action=select_power_management,
@@ -104,14 +102,6 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				action=select_firewall,
 				preview_action=self._prev_firewall,
 				key='firewall_config',
-			),
-			MenuItem(text=tr('Software'), read_only=True),
-			MenuItem(
-				text=tr('AUR helper'),
-				action=select_aur_helper,
-				value=self._app_config.aur_helper_config,
-				preview_action=self._prev_aur_helper,
-				key='aur_helper_config',
 			),
 		]
 
@@ -172,47 +162,10 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 			return f'{tr("Additional fonts")}: {packages}'
 		return None
 
-	def _prev_aur_helper(self, item: MenuItem) -> str | None:
-		if item.value is not None:
-			config: AurHelperConfiguration = item.value
-			return f'{tr("AUR helper")}: {config.aur_helper.value}'
-		return None
-
-
-async def select_aur_helper(preset: AurHelperConfiguration | None = None) -> AurHelperConfiguration | None:
-	group = MenuItemGroup.from_enum(AurHelper, sort_items=False)
-	if preset:
-		group.set_focus_by_value(preset.aur_helper)
-
-	result = await Selection[AurHelper](
-		group,
-		header=tr(
-			'Warning: AUR packages are community-maintained and can execute arbitrary build scripts. '
-			'Review PKGBUILDs and install only software you trust. Select a helper to build and install it automatically.'
-		)
-		+ '\n',
-		allow_skip=True,
-		allow_reset=True,
-		preview_location='right',
-	).show()
-
-	match result.type_:
-		case ResultType.Skip:
-			return preset
-		case ResultType.Selection:
-			return AurHelperConfiguration(result.get_value())
-		case ResultType.Reset:
-			return None
-
 
 async def select_power_management(preset: PowerManagementConfiguration | None = None) -> PowerManagementConfiguration | None:
 	group = MenuItemGroup.from_enum(PowerManagement)
 	group.set_default_by_value(PowerManagement.POWER_PROFILES_DAEMON)
-
-	if preset:
-		group.set_focus_by_value(preset.power_management)
-	else:
-		group.set_focus_by_value(PowerManagement.POWER_PROFILES_DAEMON)
 
 	result = await Selection[PowerManagement](
 		group,
@@ -231,12 +184,10 @@ async def select_power_management(preset: PowerManagementConfiguration | None = 
 
 async def select_bluetooth(preset: BluetoothConfiguration | None) -> BluetoothConfiguration | None:
 	header = tr('Would you like to configure Bluetooth?') + '\n'
-	preset_val = preset.enabled if preset else False
 
 	result = await Confirmation(
 		header=header,
 		allow_skip=True,
-		preset=preset_val,
 	).show()
 
 	match result.type_:
@@ -250,12 +201,10 @@ async def select_bluetooth(preset: BluetoothConfiguration | None) -> BluetoothCo
 
 async def select_print_service(preset: PrintServiceConfiguration | None) -> PrintServiceConfiguration | None:
 	header = tr('Would you like to configure the print service?') + '\n'
-	preset_val = preset.enabled if preset else False
 
 	result = await Confirmation(
 		header=header,
 		allow_skip=True,
-		preset=preset_val,
 	).show()
 
 	match result.type_:
@@ -271,9 +220,6 @@ async def select_print_service(preset: PrintServiceConfiguration | None) -> Prin
 async def select_audio(preset: AudioConfiguration | None = None) -> AudioConfiguration | None:
 	items = [MenuItem(a.value, value=a) for a in Audio]
 	group = MenuItemGroup(items)
-
-	if preset:
-		group.set_focus_by_value(preset.audio)
 
 	result = await Selection[Audio](
 		group,
@@ -297,7 +243,6 @@ async def select_multimedia(preset: MultimediaConfiguration | None = None) -> Mu
 			'This supports common audio and video formats and hardware-accelerated playback when the selected GPU supports it.'
 		),
 		allow_skip=True,
-		preset=preset.enabled if preset else True,
 	).show()
 
 	match result.type_:
@@ -313,7 +258,6 @@ async def select_firmware(preset: FirmwareConfiguration | None = None) -> Firmwa
 	result = await Confirmation(
 		header=tr('Install firmware update support and enable automatic update-metadata refreshes?'),
 		allow_skip=True,
-		preset=preset.enabled if preset else False,
 	).show()
 
 	match result.type_:
@@ -328,11 +272,6 @@ async def select_firmware(preset: FirmwareConfiguration | None = None) -> Firmwa
 async def select_firewall(preset: FirewallConfiguration | None = None) -> FirewallConfiguration | None:
 	group = MenuItemGroup.from_enum(Firewall)
 	group.set_default_by_value(Firewall.FWD)
-
-	if preset:
-		group.set_focus_by_value(preset.firewall)
-	else:
-		group.set_focus_by_value(Firewall.FWD)
 
 	result = await Selection[Firewall](
 		group,

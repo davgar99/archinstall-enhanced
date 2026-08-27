@@ -6,6 +6,7 @@ from textual.validation import ValidationResult, Validator
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.components import InputInfo, InputScreen, LoadingScreen, NotifyScreen, OptionListScreen, SelectListScreen, TableSelectionScreen
 from archinstall.tui.menu_item import MenuItemGroup
+from archinstall.tui.presentation import Activity, ActivityReporter
 from archinstall.tui.result import Result, ResultType
 
 
@@ -33,35 +34,37 @@ class Selection[ValueT]:
 		self._wrap_preview = wrap_preview
 
 	async def show(self) -> Result[ValueT]:
-		if self._multi:
-			result = await SelectListScreen[ValueT](
-				self._group,
-				header=self._header,
-				allow_skip=self._allow_skip,
-				allow_reset=self._allow_reset,
-				preview_location=self._preview_location,
-				enable_filter=self._enable_filter,
-				wrap_preview=self._wrap_preview,
-			).run()
-		else:
-			result = await OptionListScreen[ValueT](
-				self._group,
-				header=self._header,
-				title=self._title,
-				allow_skip=self._allow_skip,
-				allow_reset=self._allow_reset,
-				preview_location=self._preview_location,
-				enable_filter=self._enable_filter,
-				wrap_preview=self._wrap_preview,
-			).run()
+		while True:
+			if self._multi:
+				result = await SelectListScreen[ValueT](
+					self._group,
+					header=self._header,
+					allow_skip=self._allow_skip,
+					allow_reset=self._allow_reset,
+					preview_location=self._preview_location,
+					enable_filter=self._enable_filter,
+					wrap_preview=self._wrap_preview,
+				).run()
+			else:
+				result = await OptionListScreen[ValueT](
+					self._group,
+					header=self._header,
+					title=self._title,
+					allow_skip=self._allow_skip,
+					allow_reset=self._allow_reset,
+					preview_location=self._preview_location,
+					enable_filter=self._enable_filter,
+					wrap_preview=self._wrap_preview,
+				).run()
 
-		if result.type_ == ResultType.Reset:
+			if result.has_error():
+				raise result.get_error()
+			if result.type_ != ResultType.Reset:
+				return result
+
 			confirmed = await _confirm_reset()
-
-			if confirmed.get_value() is False:
-				return await self.show()
-
-		return result
+			if confirmed.get_value() is not False:
+				return result
 
 
 class Confirmation:
@@ -71,40 +74,42 @@ class Confirmation:
 		group: MenuItemGroup | None = None,
 		allow_skip: bool = True,
 		allow_reset: bool = False,
-		preset: bool = False,
 		preview_location: Literal['bottom'] | None = None,
 		preview_header: str | None = None,
 	):
 		self._header = header
 		self._allow_skip = allow_skip
 		self._allow_reset = allow_reset
-		self._preset = preset
 		self._preview_location = preview_location
 		self._preview_header = preview_header
 
 		if not group:
 			self._group = MenuItemGroup.yes_no()
-			self._group.set_focus_by_value(preset)
 		else:
 			self._group = group
+		# A negative answer is the safe, project-wide default for every
+		# confirmation, including callers that provide a preview-enabled group.
+		self._group.set_focus_by_value(False)
 
 	async def show(self) -> Result[bool]:
-		result = await OptionListScreen[bool](
-			self._group,
-			header=self._header,
-			allow_skip=self._allow_skip,
-			allow_reset=self._allow_reset,
-			preview_location=self._preview_location,
-			enable_filter=False,
-		).run()
+		while True:
+			result = await OptionListScreen[bool](
+				self._group,
+				header=self._header,
+				allow_skip=self._allow_skip,
+				allow_reset=self._allow_reset,
+				preview_location=self._preview_location,
+				enable_filter=False,
+			).run()
 
-		if result.type_ == ResultType.Reset:
+			if result.has_error():
+				raise result.get_error()
+			if result.type_ != ResultType.Reset:
+				return result
+
 			confirmed = await _confirm_reset()
-
-			if confirmed.get_value() is False:
-				return await self.show()
-
-		return result
+			if confirmed.get_value() is not False:
+				return result
 
 
 class Notify:
@@ -155,25 +160,26 @@ class Input:
 
 	async def show(self) -> Result[str]:
 		validator = GenericValidator(self._validator_callback) if self._validator_callback else None
+		while True:
+			result = await InputScreen(
+				header=self._header,
+				placeholder=self._placeholder,
+				password=self._password,
+				default_value=self._default_value,
+				allow_skip=self._allow_skip,
+				allow_reset=self._allow_reset,
+				validator=validator,
+				info_callback=self._info_callback,
+			).run()
 
-		result = await InputScreen(
-			header=self._header,
-			placeholder=self._placeholder,
-			password=self._password,
-			default_value=self._default_value,
-			allow_skip=self._allow_skip,
-			allow_reset=self._allow_reset,
-			validator=validator,
-			info_callback=self._info_callback,
-		).run()
+			if result.has_error():
+				raise result.get_error()
+			if result.type_ != ResultType.Reset:
+				return result
 
-		if result.type_ == ResultType.Reset:
 			confirmed = await _confirm_reset()
-
-			if confirmed.get_value() is False:
-				return await self.show()
-
-		return result
+			if confirmed.get_value() is not False:
+				return result
 
 
 class Loading[ValueT]:
@@ -188,12 +194,13 @@ class Loading[ValueT]:
 		self._data_callback = data_callback
 
 	async def show(self) -> Result[ValueT]:
-		if self._data_callback:
-			result = await LoadingScreen[ValueT](
-				header=self._header,
-				data_callback=self._data_callback,
-			).run()
-			return result
+		if callback := self._data_callback:
+
+			def operation(reporter: ActivityReporter) -> Any:
+				return callback()
+
+			value = await Activity(self._header or tr('Working'), operation).show()
+			return Result.selection(value)
 		else:
 			_ = await LoadingScreen(
 				timer=self._timer,
@@ -231,25 +238,27 @@ class Table[ValueT]:
 			raise ValueError('Either data or data_callback must be provided')
 
 	async def show(self) -> Result[ValueT]:
-		result = await TableSelectionScreen[ValueT](
-			header=self._header,
-			group=self._group,
-			group_callback=self._data_callback,
-			allow_skip=self._allow_skip,
-			allow_reset=self._allow_reset,
-			loading_header=self._loading_header,
-			multi=self._multi,
-			preview_location=self._preview_location,
-			preview_header=self._preview_header,
-		).run()
+		while True:
+			result = await TableSelectionScreen[ValueT](
+				header=self._header,
+				group=self._group,
+				group_callback=self._data_callback,
+				allow_skip=self._allow_skip,
+				allow_reset=self._allow_reset,
+				loading_header=self._loading_header,
+				multi=self._multi,
+				preview_location=self._preview_location,
+				preview_header=self._preview_header,
+			).run()
 
-		if result.type_ == ResultType.Reset:
+			if result.has_error():
+				raise result.get_error()
+			if result.type_ != ResultType.Reset:
+				return result
+
 			confirmed = await _confirm_reset()
-
-			if confirmed.get_value() is False:
-				return await self.show()
-
-		return result
+			if confirmed.get_value() is not False:
+				return result
 
 
 async def _confirm_reset() -> Result[bool]:
