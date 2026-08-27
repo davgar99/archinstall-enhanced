@@ -9,7 +9,7 @@ from archinstall.tui.menu_item import MenuItem, MenuItemGroup
 from archinstall.tui.result import ResultType
 
 
-async def select_kernel(preset: list[Kernel] | None = None) -> list[Kernel]:
+async def select_kernel(preset: list[str] | None = None) -> list[str]:
 	"""
 	Asks the user to select a kernel for system.
 
@@ -19,7 +19,8 @@ async def select_kernel(preset: list[Kernel] | None = None) -> list[Kernel]:
 	if preset is None:
 		preset = []
 
-	group = MenuItemGroup.from_enum(Kernel, sort_items=True, preset=preset)
+	enum_preset = [Kernel(kernel) for kernel in preset]
+	group = MenuItemGroup.from_enum(Kernel, sort_items=True, preset=enum_preset)
 	group.set_default_by_value(DEFAULT_KERNEL)
 	group.set_focus_by_value(DEFAULT_KERNEL)
 
@@ -37,13 +38,13 @@ async def select_kernel(preset: list[Kernel] | None = None) -> list[Kernel]:
 		case ResultType.Reset:
 			return []
 		case ResultType.Selection:
-			return result.get_values()
+			return [kernel.value for kernel in result.get_values()]
 
 
 async def select_uki(preset: bool = True) -> bool:
 	prompt = tr('Would you like to use unified kernel images?') + '\n'
 
-	result = await Confirmation(header=prompt, allow_skip=True, preset=preset).show()
+	result = await Confirmation(header=prompt, allow_skip=True).show()
 
 	match result.type_:
 		case ResultType.Skip:
@@ -111,14 +112,9 @@ async def select_driver(
 async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True)) -> ZramConfiguration:
 	prompt = tr('Enable swap on zram?') + '\n'
 
-	group = MenuItemGroup.yes_no()
-	group.set_default_by_value(True)
-	group.set_focus_by_value(preset.enabled)
-
 	result = await Confirmation(
 		header=prompt,
 		allow_skip=True,
-		preset=preset.enabled,
 	).show()
 
 	match result.type_:

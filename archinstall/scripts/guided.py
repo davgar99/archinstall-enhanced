@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import time
+import traceback
 from dataclasses import dataclass
 
 from archinstall.applications.graphics_extras import GraphicsExtrasApp
@@ -19,6 +20,7 @@ from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.installer import Installer, accessibility_tools_in_use, run_custom_user_commands
 from archinstall.lib.log import debug, error, info, logger
+from archinstall.lib.menu.helpers import Notify
 from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.models import Bootloader
@@ -299,15 +301,28 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 				if arch_config_handler.args.silent:
 					return
 				continue
-		break
 
-	perform_installation(
-		arch_config_handler,
-		mirror_list_handler,
-		AuthenticationHandler(),
-		ApplicationHandler(),
-		GamingHandler(),
-	)
+		try:
+			perform_installation(
+				arch_config_handler,
+				mirror_list_handler,
+				AuthenticationHandler(),
+				ApplicationHandler(),
+				GamingHandler(),
+			)
+		except Exception as exception:
+			if arch_config_handler.args.silent:
+				raise
+
+			debug(''.join(traceback.format_exception(exception)))
+			error(f'Installation failed: {exception}')
+			message = tr('Installation failed. Review the configuration and try again.') + '\n\n'
+			message += '{}: {}'.format(tr('Log file'), logger.path)
+			notification = Notify(message)
+			_ = tui.run(notification.show)
+			continue
+
+		return
 
 
 if __name__ == '__main__':

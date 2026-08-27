@@ -125,7 +125,6 @@ async def confirm_abort() -> bool:
 	result = await Confirmation(
 		header=prompt,
 		allow_skip=False,
-		preset=False,
 	).show()
 
 	return result.get_value()

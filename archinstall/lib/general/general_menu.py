@@ -18,7 +18,6 @@ async def select_ntp(preset: bool = True) -> bool:
 	result = await Confirmation(
 		header=tr('Enable automatic time synchronization (NTP)? systemd-timesyncd will keep the clock accurate using network time servers.'),
 		allow_skip=True,
-		preset=preset,
 	).show()
 
 	match result.type_:
@@ -34,7 +33,6 @@ async def select_hardware_clock_utc(preset: bool = True) -> bool:
 	result = await Confirmation(
 		header=tr('Set the hardware clock from the system time using UTC?'),
 		allow_skip=True,
-		preset=preset,
 	).show()
 
 	match result.type_:

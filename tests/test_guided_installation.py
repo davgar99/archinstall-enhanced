@@ -131,3 +131,39 @@ def test_installation_failure_keeps_stage_and_exception_identity(tmp_path: Path,
 	assert raised.value is error
 	assert events[-1] == 'cleanup'
 	assert any('Base installation' in note for note in getattr(error, '__notes__', []))
+
+
+def test_interactive_installation_failure_returns_to_configuration_menu(monkeypatch: pytest.MonkeyPatch) -> None:
+	class StopAfterRecovery(Exception):
+		pass
+
+	show_count = 0
+	tui_results = iter((True, None))
+	config = SimpleNamespace(
+		disk_config=object(),
+		bootloader_config=None,
+		write_debug=lambda: None,
+		save=lambda: None,
+	)
+	handler = SimpleNamespace(
+		config=config,
+		args=SimpleNamespace(silent=False, dry_run=False, offline=False, verbose=False),
+	)
+
+	def show_menu(*_args: object) -> None:
+		nonlocal show_count
+		show_count += 1
+		if show_count == 2:
+			raise StopAfterRecovery
+
+	monkeypatch.setattr(guided, 'show_menu', show_menu)
+	monkeypatch.setattr(guided, 'MirrorListHandler', lambda **_kwargs: SimpleNamespace())
+	monkeypatch.setattr(guided, 'validate_bootloader_layout', lambda *_args: None)
+	monkeypatch.setattr(guided, 'delayed_warning', lambda _message: True)
+	monkeypatch.setattr(guided, 'perform_installation', lambda *_args: (_ for _ in ()).throw(RuntimeError('AUR build failed')))
+	monkeypatch.setattr('archinstall.scripts.guided.tui.run', lambda _screen: next(tui_results))
+
+	with pytest.raises(StopAfterRecovery):
+		guided.main(handler)  # type: ignore[arg-type]
+
+	assert show_count == 2

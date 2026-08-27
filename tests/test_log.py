@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from archinstall.lib.log import Logger
+from archinstall.lib.command import SysCommand
+from archinstall.lib.log import Logger, set_tui_logging
 
 
 def test_logger_uses_configured_writable_directory(tmp_path: Path) -> None:
@@ -61,3 +62,12 @@ def test_logger_reports_to_stderr_when_fallback_fails(
 	assert output.count('unable to initialize file logging') == 1
 	assert 'still visible' in output
 	assert 'second message' in output
+
+
+def test_command_peek_output_is_suppressed_while_tui_owns_terminal() -> None:
+	set_tui_logging(True)
+	try:
+		command = SysCommand(['/bin/true'], peek_output=True)
+		assert command.peek_output is False
+	finally:
+		set_tui_logging(False)

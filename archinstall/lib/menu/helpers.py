@@ -74,22 +74,22 @@ class Confirmation:
 		group: MenuItemGroup | None = None,
 		allow_skip: bool = True,
 		allow_reset: bool = False,
-		preset: bool = False,
 		preview_location: Literal['bottom'] | None = None,
 		preview_header: str | None = None,
 	):
 		self._header = header
 		self._allow_skip = allow_skip
 		self._allow_reset = allow_reset
-		self._preset = preset
 		self._preview_location = preview_location
 		self._preview_header = preview_header
 
 		if not group:
 			self._group = MenuItemGroup.yes_no()
-			self._group.set_focus_by_value(preset)
 		else:
 			self._group = group
+		# A negative answer is the safe, project-wide default for every
+		# confirmation, including callers that provide a preview-enabled group.
+		self._group.set_focus_by_value(False)
 
 	async def show(self) -> Result[bool]:
 		while True:

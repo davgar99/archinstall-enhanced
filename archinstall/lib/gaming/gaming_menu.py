@@ -172,7 +172,6 @@ async def select_ntsync(preset: NTSyncConfiguration | None = None) -> NTSyncConf
 			'Official Arch kernels support it, and current Wine and Proton versions use it automatically when available.'
 		),
 		allow_skip=True,
-		preset=preset.enabled if preset else True,
 	).show()
 
 	match result.type_:
@@ -190,7 +189,6 @@ async def _select_toggle(header: str, preset: bool | None) -> bool | None:
 	result = await Confirmation(
 		header=header,
 		allow_skip=True,
-		preset=preset if preset is not None else False,
 	).show()
 
 	match result.type_:

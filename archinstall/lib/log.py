@@ -132,6 +132,11 @@ def set_tui_logging(active: bool, status_sink: Callable[[str], None] | None = No
 	_log_output_state.status_sink = status_sink
 
 
+def tui_logging_active() -> bool:
+	"""Return whether Textual currently owns terminal output."""
+	return _log_output_state.tui_active
+
+
 def _safe_status_message(message: str) -> bool:
 	lowered = message.lower()
 	return not any(secret in lowered for secret in ('password', 'passphrase', 'token', 'secret', 'credential'))

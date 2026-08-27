@@ -215,8 +215,8 @@ class MenuItemGroup:
 	@classmethod
 	def yes_no(cls) -> Self:
 		return cls(
-			[MenuItem.yes(), MenuItem.no()],
-			sort_items=True,
+			[MenuItem.no(), MenuItem.yes()],
+			sort_items=False,
 		)
 
 	@classmethod

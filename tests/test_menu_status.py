@@ -3,8 +3,9 @@ import pytest
 from archinstall.lib.args import ArchConfig
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.hardware import SysInfo
+from archinstall.lib.menu.helpers import Confirmation
 from archinstall.lib.models.network import NetworkConfiguration, NicType
-from archinstall.tui.components import _menu_prompt
+from archinstall.tui.components import _item_preview, _menu_prompt
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MenuItemRole, MenuItemState, MsgLevelType, PreviewResult
 
 # Pytest injects fixtures by matching parameter names.
@@ -52,10 +53,18 @@ def test_master_markers_and_two_column_gutter() -> None:
 	assert [item.text for item in items] == ['Configured', 'Warning', 'Blocking', 'Optional']
 
 
-def test_display_value_is_rendered_without_changing_filterable_text() -> None:
-	item = MenuItem('LVM', display_action=lambda _value: 'Not configured')
-	assert _menu_prompt(item).plain == '  LVM: Not configured'
-	assert item.text == 'LVM'
+def test_all_confirmations_are_no_then_yes_with_no_focused() -> None:
+	confirmation = Confirmation(header='Continue?')
+	assert [item.value for item in confirmation._group.items] == [False, True]
+	assert confirmation._group.focus_item is not None
+	assert confirmation._group.focus_item.value is False
+
+	custom_group = MenuItemGroup.yes_no()
+	custom_group.set_focus_by_value(True)
+	custom_confirmation = Confirmation(header='Continue?', group=custom_group)
+	assert [item.value for item in custom_confirmation._group.items] == [False, True]
+	assert custom_confirmation._group.focus_item is not None
+	assert custom_confirmation._group.focus_item.value is False
 
 
 def test_section_has_one_leading_row_and_information_does_not() -> None:
@@ -66,6 +75,17 @@ def test_section_has_one_leading_row_and_information_does_not() -> None:
 	assert _menu_prompt(section).plain.count('\n') == 1
 	assert _menu_prompt(initial_section).plain == 'Initial section'
 	assert _menu_prompt(information).plain == 'Information'
+
+
+def test_unset_configuration_has_right_side_summary_only() -> None:
+	item = MenuItem('Applications', key='app_config', preview_action=lambda _item: None)
+	assert _menu_prompt(item).plain == '  Applications'
+	assert _item_preview(item) == 'Applications: Not configured'
+
+
+def test_navigation_without_preview_does_not_get_configuration_status() -> None:
+	back = MenuItem('Back')
+	assert _item_preview(back) is None
 
 
 def test_first_global_section_aligns_with_initial_preview(menu_under_test: GlobalMenu) -> None:

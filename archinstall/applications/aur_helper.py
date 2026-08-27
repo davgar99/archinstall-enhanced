@@ -32,7 +32,10 @@ class AurHelperApp:
 		username = build_user.username
 		helper = config.aur_helper
 		package = self._PACKAGES[helper]
-		build_dir = f'/tmp/archinstall-{package}'
+		# arch-chroot -S uses a separate transient systemd unit for every command.
+		# Its private /tmp is therefore not shared between the preparation, clone,
+		# and build commands. The user's home persists across those units.
+		build_dir = f'/home/{username}/.cache/archinstall-{package}'
 		sudoers_path = self._temporary_sudoers_path(install_session.target)
 
 		debug(f'Building and installing AUR helper {package} as {username}')
@@ -42,7 +45,7 @@ class AurHelperApp:
 			self._write_temporary_sudoers(sudoers_path, username)
 			# A failed or interrupted prior build can leave this directory behind.
 			# Remove only the installer-controlled path before cloning so retries are idempotent,
-			# then recreate it with ownership that works even before systemd-tmpfiles has fixed /tmp.
+			# then recreate it with ownership for the unprivileged package build.
 			install_session.arch_chroot(f'rm -rf -- {shlex.quote(build_dir)}')
 			install_session.arch_chroot(f'install -d -m 0700 -o {shlex.quote(username)} -- {shlex.quote(build_dir)}')
 			install_session.arch_chroot(

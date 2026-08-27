@@ -141,12 +141,12 @@ def test_confirmation_reviews_summary_then_requires_destructive_confirmation(mon
 	monkeypatch.setattr(Confirmation, 'show', show)
 	assert asyncio.run(confirm_config(config)) is True
 	assert len(confirmations) == 2
-	assert confirmations[0]._preset is False
 	assert confirmations[0]._group.focus_item is not None
 	assert confirmations[0]._group.focus_item.value is False
 	assert 'WARNING: DATA WILL BE PERMANENTLY DELETED' in confirmations[1]._header
 	assert '/dev/sda — VBOX HARDDISK — 64 GiB (entire drive)' in confirmations[1]._header
-	assert confirmations[1]._preset is False
+	assert confirmations[1]._group.focus_item is not None
+	assert confirmations[1]._group.focus_item.value is False
 
 
 def test_destructive_confirmation_can_stop_installation(monkeypatch: MonkeyPatch) -> None:

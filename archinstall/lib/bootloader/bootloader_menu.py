@@ -174,7 +174,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 				+ '[/]\n'
 			)
 
-			result = await Confirmation(header=prompt, allow_skip=True, preset=False).show()
+			result = await Confirmation(header=prompt, allow_skip=True).show()
 
 			match result.type_:
 				case ResultType.Skip:
@@ -190,7 +190,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 	async def _select_uki(self, preset: bool) -> bool:
 		prompt = tr('Would you like to use unified kernel images?') + '\n'
 
-		result = await Confirmation(header=prompt, allow_skip=True, preset=preset).show()
+		result = await Confirmation(header=prompt, allow_skip=True).show()
 
 		match result.type_:
 			case ResultType.Skip:
@@ -235,7 +235,6 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 		result = await Confirmation(
 			header=prompt,
 			allow_skip=True,
-			preset=preset,
 		).show()
 
 		match result.type_:
@@ -253,7 +252,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 			'Leave this disabled unless you need automatic dual-boot detection.\n'
 		)
 
-		result = await Confirmation(header=prompt, allow_skip=True, preset=preset).show()
+		result = await Confirmation(header=prompt, allow_skip=True).show()
 
 		match result.type_:
 			case ResultType.Skip:

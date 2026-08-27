@@ -21,7 +21,6 @@ async def confirm_config(config: ArchConfig) -> bool:
 		group=group,
 		header=header,
 		allow_skip=False,
-		preset=False,
 		preview_location='bottom',
 		preview_header=tr('Configuration preview'),
 	).show()
@@ -38,7 +37,6 @@ async def confirm_config(config: ArchConfig) -> bool:
 		result = await Confirmation(
 			header=warning,
 			allow_skip=False,
-			preset=False,
 		).show()
 		if not result.get_value():
 			return False
@@ -130,7 +128,6 @@ async def save_config(config: ArchConfig) -> None:
 	save_result = await Confirmation(
 		header=header,
 		allow_skip=False,
-		preset=True,
 	).show()
 
 	match save_result.type_:
@@ -147,7 +144,6 @@ async def save_config(config: ArchConfig) -> None:
 	enc_result = await Confirmation(
 		header=header,
 		allow_skip=False,
-		preset=False,
 	).show()
 
 	enc_password: str | None = None

@@ -132,7 +132,6 @@ async def select_u2f_login(preset: U2FLoginConfiguration | None) -> U2FLoginConf
 			result_sudo = await Confirmation(
 				header=header,
 				allow_skip=True,
-				preset=False,
 			).show()
 
 			passwordless_sudo = result_sudo.item() == MenuItem.yes()

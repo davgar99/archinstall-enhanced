@@ -106,7 +106,6 @@ async def select_parallel_downloads(preset: int = 5) -> int | None:
 async def select_color(preset: bool = True) -> bool | None:
 	result = await Confirmation(
 		header=tr('Enable colored Pacman output? This makes package names, versions, and status messages easier to distinguish.'),
-		preset=preset,
 		allow_skip=True,
 	).show()
 
@@ -124,7 +123,6 @@ async def select_color(preset: bool = True) -> bool | None:
 async def select_ilove_candy(preset: bool = False) -> bool | None:
 	result = await Confirmation(
 		header=tr("Enable ILoveCandy? This changes Pacman's progress bar appearance only and does not affect package operations."),
-		preset=preset,
 		allow_skip=True,
 	).show()
 

@@ -11,7 +11,7 @@ from types import TracebackType
 from typing import Any, Self, override
 
 from archinstall.lib.exceptions import RequirementError, SysCallError
-from archinstall.lib.log import debug, error, logger
+from archinstall.lib.log import debug, error, logger, tui_logging_active
 from archinstall.lib.utils.encoding import clear_vt100_escape_codes
 
 
@@ -234,7 +234,10 @@ class SysCommand:
 		remove_vt100_escape_codes_from_lines: bool = True,
 	):
 		self.cmd = cmd
-		self.peek_output = peek_output
+		# Writing ordinary command output directly to stdout corrupts an active
+		# Textual screen. Direct SysCommandWorker users remain available for the
+		# explicitly interactive FIDO/U2F prompts that must own terminal input.
+		self.peek_output = bool(peek_output and not tui_logging_active())
 		self.environment_vars = environment_vars
 		self.working_directory = working_directory
 		self.remove_vt100_escape_codes_from_lines = remove_vt100_escape_codes_from_lines

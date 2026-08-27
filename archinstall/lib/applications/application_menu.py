@@ -231,12 +231,10 @@ async def select_power_management(preset: PowerManagementConfiguration | None = 
 
 async def select_bluetooth(preset: BluetoothConfiguration | None) -> BluetoothConfiguration | None:
 	header = tr('Would you like to configure Bluetooth?') + '\n'
-	preset_val = preset.enabled if preset else False
 
 	result = await Confirmation(
 		header=header,
 		allow_skip=True,
-		preset=preset_val,
 	).show()
 
 	match result.type_:
@@ -250,12 +248,10 @@ async def select_bluetooth(preset: BluetoothConfiguration | None) -> BluetoothCo
 
 async def select_print_service(preset: PrintServiceConfiguration | None) -> PrintServiceConfiguration | None:
 	header = tr('Would you like to configure the print service?') + '\n'
-	preset_val = preset.enabled if preset else False
 
 	result = await Confirmation(
 		header=header,
 		allow_skip=True,
-		preset=preset_val,
 	).show()
 
 	match result.type_:
@@ -297,7 +293,6 @@ async def select_multimedia(preset: MultimediaConfiguration | None = None) -> Mu
 			'This supports common audio and video formats and hardware-accelerated playback when the selected GPU supports it.'
 		),
 		allow_skip=True,
-		preset=preset.enabled if preset else True,
 	).show()
 
 	match result.type_:
@@ -313,7 +308,6 @@ async def select_firmware(preset: FirmwareConfiguration | None = None) -> Firmwa
 	result = await Confirmation(
 		header=tr('Install firmware update support and enable automatic update-metadata refreshes?'),
 		allow_skip=True,
-		preset=preset.enabled if preset else False,
 	).show()
 
 	match result.type_:

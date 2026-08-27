@@ -133,7 +133,7 @@ class GlobalMenu(AbstractMenu[None]):
 			),
 			MenuItem(
 				text=tr('Kernels'),
-				value=[DEFAULT_KERNEL],
+				value=[DEFAULT_KERNEL.value],
 				action=select_kernel,
 				preview_action=self._prev_kernel,
 				mandatory=True,

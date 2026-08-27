@@ -42,8 +42,6 @@ def _menu_prompt(item: MenuItem) -> Text:
 	if item.role is MenuItemRole.ACTION:
 		prompt.append('  ')
 	prompt.append(item.text)
-	if display_value := item.get_display_value():
-		prompt.append(f': {display_value}')
 	return prompt
 
 
@@ -61,6 +59,16 @@ def _update_preview(widget: Label, result: str | PreviewResult | None) -> None:
 				text.append('\n\n')
 			text.append(message, style=level.style())
 		widget.update(text)
+
+
+def _item_preview(item: MenuItem) -> str | PreviewResult | None:
+	if item.preview_action is None:
+		return None
+
+	result = item.preview_action(item)
+	if result is None and item.key is not None and item.role is MenuItemRole.OPTION:
+		return f'{item.text}: {tr("Not configured")}'
+	return result
 
 
 def _translate_bindings(source: BindingsMap | None, target: BindingsMap) -> None:
@@ -486,10 +494,7 @@ class OptionListScreen(BaseScreen[ValueT]):
 		preview_widget = self.query_one('#preview_content', Label)
 		item = self._group.find_by_id(item_id)
 
-		if item.preview_action is not None:
-			_update_preview(preview_widget, item.preview_action(item))
-		else:
-			_update_preview(preview_widget, None)
+		_update_preview(preview_widget, _item_preview(item))
 
 
 class _SelectionList(SelectionList[ValueT]):
@@ -737,10 +742,7 @@ class SelectListScreen(BaseScreen[ValueT]):
 
 		preview_widget = self.query_one('#preview_content', Label)
 
-		if item.preview_action is not None:
-			_update_preview(preview_widget, item.preview_action(item))
-		else:
-			_update_preview(preview_widget, None)
+		_update_preview(preview_widget, _item_preview(item))
 
 
 # DEPRECATED: Removed when switching to async

@@ -12,7 +12,7 @@ def test_lvm_status_is_visible_when_unconfigured() -> None:
 	menu = DiskLayoutConfigurationMenu(None)
 	item = menu._item_group.find_by_key('lvm_config')
 
-	assert item.get_display_value() == 'Not configured'
+	assert item.text == 'LVM'
 	assert item.preview_action is not None
 	assert item.preview_action(item) == 'LVM: Not configured'
 
@@ -23,7 +23,11 @@ def test_lvm_status_names_configured_layout() -> None:
 	menu = DiskLayoutConfigurationMenu(disk_config)
 	item = menu._item_group.find_by_key('lvm_config')
 
-	assert item.get_display_value() == 'Configured (Default layout)'
+	assert item.text == 'LVM'
+	assert item.preview_action is not None
+	preview = item.preview_action(item)
+	assert isinstance(preview, str)
+	assert 'Configuration: Default layout' in preview
 
 
 def test_lvm_menu_exposes_none_default_and_back(monkeypatch: MonkeyPatch) -> None:
