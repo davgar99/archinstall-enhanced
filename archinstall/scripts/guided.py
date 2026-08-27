@@ -91,7 +91,7 @@ def _perform_installation_core(
 		tr('Base installation'),
 		tr('Bootloader'),
 		tr('Networking and accounts'),
-		tr('Applications and gaming'),
+		tr('System services and gaming'),
 		tr('Profiles and packages'),
 		tr('System settings'),
 		tr('Post-install hooks'),

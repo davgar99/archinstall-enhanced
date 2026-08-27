@@ -174,7 +174,7 @@ class GlobalMenu(AbstractMenu[None]):
 				role=MenuItemRole.SECTION,
 			),
 			MenuItem(
-				text=tr('Applications'),
+				text=tr('System services'),
 				action=self._select_applications,
 				value=[],
 				preview_action=self._prev_applications,
