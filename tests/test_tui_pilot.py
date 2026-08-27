@@ -28,6 +28,10 @@ def test_master_layout_header_sections_preview_and_footer_at_supported_sizes() -
 			MenuItem('Audio'),
 			MenuItem('Gaming', role=MenuItemRole.SECTION),
 			MenuItem('GameMode'),
+			MenuItem('Actions', role=MenuItemRole.SECTION),
+			MenuItem('Save configuration', role=MenuItemRole.ACTION),
+			MenuItem('Install', role=MenuItemRole.ACTION),
+			MenuItem('Abort', role=MenuItemRole.ACTION),
 		]
 		screen: OptionListScreen[int] = OptionListScreen(
 			MenuItemGroup(items),
@@ -48,6 +52,12 @@ def test_master_layout_header_sections_preview_and_footer_at_supported_sizes() -
 			assert _prompt(options, 0).plain == '\nGlobal'
 			assert _prompt(options, 2).plain == '\nApplications'
 			assert _prompt(options, 4).plain == '\nGaming'
+			assert _prompt(options, 6).plain == '\nActions'
+			assert [_prompt(options, index).plain for index in range(7, 10)] == [
+				'    Save configuration',
+				'    Install',
+				'    Abort',
+			]
 			assert _prompt(options, 1).plain == '! Disk configuration'
 			assert 'bright_yellow' in str(_prompt(options, 1).spans[0].style)
 

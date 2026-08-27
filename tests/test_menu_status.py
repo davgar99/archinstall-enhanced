@@ -60,6 +60,19 @@ def test_section_has_one_leading_row_and_information_does_not() -> None:
 	assert _menu_prompt(information).plain == 'Information'
 
 
+def test_main_actions_are_grouped_and_indented(menu_under_test: GlobalMenu) -> None:
+	group = menu_under_test._item_group.items[-4:]
+	assert group[0].role is MenuItemRole.SECTION
+	assert group[0].text == 'Actions'
+	assert [item.text for item in group[1:]] == ['Save configuration', 'Install', 'Abort']
+	assert all(item.role is MenuItemRole.ACTION for item in group[1:])
+	assert [_menu_prompt(item).plain for item in group[1:]] == [
+		'    Save configuration',
+		'    Install',
+		'    Abort',
+	]
+
+
 def test_state_provider_does_not_mutate_filterable_text() -> None:
 	item = MenuItem('Disk configuration', key='disk_config')
 	group = MenuItemGroup([item], state_provider=lambda _item: MenuItemState.BLOCKING)

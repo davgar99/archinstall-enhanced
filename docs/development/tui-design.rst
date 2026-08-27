@@ -19,6 +19,8 @@ Selectable rows reserve a two-column status gutter. Warnings and blockers both
 use the master's yellow ``!`` marker. Their preview messages and the final
 Install guard state whether an issue is advisory or blocks installation. There
 is no status legend, required-setting count, or semantic action palette.
+The final Save configuration, Install, and Abort commands are indented beneath
+an Actions subtitle so they read as one group without changing their labels.
 
 Validation
 ----------

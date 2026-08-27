@@ -38,6 +38,8 @@ def _menu_prompt(item: MenuItem) -> Text:
 		prompt.append('! ', style='bold bright_yellow')
 	else:
 		prompt.append('  ')
+	if item.role is MenuItemRole.ACTION:
+		prompt.append('  ')
 	prompt.append(item.text)
 	return prompt
 

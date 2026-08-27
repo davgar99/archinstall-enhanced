@@ -11,6 +11,7 @@ class MenuItemRole(StrEnum):
 	OPTION = 'option'
 	SECTION = 'section'
 	INFORMATION = 'information'
+	ACTION = 'action'
 	ACCENT = 'accent'
 	SUCCESS = 'success'
 	DANGER = 'danger'

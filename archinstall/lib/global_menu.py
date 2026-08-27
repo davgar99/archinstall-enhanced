@@ -202,8 +202,12 @@ class GlobalMenu(AbstractMenu[None]):
 				key='packages',
 			),
 			MenuItem(
+				text=tr('Actions'),
+				role=MenuItemRole.SECTION,
+			),
+			MenuItem(
 				text=tr('Save configuration'),
-				role=MenuItemRole.ACCENT,
+				role=MenuItemRole.ACTION,
 				action=lambda x: self._safe_config(),
 				key=SpecialMenuKey.SAVE.value,
 			),
@@ -211,12 +215,12 @@ class GlobalMenu(AbstractMenu[None]):
 				text=tr('Install'),
 				preview_action=self._prev_install_invalid_config,
 				key=SpecialMenuKey.INSTALL.value,
-				role=MenuItemRole.SUCCESS,
+				role=MenuItemRole.ACTION,
 			),
 			MenuItem(
 				text=tr('Abort'),
 				key=SpecialMenuKey.ABORT.value,
-				role=MenuItemRole.DANGER,
+				role=MenuItemRole.ACTION,
 			),
 		]
 
