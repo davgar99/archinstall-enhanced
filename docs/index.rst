@@ -35,6 +35,20 @@ Some of the features of Archinstall are:
    archinstall/plugins
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Configuration reference
+
+   cli_parameters/config/disk_config
+   cli_parameters/config/disk_encryption
+   cli_parameters/config/custom_commands
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Development
+
+   development/tui-design
+
+.. toctree::
    :maxdepth: 3
    :caption: API Reference
 

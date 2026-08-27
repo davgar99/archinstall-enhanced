@@ -182,6 +182,9 @@ These include:
 - enabling `systemd-timesyncd.service` and `systemd-time-wait-sync.service` when NTP is selected
 - consistent `Setting: Value` configuration summaries
 - consistent `Enabled` and `Disabled` status formatting
+- every configuration section shows a summary on the right side even before it has been set, rather than only after
+- selection prompts always start with the cursor on the first option, so lists behave the same way everywhere
+- confirmation prompts consistently list `No` before `Yes` with `No` preselected, including the prompts that can erase a disk
 - configuration persistence for the additional menus introduced by the fork
 - proper console font restoration when changing installer languages
 - improved handling of HiDPI console font configurations
@@ -190,6 +193,8 @@ These include:
 - clearer descriptions for sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, zram, Pacman, watchdog, and networking options
 
 The goal of these changes is to make the installer easier to use without changing the overall Archinstall workflow.
+
+Because this fork targets a narrower set of desktop and gaming use cases, it has room to spend extra attention on interaction consistency across the menus it adds and the ones it touches. The aim is for every prompt to behave in a predictable way, so that once a user learns how one menu works they already know how the rest work. This is a set of small refinements layered on top of the interaction model that Archinstall already provides.
 
 ## Stability and implementation
 

@@ -469,14 +469,11 @@ class ArchConfig:
 
 	def as_summary(self) -> str:
 		"""
-		Render a concise two-column summary of the current configuration.
+		Render a concise, risk-first two-column summary of the current configuration.
 
 		Returns an empty string if nothing meaningful to show.
 		"""
-		cfg: dict[str, str | list[str] | bool] = {}
-
-		for key, value in self.plain_cfg().items():
-			cfg[key.text()] = value
+		values: dict[ArchConfigType, str | list[str] | bool] = self.plain_cfg()
 
 		for config_type, obj in self.sub_cfg().items():
 			if not hasattr(obj, 'summary'):
@@ -484,7 +481,34 @@ class ArchConfig:
 
 			summary = obj.summary()
 			if summary:
-				cfg[config_type.text()] = summary
+				values[config_type] = summary
+
+		# Installation review is a safety checkpoint, not a serialization view. Keep
+		# destructive and recovery-critical choices first, followed by user-facing
+		# software choices and then lower-risk regional/system preferences.
+		priority = (
+			ArchConfigType.DISK_CONFIG,
+			ArchConfigType.BOOTLOADER_CONFIG,
+			ArchConfigType.KERNELS,
+			ArchConfigType.AUTH_CONFIG,
+			ArchConfigType.HOSTNAME,
+			ArchConfigType.NETWORK_CONFIG,
+			ArchConfigType.PROFILE_CONFIG,
+			ArchConfigType.APP_CONFIG,
+			ArchConfigType.GAMING_CONFIG,
+			ArchConfigType.PACKAGES,
+			ArchConfigType.MIRROR_CONFIG,
+			ArchConfigType.LOCALE_CONFIG,
+			ArchConfigType.TIMEZONE,
+			ArchConfigType.NTP,
+			ArchConfigType.HARDWARE_CLOCK_UTC,
+			ArchConfigType.SWAP,
+			ArchConfigType.PACMAN_CONFIG,
+			ArchConfigType.SERVICES,
+			ArchConfigType.CUSTOM_COMMANDS,
+		)
+		ordered_types = (*priority, *(config_type for config_type in values if config_type not in priority))
+		cfg = {config_type.text(): values[config_type] for config_type in ordered_types if config_type in values}
 
 		simple_summary = as_key_value_pair(cfg, ignore_empty=True)
 

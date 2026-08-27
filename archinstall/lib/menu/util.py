@@ -125,7 +125,6 @@ async def confirm_abort() -> bool:
 	result = await Confirmation(
 		header=prompt,
 		allow_skip=False,
-		preset=False,
 	).show()
 
 	return result.get_value()
@@ -134,6 +133,10 @@ async def confirm_abort() -> bool:
 def delayed_warning(message: str) -> bool:
 	# Issue a final warning before we continue with something un-revertable.
 	# We count down from 5 to 0.
+
+	# Clear whatever the just-exited TUI left on screen so this last countdown
+	# before an irreversible operation stands on its own without clutter.
+	print('\033[2J\033[H', end='', flush=True)
 	print(message, end='', flush=True)
 
 	try:

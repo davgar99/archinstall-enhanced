@@ -10,7 +10,7 @@ from archinstall.lib.models.gaming import (
 	NTSyncConfiguration,
 )
 from archinstall.lib.translationhandler import tr
-from archinstall.tui.menu_item import MenuItem, MenuItemGroup
+from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MenuItemRole
 from archinstall.tui.result import ResultType
 
 
@@ -19,14 +19,14 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 		self._gaming_config = preset if preset else GamingConfiguration()
 		self._item_group = MenuItemGroup(
 			[
-				MenuItem(text=tr('Graphics'), read_only=True),
+				MenuItem(text=tr('Graphics'), role=MenuItemRole.SECTION),
 				MenuItem(
 					text=tr('Install 32-bit graphics libraries'),
 					action=select_32bit_graphics,
 					preview_action=self._prev_toggle,
 					key='install_32bit_graphics',
 				),
-				MenuItem(text=tr('Compatibility'), read_only=True),
+				MenuItem(text=tr('Compatibility'), role=MenuItemRole.SECTION),
 				MenuItem(
 					text=tr('NTSYNC'),
 					action=select_ntsync,
@@ -45,7 +45,7 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					preview_action=self._prev_toggle,
 					key='increase_shader_cache',
 				),
-				MenuItem(text=tr('Performance'), read_only=True),
+				MenuItem(text=tr('Performance'), role=MenuItemRole.SECTION),
 				MenuItem(
 					text=tr('CPU scheduler'),
 					action=select_cpu_scheduler,
@@ -58,7 +58,7 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					preview_action=self._prev_toggle,
 					key='gamemode',
 				),
-				MenuItem(text=tr('Tools'), read_only=True),
+				MenuItem(text=tr('Tools'), role=MenuItemRole.SECTION),
 				MenuItem(
 					text=tr('MangoHud'),
 					action=select_mangohud,
@@ -71,14 +71,14 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					preview_action=self._prev_toggle,
 					key='gamescope',
 				),
-				MenuItem(text=tr('Controllers'), read_only=True),
+				MenuItem(text=tr('Controllers'), role=MenuItemRole.SECTION),
 				MenuItem(
 					text=tr('Disable PlayStation controller touchpads as a mouse'),
 					action=select_playstation_touchpad,
 					preview_action=self._prev_toggle,
 					key='disable_playstation_touchpad',
 				),
-				MenuItem(text=tr('Advanced'), read_only=True, enabled=advanced),
+				MenuItem(text=tr('Advanced'), role=MenuItemRole.SECTION, enabled=advanced),
 				MenuItem(
 					text=tr('Disable hardware watchdog'),
 					action=select_disable_watchdog,
@@ -127,7 +127,7 @@ def _scheduler_menu_items() -> list[MenuItem]:
 	items: list[MenuItem] = []
 
 	for stability in CPUSchedulerStability:
-		items.append(MenuItem(text=stability.display_name(), read_only=True))
+		items.append(MenuItem(text=stability.display_name(), role=MenuItemRole.SECTION))
 		schedulers = sorted(
 			(scheduler for scheduler in CPUScheduler if scheduler.stability() == stability),
 			key=lambda scheduler: scheduler.value,
@@ -139,9 +139,6 @@ def _scheduler_menu_items() -> list[MenuItem]:
 
 async def select_cpu_scheduler(preset: CPUSchedulerConfiguration | None = None) -> CPUSchedulerConfiguration | None:
 	group = MenuItemGroup(_scheduler_menu_items(), sort_items=False)
-
-	if preset:
-		group.set_focus_by_value(preset.scheduler)
 
 	result = await Selection[CPUScheduler](
 		group,
@@ -172,7 +169,6 @@ async def select_ntsync(preset: NTSyncConfiguration | None = None) -> NTSyncConf
 			'Official Arch kernels support it, and current Wine and Proton versions use it automatically when available.'
 		),
 		allow_skip=True,
-		preset=preset.enabled if preset else True,
 	).show()
 
 	match result.type_:
@@ -190,7 +186,6 @@ async def _select_toggle(header: str, preset: bool | None) -> bool | None:
 	result = await Confirmation(
 		header=header,
 		allow_skip=True,
-		preset=preset if preset is not None else False,
 	).show()
 
 	match result.type_:

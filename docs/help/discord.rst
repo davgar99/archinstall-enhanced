@@ -5,7 +5,7 @@ Discord
 
 There's a discord channel which is frequented by some `contributors <https://github.com/archlinux/archinstall/graphs/contributors>`_.
 
-To join the server, head over to `https://discord.gg/aDeMffrxNg <https://discord.gg/aDeMffrxNg>`_ and join in.
+To join the server, use the `Archinstall Discord invitation <https://discord.com/invite/aDeMffrxNg>`_.
 There's not many rules other than common sense and to treat others with respect. The general chat is for off-topic things as well.
 
 There's the ``@Party Animals`` role if you want notifications of new releases which is posted in the ``#Release Party`` channel.

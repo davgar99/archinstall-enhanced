@@ -1,0 +1,35 @@
+name: Link validation
+
+on:
+  pull_request:
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Check internal and external links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --max-retries 3
+            --retry-wait-time 2
+            --accept 200,204,206,403,429
+            --include-fragments
+            README.md CONTRIBUTING.md docs/**/*.md docs/**/*.rst
+          fail: true
+      - name: Explain authoritative-site exceptions
+        if: always()
+        run: |
+          echo 'HTTP 403 and 429 are accepted only because authoritative documentation sites may use anti-bot or rate-limit responses.'
+          echo 'Review redirects in the lychee output and update links to canonical targets.'

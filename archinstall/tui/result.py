@@ -11,10 +11,15 @@ class ResultType(Enum):
 	Reset = auto()
 
 
+@dataclass(frozen=True)
+class WorkerFailure:
+	error: BaseException
+
+
 @dataclass
 class Result[ValueT]:
 	type_: ResultType
-	_data: ValueT | list[ValueT] | None = None
+	_data: ValueT | list[ValueT] | WorkerFailure | None = None
 	_item: MenuItem | list[MenuItem] | None = None
 
 	@classmethod
@@ -37,6 +42,18 @@ class Result[ValueT]:
 	def skip(cls) -> Self:
 		return cls(ResultType.Skip)
 
+	@classmethod
+	def failure(cls, error: BaseException) -> Self:
+		return cls(ResultType.Selection, _data=WorkerFailure(error))
+
+	def has_error(self) -> bool:
+		return isinstance(self._data, WorkerFailure)
+
+	def get_error(self) -> BaseException:
+		if isinstance(self._data, WorkerFailure):
+			return self._data.error
+		raise ValueError('Result does not contain an error')
+
 	def has_data(self) -> bool:
 		return self._data is not None
 
@@ -55,6 +72,8 @@ class Result[ValueT]:
 		raise ValueError('Invalid item type')
 
 	def get_value(self) -> ValueT:
+		if self.has_error():
+			raise self.get_error()
 		if self._item is not None:
 			return self.item().get_value()  # type: ignore[no-any-return]
 
@@ -64,6 +83,8 @@ class Result[ValueT]:
 		raise ValueError('No value found')
 
 	def get_values(self) -> list[ValueT]:
+		if self.has_error():
+			raise self.get_error()
 		if self._item is not None:
 			return [i.get_value() for i in self.items()]
 

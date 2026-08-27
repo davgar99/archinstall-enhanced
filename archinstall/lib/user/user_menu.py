@@ -96,7 +96,6 @@ class UserList(ListManager[User]):
 		result = await Confirmation(
 			header=prompt,
 			allow_skip=False,
-			preset=True,
 		).show()
 
 		match result.type_:

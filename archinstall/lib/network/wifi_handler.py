@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from typing import assert_never, override
 
@@ -8,9 +9,10 @@ from archinstall.lib.models.network import WifiConfiguredNetwork, WifiNetwork
 from archinstall.lib.network.wpa_supplicant import WpaSupplicantConfig
 from archinstall.lib.networking import SYS_NET
 from archinstall.lib.translationhandler import tr
-from archinstall.tui.components import ConfirmationScreen, InputScreen, InstanceRunnable, LoadingScreen, NotifyScreen, TableSelectionScreen, tui
+from archinstall.tui.components import ConfirmationScreen, InputScreen, InstanceRunnable, NotifyScreen, TableSelectionScreen
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup
-from archinstall.tui.result import Result, ResultType
+from archinstall.tui.presentation import Activity, ActivityCancelled, ActivityReporter
+from archinstall.tui.result import ResultType
 
 
 @dataclass
@@ -21,8 +23,12 @@ class WpaCliResult:
 
 
 class WifiHandler(InstanceRunnable[bool]):
-	def __init__(self) -> None:
+	def __init__(self, scan_timeout: float = 15, connection_timeout: float = 30, poll_interval: float = 0.5) -> None:
 		self._wpa_config: WpaSupplicantConfig = WpaSupplicantConfig()
+		self._scan_timeout = scan_timeout
+		self._connection_timeout = connection_timeout
+		self._poll_interval = poll_interval
+		self._last_error: str | None = None
 
 	@override
 	async def run(self) -> bool | None:
@@ -58,7 +64,7 @@ class WifiHandler(InstanceRunnable[bool]):
 	async def _enable_supplicant(self, wifi_iface: str) -> bool:
 		self._wpa_config.load_config()
 
-		result = self._wpa_cli('status')
+		result = self._wpa_cli('status', wifi_iface)
 
 		if result.success:
 			debug('wpa_supplicant already running')
@@ -71,12 +77,12 @@ class WifiHandler(InstanceRunnable[bool]):
 		debug('wpa_supplicant not running, trying to enable')
 
 		try:
-			SysCommand(f'wpa_supplicant -B -i {wifi_iface} -c {self._wpa_config.config_file}')
+			SysCommand(['wpa_supplicant', '-B', '-i', wifi_iface, '-c', str(self._wpa_config.config_file)])
 		except SysCallError as err:
 			debug(f'failed to enable wpa_supplicant: {err}')
 			return False
 
-		result = self._wpa_cli('status')
+		result = self._wpa_cli('status', wifi_iface)
 
 		if result.success:
 			debug('successfully enabled wpa_supplicant')
@@ -110,8 +116,8 @@ class WifiHandler(InstanceRunnable[bool]):
 
 		if not wifi_networks:
 			debug('No networks found')
-			await NotifyScreen(header=tr('No wifi networks found')).run()
-			tui.exit(Result.false())
+			message = self._last_error or tr('No wifi networks found')
+			await NotifyScreen(header=message).run()
 			return False
 
 		items = [MenuItem(network.ssid, value=network) for network in wifi_networks]
@@ -127,7 +133,6 @@ class WifiHandler(InstanceRunnable[bool]):
 			case ResultType.Selection:
 				network = result.get_value()
 			case ResultType.Skip | ResultType.Reset:
-				tui.exit(Result.false())
 				return False
 			case _:
 				assert_never(result.type_)
@@ -143,60 +148,111 @@ class WifiHandler(InstanceRunnable[bool]):
 		self._wpa_config.set_network(network, psk)
 		self._wpa_config.write_config()
 
-		wpa_result = self._wpa_cli('reconfigure')
+		wpa_result = self._wpa_cli('reconfigure', wifi_iface)
 
 		if not wpa_result.success:
 			debug(f'Failed to reconfigure wpa_supplicant: {wpa_result.error}')
 			await self._notify_failure()
 			return False
 
-		await LoadingScreen(timer=3, header='Setting up wifi...').run()
-
 		network_id = self._find_network_id(network.ssid, wifi_iface)
 
-		if not network_id:
+		if network_id is None:
 			debug('Failed to find network id')
 			await self._notify_failure()
 			return False
 
-		wpa_result = self._wpa_cli(f'enable {network_id}', wifi_iface)
+		wpa_result = self._wpa_cli(['enable_network', str(network_id)], wifi_iface)
 
 		if not wpa_result.success:
 			debug(f'Failed to enable network: {wpa_result.error}')
 			await self._notify_failure()
 			return False
 
-		await LoadingScreen(timer=5, header='Connecting wifi...').run()
-
-		return True
+		try:
+			connected = await Activity(
+				tr('Connecting wifi...'),
+				lambda reporter: asyncio.run(self._wait_for_connection(wifi_iface, network.ssid, reporter)),
+				cancellable=True,
+			).show()
+		except ActivityCancelled:
+			return False
+		if not connected:
+			await self._notify_failure()
+		return connected
 
 	async def _scan_wifi(self, wifi_iface: str) -> list[WifiNetwork]:
 		debug('Scanning Wifi networks')
 		scan_result = self._wpa_cli('scan', wifi_iface)
 
 		if not scan_result.success:
-			debug(f'Failed to scan wifi networks: {scan_result.error}')
+			self._last_error = scan_result.error
+			debug(f'Failed to scan wifi networks: {self._last_error}')
 			return []
 
-		await LoadingScreen(timer=5, header=tr('Scanning wifi networks...')).run()
+		try:
+			return await Activity(
+				tr('Scanning wifi networks...'),
+				lambda reporter: asyncio.run(self._wait_for_scan_results(wifi_iface, reporter)),
+				cancellable=True,
+			).show()
+		except ActivityCancelled:
+			return []
 
-		return self._get_scan_results(wifi_iface)
+	async def _wait_for_scan_results(self, wifi_iface: str, reporter: ActivityReporter | None = None) -> list[WifiNetwork]:
+		loop = asyncio.get_running_loop()
+		deadline = loop.time() + self._scan_timeout
+		while loop.time() < deadline:
+			if reporter is not None and reporter.cancellation_requested:
+				return []
+			result = self._get_scan_results(wifi_iface)
+			if result:
+				return result
+			await asyncio.sleep(self._poll_interval)
+
+		self._last_error = tr('Scanning wifi networks timed out. You can retry the operation.')
+		debug(self._last_error)
+		return []
+
+	async def _wait_for_connection(self, wifi_iface: str, ssid: str, reporter: ActivityReporter | None = None) -> bool:
+		loop = asyncio.get_running_loop()
+		deadline = loop.time() + self._connection_timeout
+		while loop.time() < deadline:
+			if reporter is not None and reporter.cancellation_requested:
+				return False
+			status = self._wpa_cli('status', wifi_iface)
+			if not status.success:
+				self._last_error = status.error
+				return False
+			fields = dict(line.split('=', 1) for line in (status.response or '').splitlines() if '=' in line)
+			if fields.get('wpa_state') == 'COMPLETED' and fields.get('ssid') == ssid:
+				return True
+			await asyncio.sleep(self._poll_interval)
+
+		self._last_error = tr('Connecting to wifi timed out. Check the password and signal, then retry.')
+		debug(self._last_error)
+		return False
 
 	async def _notify_failure(self) -> None:
-		await NotifyScreen(header=tr('Failed setting up wifi')).run()
+		message = tr('Failed setting up wifi')
+		if self._last_error:
+			message += f'\n\n{self._last_error}'
+		await NotifyScreen(header=message).run()
 
-	def _wpa_cli(self, command: str, iface: str | None = None) -> WpaCliResult:
-		cmd = 'wpa_cli'
-
+	def _wpa_cli(self, command: str | list[str], iface: str | None = None) -> WpaCliResult:
+		cmd = ['wpa_cli']
 		if iface:
-			cmd += f' -i {iface}'
-
-		cmd += f' {command}'
+			cmd.extend(['-i', iface])
+		if isinstance(command, str):
+			cmd.append(command)
+		else:
+			cmd.extend(command)
 
 		try:
 			result = SysCommand(cmd).decode()
 		except SysCallError as err:
 			debug(f'error running wpa_cli command: {err}')
+			self._last_error = str(err)
 			return WpaCliResult(
 				success=False,
 				error=f'Error running wpa_cli command: {err}',
@@ -204,6 +260,7 @@ class WifiHandler(InstanceRunnable[bool]):
 
 		if 'FAIL' in result:
 			debug(f'wpa_cli returned FAIL: {result}')
+			self._last_error = result
 			return WpaCliResult(
 				success=False,
 				error=f'wpa_cli returned a failure: {result}',
@@ -215,6 +272,7 @@ class WifiHandler(InstanceRunnable[bool]):
 		result = self._wpa_cli('list_networks', iface)
 
 		if not result.success:
+			self._last_error = result.error
 			debug(f'Failed to list networks: {result.error}')
 			return None
 
@@ -257,6 +315,7 @@ class WifiHandler(InstanceRunnable[bool]):
 			raise err
 
 		if not result.success:
+			self._last_error = result.error
 			debug(f'Failed to retrieve scan results: {result.error}')
 			return []
 

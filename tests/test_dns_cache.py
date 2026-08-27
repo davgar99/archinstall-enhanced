@@ -87,13 +87,17 @@ def test_dns_cache_is_included_in_global_menu_preview() -> None:
 	assert preview == 'Network configuration:\nUse Network Manager (default backend)\nDNS cache: dnsmasq'
 
 
-def test_systemd_resolved_is_the_interactive_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dns_resolver_menu_marks_recommended_and_focuses_first(monkeypatch: pytest.MonkeyPatch) -> None:
 	async def select_focused(selection: Selection[DnsResolver]) -> Result[DnsResolver]:
-		assert selection._group.default_item is not None
-		assert selection._group.default_item.value == DnsResolver.SYSTEMD_RESOLVED
-		assert selection._group.focus_item is not None
-		return Result.selection(selection._group.focus_item.value)
+		group = selection._group
+		# systemd-resolved stays labelled as the recommended option...
+		assert group.default_item is not None
+		assert group.default_item.value == DnsResolver.SYSTEMD_RESOLVED
+		# ...while the cursor starts on the first option like every other prompt.
+		first = group.get_enabled_items()[0]
+		assert group.focus_item is first
+		return Result.selection(first.value)
 
 	monkeypatch.setattr(Selection, 'show', select_focused)
 
-	assert asyncio.run(_select_dns_resolver(None)) == DnsResolver.SYSTEMD_RESOLVED
+	assert asyncio.run(_select_dns_resolver(None)) == next(iter(DnsResolver))

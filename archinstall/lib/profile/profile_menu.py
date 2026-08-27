@@ -115,7 +115,6 @@ class ProfileMenu(AbstractSubMenu[ProfileConfiguration]):
 					result = await Confirmation(
 						header=header,
 						allow_skip=False,
-						preset=False,
 					).show()
 
 					driver = driver if result.get_value() else preset
@@ -169,7 +168,6 @@ async def select_opencl(preset: bool | None = None) -> bool | None:
 			'scientific tools can use the GPU for computation. Most games do not require OpenCL.'
 		),
 		allow_skip=True,
-		preset=preset if preset is not None else False,
 	).show()
 
 	match result.type_:

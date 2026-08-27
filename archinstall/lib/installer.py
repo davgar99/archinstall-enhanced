@@ -2077,10 +2077,14 @@ class Installer:
 			# In accordance with https://github.com/archlinux/archinstall/issues/107#issuecomment-841701968
 			# Setting an empty keymap first, allows the subsequent call to set layout for both console and x11.
 			with Boot(self.target) as session:
-				subprocess.run(
-					['systemd-run', '--machine=archinstall', '--pty', 'localectl', 'set-keymap', ''],
-					check=False,
-				)
+				# Route through the captured container session rather than a bare
+				# subprocess: an uncaptured `systemd-run --pty` prints "Running as
+				# unit: ..." straight to the real terminal and punches through the
+				# TUI activity screen. Priming an empty keymap is best-effort.
+				try:
+					session.SysCommand(['localectl', 'set-keymap', ''])
+				except SysCallError:
+					pass
 
 				try:
 					session.SysCommand(['localectl', 'set-keymap', language])

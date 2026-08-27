@@ -6,9 +6,32 @@ from typing import Any, ClassVar, Self, override
 
 from archinstall.lib.translationhandler import tr
 
-_STATUS_MISSING_PREFIX = '[bold yellow]![/bold yellow] '
-_STATUS_CONFIGURED_PREFIX = '  '
-_CONFIG_ACTION_PREFIX = '__config__'
+
+class MenuItemRole(StrEnum):
+	OPTION = 'option'
+	SECTION = 'section'
+	INFORMATION = 'information'
+	ACTION = 'action'
+	ACCENT = 'accent'
+	SUCCESS = 'success'
+	DANGER = 'danger'
+
+
+class MenuItemState(StrEnum):
+	NEUTRAL = 'neutral'
+	OPTIONAL_UNSET = 'optional-unset'
+	COMPLETE = 'complete'
+	WARNING = 'warning'
+	BLOCKING = 'blocking'
+
+	@property
+	def prefix(self) -> str:
+		# The preview and final Install guard carry the semantic distinction;
+		# both states retain master's yellow exclamation marker.
+		return {
+			MenuItemState.WARNING: '!',
+			MenuItemState.BLOCKING: '!',
+		}.get(self, '')
 
 
 class MsgLevelStyle(StrEnum):
@@ -54,6 +77,9 @@ class MenuItem:
 	display_action: Callable[[Any], str] | None = None
 	preview_action: Callable[[Self], str | PreviewResult | None] | None = None
 	key: str | None = None
+	role: MenuItemRole = MenuItemRole.OPTION
+	state: MenuItemState = MenuItemState.NEUTRAL
+	space_before: bool = True
 
 	_id: str = ''
 
@@ -61,6 +87,10 @@ class MenuItem:
 	_no: ClassVar[Self | None] = None
 
 	def __post_init__(self) -> None:
+		if self.read_only and self.role is MenuItemRole.OPTION:
+			self.role = MenuItemRole.INFORMATION if self.text else MenuItemRole.SECTION
+		if self.role in {MenuItemRole.SECTION, MenuItemRole.INFORMATION}:
+			self.read_only = True
 		if self.key is not None:
 			self._id = self.key
 		else:
@@ -120,6 +150,7 @@ class MenuItemGroup:
 		sort_items: bool = False,
 		sort_case_sensitive: bool = True,
 		checkmarks: bool = False,
+		state_provider: Callable[[MenuItem], MenuItemState] | None = None,
 	) -> None:
 		if len(menu_items) < 1:
 			raise ValueError('Menu must have at least one item')
@@ -131,8 +162,9 @@ class MenuItemGroup:
 				menu_items = sorted(menu_items, key=lambda x: x.text.lower())
 
 		self._filter_pattern: str = ''
+		self._focus_before_filter: str | None = None
 		self._checkmarks: bool = checkmarks
-		self._status_indicators = any(item.key is not None and item.key.startswith(_CONFIG_ACTION_PREFIX) for item in menu_items)
+		self._state_provider = state_provider
 
 		self._menu_items: list[MenuItem] = menu_items
 		self.focus_item: MenuItem | None = focus_item
@@ -142,7 +174,7 @@ class MenuItemGroup:
 		if not focus_item:
 			self.focus_first()
 
-		if self.focus_item not in self.items:
+		if self.focus_item is not None and self.focus_item not in self.items:
 			raise ValueError(f'Selected item not in menu: {self.focus_item}')
 
 	@classmethod
@@ -152,8 +184,6 @@ class MenuItemGroup:
 
 	def add_item(self, item: MenuItem) -> None:
 		self._menu_items.append(item)
-		if item.key is not None and item.key.startswith(_CONFIG_ACTION_PREFIX):
-			self._status_indicators = True
 		del self.items  # resetting the cache
 
 	def find_by_id(self, item_id: str) -> MenuItem:
@@ -170,50 +200,23 @@ class MenuItemGroup:
 
 		raise ValueError(f'No item found for key: {key}')
 
-	def _authentication_configured(self, item: MenuItem) -> bool:
-		auth_config = item.value
-		if auth_config is None:
-			return False
-
-		if getattr(auth_config, 'root_enc_password', None) is not None:
-			return True
-
-		has_superuser = getattr(auth_config, 'has_superuser', None)
-		return callable(has_superuser) and bool(has_superuser())
-
-	def _status_prefix(self, item: MenuItem) -> str:
-		if item.read_only or item.key is None or item.key.startswith(_CONFIG_ACTION_PREFIX):
-			return ''
-
-		# Only fields that can block installation are marked as missing. Other
-		# configured or optional fields are padded so the main menu stays aligned.
-		is_required = item.mandatory or item.key == 'auth_config'
-		if not is_required:
-			return _STATUS_CONFIGURED_PREFIX
-
-		if item.key == 'auth_config':
-			configured = self._authentication_configured(item)
-		else:
-			configured = item.has_value()
-
-		return _STATUS_CONFIGURED_PREFIX if configured else _STATUS_MISSING_PREFIX
-
 	def _display_item(self, item: MenuItem) -> MenuItem:
-		new_item = replace(item, text=self._status_prefix(item) + item.text)
+		state = self._state_provider(item) if self._state_provider is not None else item.state
+		new_item = replace(item, state=state)
 		new_item._id = item.get_id()
 		return new_item
 
 	def get_enabled_items(self) -> list[MenuItem]:
 		items = [it for it in self.items if self.is_enabled(it)]
-		if not self._status_indicators:
+		if self._state_provider is None:
 			return items
 		return [self._display_item(item) for item in items]
 
 	@classmethod
 	def yes_no(cls) -> Self:
 		return cls(
-			[MenuItem.yes(), MenuItem.no()],
-			sort_items=True,
+			[MenuItem.no(), MenuItem.yes()],
+			sort_items=False,
 		)
 
 	@classmethod
@@ -258,9 +261,6 @@ class MenuItemGroup:
 			if item.value in values:
 				self.selected_items.append(item)
 
-		if values:
-			self.set_focus_by_value(values[0])
-
 	def get_focused_index(self) -> int | None:
 		items = self.get_enabled_items()
 
@@ -299,8 +299,19 @@ class MenuItemGroup:
 		return 1
 
 	def set_filter_pattern(self, pattern: str) -> None:
+		if not self._filter_pattern and pattern and self.focus_item is not None:
+			self._focus_before_filter = self.focus_item.get_id()
 		self._filter_pattern = pattern
 		del self.items  # resetting the cache
+		if not pattern and self._focus_before_filter is not None:
+			try:
+				item = self.find_by_id(self._focus_before_filter)
+			except ValueError:
+				item = None
+			self._focus_before_filter = None
+			if item is not None and item in self.items and self._is_selectable(item):
+				self.focus_item = item
+				return
 		self.focus_first()
 
 	def focus_index(self, index: int) -> None:
@@ -309,6 +320,7 @@ class MenuItemGroup:
 
 	def focus_first(self) -> None:
 		if len(self.items) == 0:
+			self.focus_item = None
 			return
 
 		first_item: MenuItem | None = self.items[0]
@@ -321,6 +333,7 @@ class MenuItemGroup:
 
 	def focus_last(self) -> None:
 		if len(self.items) == 0:
+			self.focus_item = None
 			return
 
 		last_item: MenuItem | None = self.items[-1]
@@ -378,7 +391,7 @@ class MenuItemGroup:
 	def _is_selectable(self, item: MenuItem) -> bool:
 		if item.is_empty():
 			return False
-		elif item.read_only:
+		elif item.read_only or item.role in {MenuItemRole.SECTION, MenuItemRole.INFORMATION}:
 			return False
 
 		return self.is_enabled(item)

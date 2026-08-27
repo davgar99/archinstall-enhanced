@@ -26,7 +26,7 @@ Given the following disk example:
         ├── boot       (/dev/sda1)
         └── home       (/dev/sda3)
 
-Running ``archinstall --conf your.json --silent`` where the above JSON is configured. The disk will be left alone — and a working system will be installed to the above folders and mountpoints will be translated into the installed system.
+Running ``archinstall --conf your.json --silent`` where the above JSON is configured. The disk will be left alone, and a working system will be installed to the above folders and mountpoints will be translated into the installed system.
 
 .. note::
 
@@ -59,7 +59,7 @@ Best Effort
    }
 
 This mode will attempt to configure a sane default layout on the selected disks.
-Based on the chosen filesystem, and potential optional settings for said filesystem — different default layouts will be provided.
+Based on the chosen filesystem, and potential optional settings for said filesystem, different default layouts will be provided.
 
 Manual Partitioning
 -------------------
@@ -88,11 +88,11 @@ The options supplied to ``manual_partitioning`` are dictionary definitions, wher
    :header-rows: 1
 
 Each partition definition heavily relies on what filesystem is used.
-Below follow two of the more common filesystems, anything else will best be described by running ``archinstall`` to generate a desired configuration for the desired filesystem type — and copy the relevant parts for permanent configurations.
+Below follow two of the more common filesystems, anything else will best be described by running ``archinstall`` to generate a desired configuration for the desired filesystem type, then copying the relevant parts for permanent configurations.
 
 .. warning::
 
-   Important to note that the units and positions in the examples below — are highly user specific!
+   Important to note that the units and positions in the examples below are highly user specific!
 
 FAT32
 ^^^^^

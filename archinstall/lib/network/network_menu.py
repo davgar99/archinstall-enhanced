@@ -224,7 +224,6 @@ async def _select_dns_resolver(preset: NetworkConfiguration | None) -> DnsResolv
 		group.set_selected_by_value(preset.dns_resolver)
 	else:
 		group.set_default_by_value(DnsResolver.SYSTEMD_RESOLVED)
-		group.set_focus_by_value(DnsResolver.SYSTEMD_RESOLVED)
 
 	header = tr('Choose DNS caching') + '\n'
 	header += (

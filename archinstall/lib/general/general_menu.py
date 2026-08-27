@@ -4,6 +4,7 @@ from archinstall.lib.locale.utils import list_timezones
 from archinstall.lib.log import warn
 from archinstall.lib.menu.helpers import Confirmation, Input, Selection
 from archinstall.lib.translationhandler import Language, tr
+from archinstall.lib.utils.util import format_duration
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup
 from archinstall.tui.result import ResultType
 
@@ -18,7 +19,6 @@ async def select_ntp(preset: bool = True) -> bool:
 	result = await Confirmation(
 		header=tr('Enable automatic time synchronization (NTP)? systemd-timesyncd will keep the clock accurate using network time servers.'),
 		allow_skip=True,
-		preset=preset,
 	).show()
 
 	match result.type_:
@@ -34,7 +34,6 @@ async def select_hardware_clock_utc(preset: bool = True) -> bool:
 	result = await Confirmation(
 		header=tr('Set the hardware clock from the system time using UTC?'),
 		allow_skip=True,
-		preset=preset,
 	).show()
 
 	match result.type_:
@@ -111,7 +110,6 @@ async def select_archinstall_language(languages: list[Language], preset: Languag
 
 	items = [MenuItem(lang.display_name, lang) for lang in languages]
 	group = MenuItemGroup(items, sort_items=True)
-	group.set_focus_by_value(preset)
 
 	title = 'NOTE: Console font will be set automatically for supported languages.\n'
 	title += 'For other languages, fonts can be found in "/usr/share/kbd/consolefonts"\n'
@@ -122,6 +120,7 @@ async def select_archinstall_language(languages: list[Language], preset: Languag
 		group=group,
 		allow_reset=False,
 		allow_skip=True,
+		enable_filter=True,
 	).show()
 
 	match result.type_:
@@ -133,12 +132,18 @@ async def select_archinstall_language(languages: list[Language], preset: Languag
 			raise ValueError('Language selection not handled')
 
 
-async def select_post_installation(elapsed_time: float | None = None) -> PostInstallationAction:
-	header = 'Installation completed'
+async def select_post_installation(
+	elapsed_time: float | None = None,
+	log_path: str | None = None,
+	target_mountpoint: str | None = None,
+) -> PostInstallationAction:
+	header = tr('Installation completed')
 	if elapsed_time is not None:
-		minutes = int(elapsed_time // 60)
-		seconds = int(elapsed_time % 60)
-		header += f' in {minutes}m{seconds}s' + '\n'
+		header += f' in {format_duration(elapsed_time)}' + '\n'
+	if target_mountpoint:
+		header += f'{tr("Target mountpoint")}: {target_mountpoint}\n'
+	if log_path:
+		header += f'{tr("Installation log")}: {log_path}\n'
 	header += tr('What would you like to do next?') + '\n'
 
 	items = [MenuItem(action.value, value=action) for action in PostInstallationAction]

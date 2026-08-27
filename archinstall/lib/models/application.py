@@ -11,30 +11,8 @@ class PowerManagement(StrEnum):
 	TUNED = auto()
 
 
-class AurHelper(StrEnum):
-	YAY = auto()
-	PARU = auto()
-	PIKAUR = auto()
-	AURA = auto()
-
-	def description(self) -> str:
-		match self:
-			case AurHelper.YAY:
-				return tr('Popular Go-based Pacman and AUR helper')
-			case AurHelper.PARU:
-				return tr('Feature-rich Rust-based Pacman and AUR helper')
-			case AurHelper.PIKAUR:
-				return tr('Python-based helper that asks questions before building')
-			case AurHelper.AURA:
-				return tr('Multilingual Rust-based package manager with AUR support')
-
-
 class PowerManagementConfigSerialization(TypedDict):
 	power_management: str
-
-
-class AurHelperConfigSerialization(TypedDict):
-	aur_helper: str
 
 
 class BluetoothConfigSerialization(TypedDict):
@@ -124,7 +102,6 @@ class ApplicationSerialization(TypedDict):
 	print_service_config: NotRequired[PrintServiceConfigSerialization]
 	firewall_config: NotRequired[FirewallConfigSerialization]
 	fonts_config: NotRequired[FontsConfigSerialization]
-	aur_helper_config: NotRequired[AurHelperConfigSerialization]
 
 
 @dataclass
@@ -193,18 +170,6 @@ class PowerManagementConfiguration:
 		return cls(
 			PowerManagement(arg['power_management']),
 		)
-
-
-@dataclass
-class AurHelperConfiguration:
-	aur_helper: AurHelper
-
-	def json(self) -> AurHelperConfigSerialization:
-		return {'aur_helper': self.aur_helper.value}
-
-	@classmethod
-	def parse_arg(cls, arg: AurHelperConfigSerialization) -> Self:
-		return cls(AurHelper(arg['aur_helper']))
 
 
 @dataclass
@@ -300,7 +265,6 @@ class ApplicationConfiguration(SubConfig):
 	print_service_config: PrintServiceConfiguration | None = None
 	firewall_config: FirewallConfiguration | None = None
 	fonts_config: FontsConfiguration | None = None
-	aur_helper_config: AurHelperConfiguration | None = None
 
 	@classmethod
 	def parse_arg(
@@ -338,9 +302,6 @@ class ApplicationConfiguration(SubConfig):
 		if args and (fonts_config := args.get('fonts_config')) is not None:
 			app_config.fonts_config = FontsConfiguration.parse_arg(fonts_config)
 
-		if args and (aur_helper_config := args.get('aur_helper_config')) is not None:
-			app_config.aur_helper_config = AurHelperConfiguration.parse_arg(aur_helper_config)
-
 		return app_config
 
 	@override
@@ -370,9 +331,6 @@ class ApplicationConfiguration(SubConfig):
 
 		if self.fonts_config:
 			config['fonts_config'] = self.fonts_config.json()
-
-		if self.aur_helper_config:
-			config['aur_helper_config'] = self.aur_helper_config.json()
 
 		return config
 
@@ -408,8 +366,5 @@ class ApplicationConfiguration(SubConfig):
 		if self.fonts_config and self.fonts_config.fonts:
 			fonts = ', '.join(f.value for f in self.fonts_config.fonts)
 			out.append(f'{tr("Extra fonts")}: {fonts}')
-
-		if self.aur_helper_config:
-			out.append(f'{tr("AUR helper")}: {self.aur_helper_config.aur_helper.value}')
 
 		return out

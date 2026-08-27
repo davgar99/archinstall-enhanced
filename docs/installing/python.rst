@@ -3,7 +3,7 @@
 Python library
 ==============
 
-Archinstall ships on `PyPi <https://pypi.org/>`_ as `archinstall <pypi.org/project/archinstall/>`_.
+Archinstall ships on `PyPI <https://pypi.org/>`_ as `archinstall <https://pypi.org/project/archinstall/>`_.
 But the library can be installed manually as well.
 
 .. warning::
@@ -12,7 +12,7 @@ But the library can be installed manually as well.
 Installing with pacman
 ----------------------
 
-Archinstall is on the `official repositories <https://wiki.archlinux.org/index.php/Official_repositories>`_.
+Archinstall is in the `official repositories <https://wiki.archlinux.org/title/Official_repositories>`_.
 And it will also install archinstall as a python library.
 
 To install both the library and the archinstall script:

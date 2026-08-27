@@ -240,7 +240,7 @@ class DiskLayoutConfigurationMenu(AbstractSubMenu[DiskMenuConfig]):
 
 	def _prev_lvm_config(self, item: MenuItem) -> str | None:
 		if not item.value:
-			return None
+			return f'LVM: {tr("Not configured")}'
 
 		lvm_config: LvmConfiguration = item.value
 
@@ -255,9 +255,7 @@ class DiskLayoutConfigurationMenu(AbstractSubMenu[DiskMenuConfig]):
 			lvm_volumes = as_table(vol_gp.volumes)
 			output += '\n\n{}:\n{}'.format(tr('Volumes'), lvm_volumes)
 
-			return output
-
-		return None
+		return output.rstrip()
 
 	def _prev_btrfs_snapshots(self, item: MenuItem) -> str | None:
 		if not item.value:
@@ -473,29 +471,41 @@ async def select_lvm_config(
 	disk_config: DiskLayoutConfiguration,
 	preset: LvmConfiguration | None = None,
 ) -> LvmConfiguration | None:
-	preset_value = preset.config_type.display_msg() if preset else None
 	default_mode = LvmLayoutType.Default.display_msg()
+	no_lvm = tr('Do not use LVM')
+	back = tr('Back')
 
-	items = [MenuItem(default_mode, value=default_mode)]
-	group = MenuItemGroup(items)
-	group.set_focus_by_value(preset_value)
+	items = [
+		MenuItem(no_lvm, value=no_lvm),
+		MenuItem(default_mode, value=default_mode),
+		MenuItem(back, value=back),
+	]
+	group = MenuItemGroup(items, sort_items=False)
 
 	result = await Selection[str](
 		group,
-		allow_reset=True,
+		header=tr('Select a LVM option'),
+		allow_reset=False,
 		allow_skip=True,
 	).show()
 
 	match result.type_:
 		case ResultType.Skip:
 			return preset
-		case ResultType.Reset:
-			return None
 		case ResultType.Selection:
-			if result.get_value() == default_mode:
+			selection = result.get_value()
+			if selection == back:
+				return preset
+			if selection == default_mode:
 				return await suggest_lvm_layout(disk_config)
+			if selection == no_lvm and preset is not None:
+				prompt = tr('Remove the current LVM configuration? Dependent disk encryption settings will also be cleared.') + '\n'
+				confirmed = await Confirmation(header=prompt, allow_skip=False).show()
+				if not confirmed.get_value():
+					return preset
+			return None
 
-	return None
+	return preset
 
 
 def _boot_partition(sector_size: SectorSize, using_gpt: bool) -> PartitionModification:
@@ -552,7 +562,6 @@ async def select_mount_options() -> list[str]:
 	]
 	group = MenuItemGroup(items, sort_items=False)
 	group.set_default_by_value(BtrfsMountOption.compress.value)
-	group.set_focus_by_value(BtrfsMountOption.compress.value)
 
 	result = await Selection[str](
 		group,
@@ -615,7 +624,6 @@ async def suggest_single_disk_layout(
 		result = await Confirmation(
 			header=prompt,
 			allow_skip=False,
-			preset=True,
 		).show()
 
 		using_subvolumes = result.item() == MenuItem.yes()
@@ -648,7 +656,6 @@ async def suggest_single_disk_layout(
 		result = await Confirmation(
 			header=prompt,
 			allow_skip=False,
-			preset=True,
 		).show()
 
 		using_home_partition = result.item() == MenuItem.yes()
@@ -827,7 +834,7 @@ async def suggest_lvm_layout(
 
 	if filesystem_type == FilesystemType.BTRFS:
 		prompt = tr('Would you like to use BTRFS subvolumes with a default structure?') + '\n'
-		result = await Confirmation(header=prompt, allow_skip=False, preset=True).show()
+		result = await Confirmation(header=prompt, allow_skip=False).show()
 
 		using_subvolumes = MenuItem.yes() == result.item()
 		mount_options = await select_mount_options()

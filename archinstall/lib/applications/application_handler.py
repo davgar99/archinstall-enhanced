@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 
 from archinstall.applications.audio import AudioApp
-from archinstall.applications.aur_helper import AurHelperApp
 from archinstall.applications.bluetooth import BluetoothApp
 from archinstall.applications.firewall import FirewallApp
 from archinstall.applications.firmware import FirmwareApp
@@ -66,6 +65,3 @@ class ApplicationHandler:
 				install_session,
 				app_config.fonts_config,
 			)
-
-		if app_config.aur_helper_config:
-			AurHelperApp().install(install_session, app_config.aur_helper_config, users)

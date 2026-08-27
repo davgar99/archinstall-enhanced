@@ -12,7 +12,7 @@ The second method is via Python's built in `plugin discovery`_ using `entry poin
 ``--plugin`` parameter
 ----------------------
 
-The parameter has the benefit of being stored in the ``--conf`` state, meaning when re-running an installation — the plugin will automatically be loaded.
+The parameter has the benefit of being stored in the ``--conf`` state, meaning when re-running an installation, the plugin will automatically be loaded.
 It's limitation is that it requires an initial path to be known and written and be cumbersome.
 
 Plugin Discovery

@@ -102,7 +102,6 @@ class GnomeProfile(Profile):
 
 		preset = self._selected_flavor()
 		group.set_default_by_value(preset)
-		group.set_focus_by_value(preset)
 
 		result = await Selection[GnomeFlavor](
 			group,

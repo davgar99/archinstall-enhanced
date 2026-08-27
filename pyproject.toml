@@ -42,7 +42,7 @@ dev = [
     "pytest>=9.1.1",
     "hypothesis>=6.165.10",
 ]
-doc = ["sphinx"]
+doc = ["sphinx", "sphinx-rtd-theme>=3.1.0"]
 
 [project.scripts]
 archinstall = "archinstall.main:main"

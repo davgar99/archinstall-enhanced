@@ -102,7 +102,8 @@ class Pacman:
 				if result := plugin.on_pacstrap(packages):
 					packages = result
 
-		info(f'Installing packages: {packages}')
+		packages = [str(package) for package in packages]
+		info(f'Installing packages: {", ".join(packages)}')
 
 		self.ask(
 			'Could not strap in packages',

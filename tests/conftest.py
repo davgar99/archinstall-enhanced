@@ -1,6 +1,20 @@
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+
+from archinstall.lib.log import logger
+
+
+@pytest.fixture(autouse=True)
+def temporary_log_directory(tmp_path: Path) -> Iterator[None]:
+	"""Keep tests independent of the host's /var/log permissions."""
+	previous_path = logger.directory
+	logger.path = tmp_path / 'archinstall-log'
+	try:
+		yield
+	finally:
+		logger.path = previous_path
 
 
 @pytest.fixture(scope='session')

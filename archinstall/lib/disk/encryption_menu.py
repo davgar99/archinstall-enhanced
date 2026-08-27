@@ -247,11 +247,8 @@ async def select_encryption_type(
 	if not preset:
 		preset = options[0]
 
-	preset_value = preset.type_to_text()
-
 	items = [MenuItem(o.type_to_text(), value=o) for o in options]
 	group = MenuItemGroup(items)
-	group.set_focus_by_value(preset_value)
 
 	result = await Selection[EncryptionType](
 		group,

@@ -20,7 +20,7 @@ Restarting ``systemd-timesyncd.service`` might work but most often you need to c
    If you know your time is correct on the machine, you can run ``archinstall --skip-ntp`` to ignore time sync.
 
 Waiting for Arch Linux keyring sync (archlinux-keyring-wkd-sync) to complete. `#2679`_
-------------------------------
+----------------------------------------------------------------------------------------------------
 
 The ``archlinux-keyring-wkd-sync.service`` or ``archlinux-keyring-wkd-sync.timer`` can hang "indefinitely" sometimes.
 This is usually due to an inability to reach the key servers, or a slow connection towards key servers.
@@ -58,7 +58,7 @@ Missing Nvidia Proprietary Driver `#2002`_
 In some instances, the nvidia driver might not have all the necessary packages installed.
 This is due to the kernel selection and/or hardware setups requiring additional packages to work properly.
 
-A common workaround is to install the package `linux-headers`_ and `nvidia-dkms`_
+A common workaround is to install the package `linux-headers`_ and `nvidia-open-dkms`_
 
 ARM, 32bit and other CPU types error out `#1686`_, `#2185`_
 -----------------------------------------------------------
@@ -78,7 +78,7 @@ Keyring is out of date `#2213`_
 Missing key-issues tend to be that the `archlinux-keyring`_ package is out of date, usually as a result of an outdated ISO.
 There is an attempt from upstream to fix this issue, and it's the `archlinux-keyring-wkd-sync.service`_
 
-The service starts almost immediately during boot, and if network is not configured in time — the service will fail.
+The service starts almost immediately during boot, and if network is not configured in time, the service will fail.
 Subsequently the ``archinstall`` run might operate on an old keyring despite there being an update service for this.
 
 There is really no way to reliably over time work around this issue in ``archinstall``.
@@ -127,10 +127,10 @@ This means that feature requests like supporting filesystems such as `ZFS`_ can 
 .. _#2213: https://github.com/archlinux/archinstall/issues/2213
 .. _#2679: https://github.com/archlinux/archinstall/issues/2679
 .. _linux-headers: https://archlinux.org/packages/core/x86_64/linux-headers/
-.. _nvidia-dkms: https://archlinux.org/packages/extra/x86_64/nvidia-dkms/
+.. _nvidia-open-dkms: https://archlinux.org/packages/extra/x86_64/nvidia-open-dkms/
 .. _x86_64: https://wiki.archlinux.org/title/Frequently_asked_questions#What_architectures_does_Arch_support?
 .. _archlinux-keyring: https://archlinux.org/packages/core/any/archlinux-keyring/
 .. _archlinux-keyring-wkd-sync.service: https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/blob/7e672dad10652a80d1cc575d75cdb46442cd7f96/wkd_sync/archlinux-keyring-wkd-sync.service.in
 .. _ZFS: https://aur.archlinux.org/packages/zfs-linux
 .. _archinstall: https://github.com/archlinux/archinstall/
-.. _timedatectl show: https://github.com/archlinux/archinstall/blob/e6344f93f7e476d05bbcd642f2ed91fdde545870/archinstall/lib/installer.py#L136
+.. _timedatectl show: https://github.com/archlinux/archinstall/blob/e6344f93f7e476d05bbcd642f2ed91fdde545870/archinstall/lib/installer.py
