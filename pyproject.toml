@@ -174,7 +174,6 @@ disable = [
     "attribute-defined-outside-init",
     "broad-exception-caught",
     "cell-var-from-loop",
-    "dangerous-default-value",
     "fixme",
     "protected-access",
     "raise-missing-from",
@@ -250,7 +249,6 @@ select = [
 ]
 
 ignore = [
-    "B006",     # mutable-argument-default
     "B008",     # function-call-in-default-argument
     "B904",     # raise-without-from-inside-except
     "B905",     # zip-without-explicit-strict
