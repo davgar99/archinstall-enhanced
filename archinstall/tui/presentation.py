@@ -144,11 +144,11 @@ class ActivityWidget(Static):
 	@override
 	def compose(self) -> ComposeResult:
 		with Vertical():
-			yield Label('', classes='activity-label', id='activity-label')
+			yield Label('', classes='activity-label', id='activity-label', markup=False)
 			yield LoadingIndicator(id='activity-spinner')
 			yield ProgressBar(total=100, show_eta=False, id='activity-progress')
-			yield Label('', classes='activity-detail', id='activity-detail')
-			yield Label('', classes='activity-elapsed', id='activity-elapsed')
+			yield Label('', classes='activity-detail', id='activity-detail', markup=False)
+			yield Label('', classes='activity-elapsed', id='activity-elapsed', markup=False)
 
 	def on_mount(self) -> None:
 		self.set_interval(0.2, self.refresh_state)

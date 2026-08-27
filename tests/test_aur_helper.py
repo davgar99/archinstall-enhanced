@@ -58,13 +58,14 @@ def test_aur_helper_builds_as_configured_sudo_user(tmp_path: Path) -> None:
 	assert installer.packages == ['base-devel', 'git']
 	assert installer.commands == [
 		('rm -rf -- /tmp/archinstall-yay', None, False),
+		('install -d -m 0700 -o builder -- /tmp/archinstall-yay', None, False),
 		('git clone --depth=1 https://aur.archlinux.org/yay.git /tmp/archinstall-yay', 'builder', True),
 		('cd /tmp/archinstall-yay && makepkg --syncdeps --install --needed --noconfirm', 'builder', True),
 	]
 	expected_sudoers = (
 		'builder ALL=(root) NOPASSWD: /usr/bin/pacman --noconfirm -S --asdeps *\nbuilder ALL=(root) NOPASSWD: /usr/bin/pacman --noconfirm -U --needed *\n'
 	)
-	assert installer.sudoers_snapshots == [expected_sudoers, expected_sudoers, expected_sudoers]
+	assert installer.sudoers_snapshots == [expected_sudoers, expected_sudoers, expected_sudoers, expected_sudoers]
 	assert not list((tmp_path / 'etc/sudoers.d').glob('99-archinstall-aur-builder-*'))
 
 
@@ -74,7 +75,7 @@ def test_aura_uses_source_package(tmp_path: Path) -> None:
 
 	AurHelperApp().install(installer, AurHelperConfiguration(AurHelper.AURA), users)  # type: ignore[arg-type]
 
-	assert installer.commands[1] == (
+	assert installer.commands[2] == (
 		'git clone --depth=1 https://aur.archlinux.org/aura.git /tmp/archinstall-aura',
 		'builder',
 		True,
@@ -119,4 +120,5 @@ def test_aur_helper_cleans_stale_build_directory_before_clone(tmp_path: Path) ->
 	AurHelperApp().install(installer, AurHelperConfiguration(AurHelper.PIKAUR), users)  # type: ignore[arg-type]
 
 	assert installer.commands[0] == ('rm -rf -- /tmp/archinstall-pikaur', None, False)
-	assert installer.commands[1][0].startswith('git clone --depth=1 https://aur.archlinux.org/pikaur.git')
+	assert installer.commands[1] == ('install -d -m 0700 -o builder -- /tmp/archinstall-pikaur', None, False)
+	assert installer.commands[2][0].startswith('git clone --depth=1 https://aur.archlinux.org/pikaur.git')

@@ -224,12 +224,12 @@ class ActivityScreen(BaseScreen[ValueT]):
 			self._reporter.fail(error)
 			self._failure = error
 			self._reporter.set_detail(f'{tr("Operation failed")}: {error}\n{tr("Press Enter to continue.")}')
-			return
+		else:
+			self._reporter.complete()
+			if self.is_mounted and not self._reporter.cancellation_requested:
+				self.app.call_from_thread(self.dismiss, Result.selection(value))
 		finally:
 			set_tui_logging(True)
-		self._reporter.complete()
-		if self.is_mounted and not self._reporter.cancellation_requested:
-			self.app.call_from_thread(self.dismiss, Result.selection(value))
 
 	@override
 	def action_cancel_operation(self) -> None:

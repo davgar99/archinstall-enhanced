@@ -41,8 +41,10 @@ class AurHelperApp:
 		try:
 			self._write_temporary_sudoers(sudoers_path, username)
 			# A failed or interrupted prior build can leave this directory behind.
-			# Remove only the installer-controlled path before cloning so retries are idempotent.
+			# Remove only the installer-controlled path before cloning so retries are idempotent,
+			# then recreate it with ownership that works even before systemd-tmpfiles has fixed /tmp.
 			install_session.arch_chroot(f'rm -rf -- {shlex.quote(build_dir)}')
+			install_session.arch_chroot(f'install -d -m 0700 -o {shlex.quote(username)} -- {shlex.quote(build_dir)}')
 			install_session.arch_chroot(
 				f'git clone --depth=1 https://aur.archlinux.org/{package}.git {shlex.quote(build_dir)}',
 				run_as=username,
