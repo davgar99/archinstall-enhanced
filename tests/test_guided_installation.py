@@ -124,7 +124,7 @@ def test_installation_stage_labels_are_reported_in_order(tmp_path: Path, monkeyp
 		(3, 10, 'Base installation'),
 		(4, 10, 'Bootloader'),
 		(5, 10, 'Networking and accounts'),
-		(6, 10, 'Applications and gaming'),
+		(6, 10, 'System services and gaming'),
 		(7, 10, 'Profiles and packages'),
 		(8, 10, 'System settings'),
 		(9, 10, 'Post-install hooks'),

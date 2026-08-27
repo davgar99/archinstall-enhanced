@@ -119,7 +119,7 @@ class ArchConfigType(StrEnum):
 			case ArchConfigType.BOOTLOADER_CONFIG:
 				return tr('Bootloader')
 			case ArchConfigType.APP_CONFIG:
-				return tr('Application')
+				return tr('System services')
 			case ArchConfigType.GAMING_CONFIG:
 				return tr('Gaming')
 			case ArchConfigType.AUTH_CONFIG:
