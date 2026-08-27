@@ -73,6 +73,32 @@ def _patch_optional_collaborators(monkeypatch: pytest.MonkeyPatch) -> None:
 	monkeypatch.setattr('archinstall.scripts.guided.FilesystemHandler.perform_filesystem_operations', lambda *args: None)
 
 
+@pytest.mark.parametrize(
+	('upgrade', 'expected'),
+	[(None, 'Archinstall Enhanced'), ('4.5', 'Archinstall Enhanced (New version available: 4.5)')],
+)
+def test_guided_menu_uses_canonical_title(
+	upgrade: str | None,
+	expected: str,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	captured: dict[str, Any] = {}
+
+	def global_menu(*args: Any, **kwargs: Any) -> object:
+		captured.update(kwargs)
+		return object()
+
+	monkeypatch.setattr(guided, 'check_version_upgrade', lambda: upgrade)
+	monkeypatch.setattr(guided, 'GlobalMenu', global_menu)
+	monkeypatch.setattr('archinstall.scripts.guided.tui.run', lambda _menu: object())
+	handler: Any = SimpleNamespace(config=object(), args=SimpleNamespace(skip_boot=False, advanced=False))
+	mirrors: Any = SimpleNamespace()
+
+	guided.show_menu(handler, mirrors)
+
+	assert captured['title'] == expected
+
+
 def test_installation_stages_cleanup_and_outcome(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 	events: list[str] = []
 	fake = _FakeInstaller(events)

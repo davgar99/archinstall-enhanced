@@ -7,6 +7,9 @@ from archinstall.lib.models.network import NetworkConfiguration, NicType
 from archinstall.tui.components import _menu_prompt
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MenuItemRole, MenuItemState, MsgLevelType, PreviewResult
 
+# Pytest injects fixtures by matching parameter names.
+# pylint: disable=redefined-outer-name
+
 
 class _FakeAuthConfig:
 	def __init__(self, *, root_password: bool = False, superuser: bool = False, regular_user: bool = False) -> None:

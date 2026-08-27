@@ -62,6 +62,15 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+# Examples in generated configuration tables intentionally use incomplete or
+# variable-containing URLs and must not be treated as real external targets.
+linkcheck_ignore = [
+	r'^https://$',
+	r'^https://geo\.mirror\.pkgbuild\.com/\$repo/os/\$arch$',
+	r'^https://mymirror\.com/\$repo/os/\$arch$',
+	r'^https://myrepo\.com/\$repo/os/\$arch$',
+]
+
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for

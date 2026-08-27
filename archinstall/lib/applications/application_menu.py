@@ -20,7 +20,7 @@ from archinstall.lib.models.application import (
 	PrintServiceConfiguration,
 )
 from archinstall.lib.translationhandler import tr
-from archinstall.tui.menu_item import MenuItem, MenuItemGroup
+from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MenuItemRole
 from archinstall.tui.result import ResultType
 
 
@@ -50,7 +50,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 
 	def _define_menu_options(self) -> list[MenuItem]:
 		return [
-			MenuItem(text=tr('Hardware'), read_only=True),
+			MenuItem(text=tr('Hardware'), role=MenuItemRole.SECTION),
 			MenuItem(
 				text=tr('Bluetooth'),
 				action=select_bluetooth,
@@ -71,7 +71,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				preview_action=self._prev_firmware,
 				key='firmware_config',
 			),
-			MenuItem(text=tr('Media and appearance'), read_only=True),
+			MenuItem(text=tr('Media and appearance'), role=MenuItemRole.SECTION),
 			MenuItem(
 				text=tr('Audio'),
 				action=select_audio,
@@ -92,7 +92,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				preview_action=self._prev_fonts,
 				key='fonts_config',
 			),
-			MenuItem(text=tr('System'), read_only=True),
+			MenuItem(text=tr('System'), role=MenuItemRole.SECTION),
 			MenuItem(
 				text=tr('Power management'),
 				action=select_power_management,
@@ -105,7 +105,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 				preview_action=self._prev_firewall,
 				key='firewall_config',
 			),
-			MenuItem(text=tr('Software'), read_only=True),
+			MenuItem(text=tr('Software'), role=MenuItemRole.SECTION),
 			MenuItem(
 				text=tr('AUR helper'),
 				action=select_aur_helper,
