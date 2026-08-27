@@ -133,12 +133,20 @@ async def select_archinstall_language(languages: list[Language], preset: Languag
 			raise ValueError('Language selection not handled')
 
 
-async def select_post_installation(elapsed_time: float | None = None) -> PostInstallationAction:
-	header = 'Installation completed'
+async def select_post_installation(
+	elapsed_time: float | None = None,
+	log_path: str | None = None,
+	target_mountpoint: str | None = None,
+) -> PostInstallationAction:
+	header = tr('Installation completed')
 	if elapsed_time is not None:
 		minutes = int(elapsed_time // 60)
 		seconds = int(elapsed_time % 60)
 		header += f' in {minutes}m{seconds}s' + '\n'
+	if target_mountpoint:
+		header += f'{tr("Target mountpoint")}: {target_mountpoint}\n'
+	if log_path:
+		header += f'{tr("Installation log")}: {log_path}\n'
 	header += tr('What would you like to do next?') + '\n'
 
 	items = [MenuItem(action.value, value=action) for action in PostInstallationAction]

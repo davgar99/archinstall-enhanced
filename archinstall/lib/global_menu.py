@@ -36,7 +36,7 @@ from archinstall.lib.pacman.pacman_menu import PacmanMenu
 from archinstall.lib.translationhandler import Language, tr, translation_handler
 from archinstall.lib.utils.format import as_table
 from archinstall.tui.components import tui
-from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MsgLevelType, PreviewResult
+from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MenuItemRole, MenuItemState, MsgLevelType, PreviewResult
 
 
 @dataclass
@@ -68,6 +68,7 @@ class GlobalMenu(AbstractMenu[None]):
 			menu_options,
 			sort_items=False,
 			checkmarks=True,
+			state_provider=self._item_state,
 		)
 
 		super().__init__(self._item_group, config=arch_config, title=title)
@@ -76,7 +77,7 @@ class GlobalMenu(AbstractMenu[None]):
 		menu_options = [
 			MenuItem(
 				text=tr('Language and region'),
-				read_only=True,
+				role=MenuItemRole.SECTION,
 			),
 			MenuItem(
 				text=tr('Archinstall language'),
@@ -100,7 +101,7 @@ class GlobalMenu(AbstractMenu[None]):
 			),
 			MenuItem(
 				text=tr('Installation'),
-				read_only=True,
+				role=MenuItemRole.SECTION,
 			),
 			MenuItem(
 				text=tr('Mirrors and repositories'),
@@ -139,7 +140,7 @@ class GlobalMenu(AbstractMenu[None]):
 			),
 			MenuItem(
 				text=tr('System'),
-				read_only=True,
+				role=MenuItemRole.SECTION,
 			),
 			MenuItem(
 				text=tr('Hostname'),
@@ -169,7 +170,7 @@ class GlobalMenu(AbstractMenu[None]):
 			),
 			MenuItem(
 				text=tr('Software'),
-				read_only=True,
+				role=MenuItemRole.SECTION,
 			),
 			MenuItem(
 				text=tr('Applications'),
@@ -186,6 +187,7 @@ class GlobalMenu(AbstractMenu[None]):
 			),
 			MenuItem(
 				text=tr('Pacman'),
+				role=MenuItemRole.ACCENT,
 				action=self._pacman_configuration,
 				value=PacmanConfiguration(),
 				preview_action=self._prev_pacman_config,
@@ -193,17 +195,15 @@ class GlobalMenu(AbstractMenu[None]):
 			),
 			MenuItem(
 				text=tr('Additional packages'),
+				role=MenuItemRole.ACCENT,
 				action=self._select_additional_packages,
 				value=[],
 				preview_action=self._prev_additional_pkgs,
 				key='packages',
 			),
 			MenuItem(
-				text='',
-				read_only=True,
-			),
-			MenuItem(
 				text=tr('Save configuration'),
+				role=MenuItemRole.ACCENT,
 				action=lambda x: self._safe_config(),
 				key=SpecialMenuKey.SAVE.value,
 			),
@@ -211,10 +211,12 @@ class GlobalMenu(AbstractMenu[None]):
 				text=tr('Install'),
 				preview_action=self._prev_install_invalid_config,
 				key=SpecialMenuKey.INSTALL.value,
+				role=MenuItemRole.SUCCESS,
 			),
 			MenuItem(
 				text=tr('Abort'),
 				key=SpecialMenuKey.ABORT.value,
+				role=MenuItemRole.DANGER,
 			),
 		]
 
@@ -229,49 +231,57 @@ class GlobalMenu(AbstractMenu[None]):
 		self.sync_all_to_config()
 		await save_config(self._arch_config)
 
-	def _missing_configs(self) -> list[str]:
-		item: MenuItem = self._item_group.find_by_key('auth_config')
+	def _authentication_issues(self) -> list[str]:
+		item = self._item_group.find_by_key('auth_config')
 		auth_config: AuthenticationConfiguration | None = item.value
-
-		def check(s: str) -> bool:
-			item = self._item_group.find_by_key(s)
-			return item.has_value()
-
-		missing = set()
+		issues: list[str] = []
 
 		if (auth_config is None or auth_config.root_enc_password is None) and not (auth_config and auth_config.has_superuser()):
-			missing.add(
-				tr('Either root-password or at least 1 user with sudo privileges must be specified'),
-			)
+			issues.append(tr('Either root-password or at least 1 user with sudo privileges must be specified'))
 
-		# These greeters only show users with UID >= 1000 and have no manual login by default
+		# These greeters only show users with UID >= 1000 and have no manual login by default.
 		if not (auth_config and auth_config.has_regular_user()):
-			profile_item: MenuItem = self._item_group.find_by_key('profile_config')
-			profile_config: ProfileConfiguration | None = profile_item.value
-
+			profile_config: ProfileConfiguration | None = self._item_group.find_by_key('profile_config').value
 			if profile_config and profile_config.profile and profile_config.profile.is_desktop_profile():
 				problematic_greeters = {GreeterType.Sddm}
 				if any(p.default_greeter_type in problematic_greeters for p in profile_config.profile.current_selection):
-					missing.add(
-						tr('The selected desktop profile requires a regular user to log in via the greeter'),
-					)
+					issues.append(tr('The selected desktop profile requires a regular user to log in via the greeter'))
 
+		return issues
+
+	def _item_state(self, item: MenuItem) -> MenuItemState:
+		if item.read_only or item.key is None or SpecialMenuKey.matches(item.key):
+			return MenuItemState.NEUTRAL
+		if item.key == 'auth_config':
+			return MenuItemState.BLOCKING if self._authentication_issues() else MenuItemState.COMPLETE
+		if item.key == 'bootloader_config' and self._validate_bootloader():
+			return MenuItemState.BLOCKING
+		if item.key == 'network_config' and not isinstance(item.value, NetworkConfiguration):
+			return MenuItemState.WARNING
+		if item.mandatory and not item.has_value():
+			return MenuItemState.BLOCKING
+		if item.has_value():
+			return MenuItemState.COMPLETE
+		return MenuItemState.OPTIONAL_UNSET
+
+	def blocking_issues(self) -> list[str]:
+		issues = self._authentication_issues()
 		for item in self._item_group.items:
-			if item.mandatory:
-				assert item.key is not None
-				if not check(item.key):
-					missing.add(item.text)
-
-		return list(missing)
+			if self._item_state(item) is not MenuItemState.BLOCKING or item.key == 'auth_config':
+				continue
+			if item.key == 'bootloader_config':
+				if failure := self._validate_bootloader():
+					issues.append(failure)
+			else:
+				issues.append(item.text)
+		return issues
 
 	@override
 	def is_config_valid(self) -> bool:
 		"""
 		Checks the validity of the current configuration.
 		"""
-		if len(self._missing_configs()) != 0:
-			return False
-		return self._validate_bootloader() is None
+		return not self.blocking_issues()
 
 	async def _select_archinstall_language(self, preset: Language) -> Language:
 		from archinstall.lib.general.general_menu import select_archinstall_language
@@ -312,7 +322,6 @@ class GlobalMenu(AbstractMenu[None]):
 		for o in new_options:
 			if o.key is not None:
 				self._item_group.find_by_key(o.key).text = o.text
-
 		tui.translate_bindings()
 
 	async def _locale_selection(self, preset: LocaleConfiguration) -> LocaleConfiguration | None:
@@ -589,16 +598,9 @@ class GlobalMenu(AbstractMenu[None]):
 		messages: list[tuple[str, MsgLevelType]] = []
 
 		errors = ''
-		if missing := self._missing_configs():
+		if missing := self.blocking_issues():
 			errors += f'{tr("Missing configurations:")}\n'
 			errors += '\n'.join(f'- {m}' for m in missing)
-
-		disk_item = self._item_group.find_by_key('disk_config')
-		if disk_item.has_value():
-			if error := self._validate_bootloader():
-				if errors:
-					errors += '\n\n'
-				errors += f'{tr("Invalid configuration:")}\n- {error}'
 
 		if errors:
 			messages.append((errors, MsgLevelType.MsgError))

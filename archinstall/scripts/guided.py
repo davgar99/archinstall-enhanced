@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 
 from archinstall.applications.graphics_extras import GraphicsExtrasApp
 from archinstall.applications.virtualbox_guest import VirtualBoxGuestApp
@@ -17,7 +18,7 @@ from archinstall.lib.general.general_menu import PostInstallationAction, select_
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.installer import Installer, accessibility_tools_in_use, run_custom_user_commands
-from archinstall.lib.log import debug, error, info
+from archinstall.lib.log import debug, error, info, logger
 from archinstall.lib.menu.util import delayed_warning
 from archinstall.lib.mirror.mirror_handler import MirrorListHandler
 from archinstall.lib.models import Bootloader
@@ -29,6 +30,7 @@ from archinstall.lib.packages.util import check_version_upgrade
 from archinstall.lib.profile.profiles_handler import profile_handler
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.components import tui
+from archinstall.tui.presentation import Activity, ActivityReporter, InstallationOutcome
 
 
 def show_menu(
@@ -36,7 +38,7 @@ def show_menu(
 	mirror_list_handler: MirrorListHandler,
 ) -> None:
 	upgrade = check_version_upgrade()
-	title_text = 'Archlinux'
+	title_text = 'Archinstall Enhanced'
 
 	if upgrade:
 		text = tr('New version available') + f': {upgrade}'
@@ -55,188 +57,207 @@ def show_menu(
 		sys.exit(0)
 
 
+@dataclass(frozen=True)
+class _InstallationSession:
+	outcome: InstallationOutcome
+	installation: Installer
+
+
+def _perform_installation_core(
+	arch_config_handler: ArchConfigHandler,
+	mirror_list_handler: MirrorListHandler,
+	auth_handler: AuthenticationHandler,
+	application_handler: ApplicationHandler,
+	gaming_handler: GamingHandler,
+	reporter: ActivityReporter | None = None,
+) -> _InstallationSession:
+	start_time = time.monotonic()
+	info('Starting installation...')
+	config = arch_config_handler.config
+	if not config.disk_config:
+		raise ValueError('No disk configuration provided')
+
+	disk_config = config.disk_config
+	mountpoint = disk_config.mountpoint or arch_config_handler.args.mountpoint
+	optional_repositories = list(config.mirror_config.optional_repositories) if config.mirror_config else []
+	if config.gaming_config and config.gaming_config.requires_multilib() and Repository.Multilib not in optional_repositories:
+		optional_repositories.append(Repository.Multilib)
+
+	stage_labels = [
+		tr('Storage and mount validation'),
+		tr('Encryption and mirrors'),
+		tr('Base installation'),
+		tr('Bootloader'),
+		tr('Networking and accounts'),
+		tr('Applications and gaming'),
+		tr('Profiles and packages'),
+		tr('System settings'),
+		tr('Post-install hooks'),
+		tr('Final validation and log sync'),
+	]
+	stage_number = 0
+	failed_stage = tr('Preparing installation')
+
+	def set_stage(label: str) -> None:
+		nonlocal stage_number, failed_stage
+		failed_stage = label
+		stage_number += 1
+		if reporter:
+			reporter.set_stage(label, stage_number, len(stage_labels))
+
+	try:
+		set_stage(stage_labels[0])
+		FilesystemHandler(disk_config).perform_filesystem_operations()
+		with Installer(mountpoint, disk_config, kernels=config.kernels, silent=arch_config_handler.args.silent) as installation:
+			if disk_config.config_type != DiskLayoutType.Pre_mount:
+				installation.mount_ordered_layout()
+			installation.sanity_check(
+				arch_config_handler.args.offline,
+				arch_config_handler.args.skip_ntp,
+				arch_config_handler.args.skip_wkd,
+			)
+
+			set_stage(stage_labels[1])
+			if (
+				disk_config.config_type != DiskLayoutType.Pre_mount
+				and disk_config.disk_encryption
+				and disk_config.disk_encryption.encryption_type != EncryptionType.NO_ENCRYPTION
+			):
+				installation.generate_key_files()
+			if mirror_config := config.mirror_config:
+				installation.set_mirrors(mirror_list_handler, mirror_config, on_target=False)
+
+			set_stage(stage_labels[2])
+			installation.minimal_installation(
+				optional_repositories=optional_repositories,
+				mkinitcpio=not config.bootloader_config or not config.bootloader_config.uki,
+				hostname=config.hostname,
+				locale_config=config.locale_config,
+				pacman_config=config.pacman_config,
+			)
+			if mirror_config := config.mirror_config:
+				installation.set_mirrors(mirror_list_handler, mirror_config, on_target=True)
+			if config.swap and config.swap.enabled:
+				installation.setup_swap(algo=config.swap.algorithm)
+
+			set_stage(stage_labels[3])
+			if config.bootloader_config and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER:
+				prepare_grub_os_prober(installation, config.bootloader_config.bootloader, config.bootloader_config.os_prober)
+				installation.add_bootloader(
+					config.bootloader_config.bootloader,
+					config.bootloader_config.uki,
+					config.bootloader_config.removable,
+					config.bootloader_config.plymouth,
+				)
+
+			set_stage(stage_labels[4])
+			if config.network_config:
+				install_network_config(config.network_config, installation, config.profile_config)
+			users = None
+			if config.auth_config:
+				if config.auth_config.users:
+					users = config.auth_config.users
+					installation.create_users(users)
+				auth_handler.setup_auth(installation, config.auth_config, config.hostname)
+
+			set_stage(stage_labels[5])
+			if app_config := config.app_config:
+				application_handler.install_applications(installation, app_config, users, config.network_config)
+			if gaming_config := config.gaming_config:
+				gaming_handler.install_gaming(installation, gaming_config, users)
+			gfx_driver = config.profile_config.gfx_driver if config.profile_config else None
+			install_32bit = bool(config.gaming_config and config.gaming_config.install_32bit_graphics)
+			install_opencl = bool(config.profile_config and config.profile_config.install_opencl)
+			GraphicsExtrasApp().install(installation, install_32bit, install_opencl, gfx_driver)
+
+			set_stage(stage_labels[6])
+			if profile_config := config.profile_config:
+				profile_handler.install_profile_config(installation, profile_config)
+			if VirtualBoxGuestApp.detected():
+				package_in_profile = bool(config.profile_config and config.profile_config.gfx_driver == GfxDriver.VMOpenSource)
+				VirtualBoxGuestApp().install(installation, users, install_package=not package_in_profile)
+			if config.packages and config.packages[0] != '':
+				installation.add_additional_packages(config.packages)
+
+			set_stage(stage_labels[7])
+			if timezone := config.timezone:
+				installation.set_timezone(timezone)
+			if config.hardware_clock_utc is not False:
+				installation.set_hardware_clock_utc()
+			if config.ntp:
+				installation.activate_time_synchronization()
+			if accessibility_tools_in_use():
+				installation.enable_espeakup()
+			if config.auth_config and config.auth_config.root_enc_password:
+				installation.set_user_password(User('root', config.auth_config.root_enc_password, False))
+
+			set_stage(stage_labels[8])
+			if (profile_config := config.profile_config) and profile_config.profile:
+				profile_config.profile.post_install(installation)
+				if users:
+					profile_config.profile.provision(installation, users)
+			if services := config.services:
+				installation.enable_service(services)
+			if disk_config.has_default_btrfs_vols():
+				btrfs_options = disk_config.btrfs_options
+				snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
+				if snapshot_config and snapshot_config.snapshot_type:
+					bootloader = config.bootloader_config.bootloader if config.bootloader_config else None
+					installation.setup_btrfs_snapshot(snapshot_config.snapshot_type, bootloader)
+			if commands := config.custom_commands:
+				run_custom_user_commands(commands, installation)
+
+			set_stage(stage_labels[9])
+			installation.genfstab()
+			debug(f'Disk states after installing:\n{disk_layouts()}')
+
+		outcome = InstallationOutcome(time.monotonic() - start_time, mountpoint, logger.path)
+		return _InstallationSession(outcome, installation)
+	except BaseException as exception:
+		exception.add_note(f'Archinstall stage: {failed_stage}')
+		raise
+
+
 def perform_installation(
 	arch_config_handler: ArchConfigHandler,
 	mirror_list_handler: MirrorListHandler,
 	auth_handler: AuthenticationHandler,
 	application_handler: ApplicationHandler,
 	gaming_handler: GamingHandler,
-) -> None:
-	"""
-	Performs the installation steps on a block device.
-	Only requirement is that the block devices are
-	formatted and setup prior to entering this function.
-	"""
-	start_time = time.monotonic()
-	info('Starting installation...')
-
-	mountpoint = arch_config_handler.args.mountpoint
-	config = arch_config_handler.config
-
-	if not config.disk_config:
-		error('No disk configuration provided')
-		return
-
-	disk_config = config.disk_config
-	run_mkinitcpio = not config.bootloader_config or not config.bootloader_config.uki
-	locale_config = config.locale_config
-	optional_repositories = list(config.mirror_config.optional_repositories) if config.mirror_config else []
-	if config.gaming_config and config.gaming_config.requires_multilib() and Repository.Multilib not in optional_repositories:
-		debug('Enabling multilib for selected gaming features')
-		optional_repositories.append(Repository.Multilib)
-
-	mountpoint = disk_config.mountpoint if disk_config.mountpoint else mountpoint
-
-	reboot_requested = False
-
-	with Installer(
-		mountpoint,
-		disk_config,
-		kernels=config.kernels,
-		silent=arch_config_handler.args.silent,
-	) as installation:
-		# Mount all the drives to the desired mountpoint
-		if disk_config.config_type != DiskLayoutType.Pre_mount:
-			installation.mount_ordered_layout()
-
-		installation.sanity_check(
-			arch_config_handler.args.offline,
-			arch_config_handler.args.skip_ntp,
-			arch_config_handler.args.skip_wkd,
+) -> InstallationOutcome:
+	def operation(reporter: ActivityReporter | None) -> _InstallationSession:
+		return _perform_installation_core(
+			arch_config_handler,
+			mirror_list_handler,
+			auth_handler,
+			application_handler,
+			gaming_handler,
+			reporter,
 		)
 
-		if disk_config.config_type != DiskLayoutType.Pre_mount:
-			if disk_config.disk_encryption and disk_config.disk_encryption.encryption_type != EncryptionType.NO_ENCRYPTION:
-				# generate encryption key files for the mounted luks devices
-				installation.generate_key_files()
+	if arch_config_handler.args.silent:
+		session = operation(None)
+	else:
+		session = tui.run(lambda: Activity(tr('Installing Arch Linux'), operation, cancellable=False).show())
 
-		if mirror_config := config.mirror_config:
-			installation.set_mirrors(mirror_list_handler, mirror_config, on_target=False)
-
-		installation.minimal_installation(
-			optional_repositories=optional_repositories,
-			mkinitcpio=run_mkinitcpio,
-			hostname=arch_config_handler.config.hostname,
-			locale_config=locale_config,
-			pacman_config=config.pacman_config,
+	if not arch_config_handler.args.silent:
+		action: PostInstallationAction = tui.run(
+			lambda: select_post_installation(
+				session.outcome.elapsed_time,
+				str(session.outcome.log_path),
+				str(session.outcome.target_mountpoint),
+			)
 		)
 
-		if mirror_config := config.mirror_config:
-			installation.set_mirrors(mirror_list_handler, mirror_config, on_target=True)
+		match action:
+			case PostInstallationAction.EXIT:
+				pass
+			case PostInstallationAction.REBOOT:
+				subprocess.run(['reboot'], check=False)
+			case PostInstallationAction.CHROOT:
+				session.installation.drop_to_shell()
 
-		if config.swap and config.swap.enabled:
-			installation.setup_swap(algo=config.swap.algorithm)
-
-		if config.bootloader_config and config.bootloader_config.bootloader != Bootloader.NO_BOOTLOADER:
-			prepare_grub_os_prober(
-				installation,
-				config.bootloader_config.bootloader,
-				config.bootloader_config.os_prober,
-			)
-			installation.add_bootloader(
-				config.bootloader_config.bootloader,
-				config.bootloader_config.uki,
-				config.bootloader_config.removable,
-				config.bootloader_config.plymouth,
-			)
-
-		if config.network_config:
-			install_network_config(
-				config.network_config,
-				installation,
-				config.profile_config,
-			)
-
-		users = None
-		if config.auth_config:
-			if config.auth_config.users:
-				users = config.auth_config.users
-				installation.create_users(config.auth_config.users)
-				auth_handler.setup_auth(installation, config.auth_config, config.hostname)
-
-		if app_config := config.app_config:
-			application_handler.install_applications(installation, app_config, users, config.network_config)
-
-		if gaming_config := config.gaming_config:
-			gaming_handler.install_gaming(installation, gaming_config, users)
-
-		gfx_driver = config.profile_config.gfx_driver if config.profile_config else None
-		install_32bit = bool(config.gaming_config and config.gaming_config.install_32bit_graphics)
-		install_opencl = bool(config.profile_config and config.profile_config.install_opencl)
-		GraphicsExtrasApp().install(installation, install_32bit, install_opencl, gfx_driver)
-
-		if profile_config := config.profile_config:
-			profile_handler.install_profile_config(installation, profile_config)
-
-		if VirtualBoxGuestApp.detected():
-			virtualbox_package_in_profile = bool(config.profile_config and config.profile_config.gfx_driver == GfxDriver.VMOpenSource)
-			VirtualBoxGuestApp().install(installation, users, install_package=not virtualbox_package_in_profile)
-
-		if config.packages and config.packages[0] != '':
-			installation.add_additional_packages(config.packages)
-
-		if timezone := config.timezone:
-			installation.set_timezone(timezone)
-
-		if config.hardware_clock_utc is not False:
-			installation.set_hardware_clock_utc()
-
-		if config.ntp:
-			installation.activate_time_synchronization()
-
-		if accessibility_tools_in_use():
-			installation.enable_espeakup()
-
-		if config.auth_config and config.auth_config.root_enc_password:
-			root_user = User('root', config.auth_config.root_enc_password, False)
-			installation.set_user_password(root_user)
-
-		if (profile_config := config.profile_config) and profile_config.profile:
-			profile_config.profile.post_install(installation)
-
-			if users:
-				profile_config.profile.provision(installation, users)
-
-		# If the user provided a list of services to be enabled, pass the list to the enable_service function.
-		# Note that while it's called enable_service, it can actually take a list of services and iterate it.
-		if services := config.services:
-			installation.enable_service(services)
-
-		if disk_config.has_default_btrfs_vols():
-			btrfs_options = disk_config.btrfs_options
-			snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
-			snapshot_type = snapshot_config.snapshot_type if snapshot_config else None
-			if snapshot_type:
-				bootloader = config.bootloader_config.bootloader if config.bootloader_config else None
-				installation.setup_btrfs_snapshot(snapshot_type, bootloader)
-
-		# If the user provided custom commands to be run post-installation, execute them now.
-		if cc := config.custom_commands:
-			run_custom_user_commands(cc, installation)
-
-		installation.genfstab()
-
-		debug(f'Disk states after installing:\n{disk_layouts()}')
-
-		if not arch_config_handler.args.silent:
-			elapsed_time = time.monotonic() - start_time
-			action: PostInstallationAction = tui.run(lambda: select_post_installation(elapsed_time))
-
-			match action:
-				case PostInstallationAction.EXIT:
-					pass
-				case PostInstallationAction.REBOOT:
-					reboot_requested = True
-				case PostInstallationAction.CHROOT:
-					try:
-						installation.drop_to_shell()
-					except Exception:
-						pass
-
-	# Installer.__exit__() has now run, allowing the system to sync and the
-	# installation log to be copied to the target before rebooting.
-	if reboot_requested:
-		subprocess.run(['reboot'], check=False)
+	return session.outcome
 
 
 def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
@@ -248,42 +269,37 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 		verbose=arch_config_handler.args.verbose,
 	)
 
-	if not arch_config_handler.args.silent:
-		show_menu(arch_config_handler, mirror_list_handler)
+	while True:
+		if not arch_config_handler.args.silent:
+			show_menu(arch_config_handler, mirror_list_handler)
 
-	arch_config_handler.config.write_debug()
-	arch_config_handler.config.save()
+		arch_config_handler.config.write_debug()
+		arch_config_handler.config.save()
 
-	# Safety net for silent/config-file flow. The TUI menu blocks Install via
-	# GlobalMenu._validate_bootloader() before reaching this point.
-	if failure := validate_bootloader_layout(
-		arch_config_handler.config.bootloader_config,
-		arch_config_handler.config.disk_config,
-	):
-		error(failure.description)
-		return
+		if failure := validate_bootloader_layout(
+			arch_config_handler.config.bootloader_config,
+			arch_config_handler.config.disk_config,
+		):
+			error(failure.description)
+			if arch_config_handler.args.silent:
+				return
+			continue
 
-	if arch_config_handler.args.dry_run:
-		return
+		if arch_config_handler.args.dry_run:
+			return
 
-	if not arch_config_handler.args.silent:
-		aborted = False
-		res: bool = tui.run(lambda: confirm_config(arch_config_handler.config))
+		if not arch_config_handler.args.silent:
+			confirmed: bool = tui.run(lambda: confirm_config(arch_config_handler.config))
+			if not confirmed:
+				debug('Installation aborted')
+				continue
 
-		if not res:
-			debug('Installation aborted')
-			aborted = True
-
-		if aborted:
-			return main(arch_config_handler)
-
-	if arch_config_handler.config.disk_config:
-		fs_handler = FilesystemHandler(arch_config_handler.config.disk_config)
-
-		if not delayed_warning(tr('Starting device modifications in ')):
-			return main()
-
-		fs_handler.perform_filesystem_operations()
+		if arch_config_handler.config.disk_config:
+			if not delayed_warning(tr('Starting device modifications in ')):
+				if arch_config_handler.args.silent:
+					return
+				continue
+		break
 
 	perform_installation(
 		arch_config_handler,
