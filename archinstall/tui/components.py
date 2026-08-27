@@ -2,7 +2,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from typing import Any, ClassVar, Literal, TypeVar, cast, override
+from typing import Any, ClassVar, Literal, TypeVar, override
 
 from rich.text import Text
 from textual import work
@@ -19,12 +19,27 @@ from textual.widgets.option_list import Option
 from textual.widgets.selection_list import Selection
 from textual.worker import WorkerCancelled
 
-from archinstall.lib.log import debug
+from archinstall.lib.log import debug, set_tui_logging
 from archinstall.lib.translationhandler import tr
-from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MsgLevelType, PreviewResult
-from archinstall.tui.result import Result, ResultType
+from archinstall.tui.menu_item import MenuItem, MenuItemGroup, MenuItemRole, MenuItemState, MsgLevelType, PreviewResult
+from archinstall.tui.presentation import ActivityReporter, ActivityWidget
+from archinstall.tui.result import Result, ResultType, WorkerFailure
 
 ValueT = TypeVar('ValueT')
+
+
+def _menu_prompt(item: MenuItem) -> Text:
+	if item.role is MenuItemRole.SECTION:
+		return Text(f'\n{item.text}', style='bold white')
+	if item.role is MenuItemRole.INFORMATION:
+		return Text(item.text)
+	prompt = Text()
+	if item.state in {MenuItemState.WARNING, MenuItemState.BLOCKING}:
+		prompt.append('! ', style='bold bright_yellow')
+	else:
+		prompt.append('  ')
+	prompt.append(item.text)
+	return prompt
 
 
 def _update_preview(widget: Label, result: str | PreviewResult | None) -> None:
@@ -155,13 +170,74 @@ class LoadingScreen(BaseScreen[ValueT]):
 	@work(thread=True)
 	def _exec_callback(self) -> None:
 		assert self._data_callback
-		result = self._data_callback()
+		try:
+			result = Result(ResultType.Selection, _data=self._data_callback())
+		except BaseException as error:
+			result = Result.failure(error)
 		# cannot call self.dismiss directly from
 		# background thread (thread=true) as there's no event loop
-		self.app.call_from_thread(self.dismiss, Result(ResultType.Selection, _data=result))
+		if self.is_mounted:
+			self.app.call_from_thread(self.dismiss, result)
 
 	def action_pop_screen(self) -> None:
-		_ = self.dismiss()
+		_ = self.dismiss(Result.true())
+
+
+class ActivityScreen(BaseScreen[ValueT]):
+	"""Run an operation in a worker while showing stock-styled progress."""
+
+	BINDINGS: ClassVar = [
+		Binding('escape', 'cancel_operation', 'Cancel', show=True),
+		Binding('enter', 'acknowledge_failure', 'Continue', show=False),
+	]
+
+	def __init__(self, reporter: ActivityReporter, operation: Callable[[ActivityReporter], ValueT]) -> None:
+		super().__init__(allow_skip=reporter.snapshot().cancellable)
+		self._reporter = reporter
+		self._operation = operation
+		self._failure: BaseException | None = None
+
+	async def run(self) -> Result[ValueT]:
+		assert TApp.app
+		return await TApp.app.show(self)
+
+	@override
+	def compose(self) -> ComposeResult:
+		yield Label(self._reporter.snapshot().label, classes='app-header')
+		yield Center(ActivityWidget(self._reporter))
+		yield Footer()
+
+	def on_mount(self) -> None:
+		_translate_bindings(self._merged_bindings, self._bindings)
+		self._reporter.start()
+		self._execute()
+
+	@work(thread=True)
+	def _execute(self) -> None:
+		set_tui_logging(True, self._reporter.set_detail)
+		try:
+			value = self._operation(self._reporter)
+		except BaseException as error:
+			self._reporter.fail(error)
+			self._failure = error
+			self._reporter.set_detail(f'{tr("Operation failed")}: {error}\n{tr("Press Enter to continue.")}')
+			return
+		finally:
+			set_tui_logging(True)
+		self._reporter.complete()
+		if self.is_mounted and not self._reporter.cancellation_requested:
+			self.app.call_from_thread(self.dismiss, Result.selection(value))
+
+	@override
+	def action_cancel_operation(self) -> None:
+		if self._reporter.cancel():
+			_ = self.dismiss(Result.skip())
+		else:
+			self._reporter.set_detail(tr('This operation cannot be cancelled safely. Wait for it to finish.'))
+
+	def action_acknowledge_failure(self) -> None:
+		if self._failure is not None:
+			_ = self.dismiss(Result.failure(self._failure))
 
 
 class _Input(Input):
@@ -301,7 +377,7 @@ class OptionListScreen(BaseScreen[ValueT]):
 
 		for item in self._group.get_enabled_items():
 			disabled = True if item.read_only else False
-			options.append(Option(item.text, id=item.get_id(), disabled=disabled))
+			options.append(Option(_menu_prompt(item), id=item.get_id(), disabled=disabled))
 
 		return options
 
@@ -358,8 +434,10 @@ class OptionListScreen(BaseScreen[ValueT]):
 
 		option_list.highlighted = self._group.get_focused_index()
 
-		if focus_item := self._group.focus_item:
+		if options and (focus_item := self._group.focus_item):
 			self._set_preview(focus_item.get_id())
+		elif self._preview_location is not None:
+			_update_preview(self.query_one('#preview_content', Label), tr('No matching options'))
 
 	def on_input_submitted(self, event: Input.Submitted) -> None:
 		if self.query_one(Input).has_focus:
@@ -397,7 +475,7 @@ class OptionListScreen(BaseScreen[ValueT]):
 		self.app.refresh()
 
 	def _set_preview(self, item_id: str) -> None:
-		if self._preview_location is None:
+		if self._preview_location is None or not self.is_mounted:
 			return
 
 		preview_widget = self.query_one('#preview_content', Label)
@@ -534,7 +612,7 @@ class SelectListScreen(BaseScreen[ValueT]):
 
 		for item in self._group.get_enabled_items():
 			is_selected = item in self._selected_items
-			selection = Selection(item.text, item, is_selected)
+			selection = Selection(_menu_prompt(item), item, is_selected)
 			selections.append(selection)
 
 		return selections
@@ -607,8 +685,10 @@ class SelectListScreen(BaseScreen[ValueT]):
 
 		selection_list.highlighted = self._group.get_focused_index()
 
-		if focus_item := self._group.focus_item:
+		if options and (focus_item := self._group.focus_item):
 			self._set_preview(focus_item)
+		elif self._preview_location is not None:
+			_update_preview(self.query_one('#preview_content', Label), tr('No matching options'))
 
 		self._set_cursor()
 
@@ -647,7 +727,7 @@ class SelectListScreen(BaseScreen[ValueT]):
 			self._selected_items.remove(item)
 
 	def _set_preview(self, item: MenuItem) -> None:
-		if self._preview_location is None:
+		if self._preview_location is None or not self.is_mounted:
 			return
 
 		preview_widget = self.query_one('#preview_content', Label)
@@ -1074,8 +1154,14 @@ class TableSelectionScreen(BaseScreen[ValueT]):
 	@work
 	async def _load_data(self, table: DataTable[ValueT]) -> None:
 		assert self._group_callback is not None
-		group = await self._group_callback()
-		self._put_data_to_table(table, group)
+		try:
+			group = await self._group_callback()
+		except BaseException as error:
+			if self.is_mounted:
+				_ = self.dismiss(Result.failure(error))
+			return
+		if self.is_mounted and table.is_mounted:
+			self._put_data_to_table(table, group)
 
 	def _display_header(self, is_loading: bool) -> None:
 		if self._loading_header:
@@ -1104,7 +1190,7 @@ class TableSelectionScreen(BaseScreen[ValueT]):
 		items = group.items
 		selected = group.selected_items
 
-		if not items:
+		if not items or not any(item.value is not None for item in items):
 			_ = self.dismiss(Result(ResultType.Selection))
 			return
 
@@ -1159,7 +1245,7 @@ class TableSelectionScreen(BaseScreen[ValueT]):
 		self._current_row_key = event.row_key
 		item: MenuItem = event.row_key.value  # type: ignore[assignment]
 
-		if not item.preview_action:
+		if not item.preview_action or self._preview_location is None or not self.is_mounted:
 			return
 
 		preview_widget = self.query_one('#preview_content', Label)
@@ -1203,7 +1289,7 @@ class InstanceRunnable[ValueT](ABC):
 		pass
 
 
-class _AppInstance(App[ValueT]):
+class _AppInstance(App[Any]):
 	ENABLE_COMMAND_PALETTE = False
 
 	BINDINGS: ClassVar = [
@@ -1310,6 +1396,7 @@ class _AppInstance(App[ValueT]):
 		from archinstall.lib.translationhandler import translation_handler
 
 		translation_handler.restore_console_font()
+		set_tui_logging(False)
 		await super()._on_exit_app()
 
 	def action_trigger_help(self) -> None:
@@ -1320,10 +1407,18 @@ class _AppInstance(App[ValueT]):
 		else:
 			_ = self.screen.mount(HelpPanel())
 
+	@override
+	async def action_quit(self) -> None:
+		if isinstance(self.screen, ActivityScreen):
+			self.screen.action_cancel_operation()
+			return
+		await super().action_quit()
+
 	def on_mount(self) -> None:
 		from archinstall.lib.translationhandler import translation_handler
 
 		translation_handler.apply_console_font()
+		set_tui_logging(True)
 		_translate_bindings(self._merged_bindings, self._bindings)
 		self._run_worker()
 
@@ -1331,17 +1426,16 @@ class _AppInstance(App[ValueT]):
 	async def _run_worker(self) -> None:
 		try:
 			if isinstance(self._main, InstanceRunnable):
-				result: ValueT | None = await self._main.run()
+				result: Any | None = await self._main.run()
 			else:
 				result = await self._main()
 
 			tui.exit(result)
 		except WorkerCancelled:
 			debug('Worker was cancelled')
-		except Exception as err:
+		except BaseException as err:
 			debug(f'Error while running main app: {err}')
-			# this will terminate the textual app and return the exception
-			self.exit(cast(ValueT, err))
+			self.exit(WorkerFailure(err))
 
 	@work
 	async def _show_async(self, screen: Screen[Result[ValueT]]) -> Result[ValueT]:
@@ -1352,14 +1446,20 @@ class _AppInstance(App[ValueT]):
 
 
 class TApp:
-	app: _AppInstance[Any] | None = None
+	app: _AppInstance | None = None
 
 	def run(self, main: InstanceRunnable[ValueT] | Callable[[], Awaitable[ValueT]]) -> ValueT:
-		TApp.app = _AppInstance(main)
-		result: ValueT | Exception | None = TApp.app.run()
+		if TApp.app is not None:
+			raise RuntimeError('A TUI application is already running')
+		app = _AppInstance(main)
+		TApp.app = app
+		try:
+			result: ValueT | WorkerFailure | None = app.run()
+		finally:
+			TApp.app = None
 
-		if isinstance(result, Exception):
-			raise result
+		if isinstance(result, WorkerFailure):
+			raise result.error
 
 		if result is None:
 			debug('App returned no result, assuming exit')
