@@ -98,7 +98,7 @@ def _stylize_output(
 	fg: str,
 	bg: str | None,
 	reset: bool,
-	font: list[Font] = [],
+	font: list[Font] | None = None,
 ) -> str:
 	"""
 	Heavily influenced by:
@@ -138,8 +138,9 @@ def _stylize_output(
 	if bg:
 		code_list.append(background[str(bg)])
 
-	for o in font:
-		code_list.append(o.value)
+	if font is not None:
+		for o in font:
+			code_list.append(o.value)
 
 	ansi = ';'.join(code_list)
 
@@ -168,7 +169,7 @@ def info(
 	fg: str = 'white',
 	bg: str | None = None,
 	reset: bool = False,
-	font: list[Font] = [],
+	font: list[Font] | None = None,
 ) -> None:
 	log(*msgs, level=level, fg=fg, bg=bg, reset=reset, font=font)
 
@@ -179,7 +180,7 @@ def debug(
 	fg: str = 'white',
 	bg: str | None = None,
 	reset: bool = False,
-	font: list[Font] = [],
+	font: list[Font] | None = None,
 ) -> None:
 	log(*msgs, level=level, fg=fg, bg=bg, reset=reset, font=font)
 
@@ -190,7 +191,7 @@ def error(
 	fg: str = 'red',
 	bg: str | None = None,
 	reset: bool = False,
-	font: list[Font] = [],
+	font: list[Font] | None = None,
 ) -> None:
 	log(*msgs, level=level, fg=fg, bg=bg, reset=reset, font=font)
 
@@ -201,7 +202,7 @@ def warn(
 	fg: str = 'yellow',
 	bg: str | None = None,
 	reset: bool = False,
-	font: list[Font] = [],
+	font: list[Font] | None = None,
 ) -> None:
 	log(*msgs, level=level, fg=fg, bg=bg, reset=reset, font=font)
 
@@ -212,7 +213,7 @@ def log(
 	fg: str = 'white',
 	bg: str | None = None,
 	reset: bool = False,
-	font: list[Font] = [],
+	font: list[Font] | None = None,
 ) -> None:
 	text = ' '.join(str(x) for x in msgs)
 
