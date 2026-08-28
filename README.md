@@ -21,15 +21,19 @@ This project is not intended to throw random performance tweaks into Archinstall
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/guided-installer-main-menu.png" alt="Archinstall Enhanced guided installer main menu" width="900" />
+  <img src="docs/screenshots/01-main-menu.png" alt="Archinstall Enhanced guided installer main menu" width="900" />
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/gaming-configuration-menu.png" alt="Archinstall Enhanced gaming configuration menu" width="900" />
+  <img src="docs/screenshots/02-system-services.png" alt="Archinstall Enhanced System services menu" width="900" />
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/installation-summary.png" alt="Archinstall Enhanced installation summary" width="900" />
+  <img src="docs/screenshots/03-gaming.png" alt="Archinstall Enhanced Gaming menu" width="900" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/04-installation.png" alt="Archinstall Enhanced installation in progress" width="900" />
 </p>
 
 ## Why this fork exists
