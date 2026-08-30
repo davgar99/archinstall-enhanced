@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
   group: upstream-sync
@@ -23,7 +22,7 @@ jobs:
   sync:
     name: Merge archlinux/archinstall
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
       - name: Check out fork
@@ -51,17 +50,12 @@ jobs:
             exit 0
           fi
 
-          # Bring in every non-conflicting upstream change. If both sides changed
-          # the same hunk, prefer the fork's current version.
           if ! git merge --no-ff --no-edit -X ours upstream/master; then
             if [[ ! -f .git/MERGE_HEAD ]]; then
               echo 'Merge failed before a merge was started.' >&2
               exit 1
             fi
 
-            # Some conflict types, such as modify/delete or rename conflicts,
-            # are not resolved by -X ours. Resolve only those unresolved paths
-            # in favor of the fork as well.
             while IFS= read -r -d '' path; do
               echo "Keeping fork version of conflicted path: $path"
 
@@ -73,7 +67,7 @@ jobs:
             done < <(git diff --name-only --diff-filter=U -z)
 
             if git ls-files -u | grep -q .; then
-              echo 'Unresolved merge entries remain; refusing to publish.' >&2
+              echo 'Unresolved merge entries remain; refusing to push.' >&2
               git status --short
               exit 1
             fi
@@ -84,28 +78,38 @@ jobs:
           git diff --check HEAD^ HEAD
           git status --short
 
-      - name: Publish sync branch and open pull request
+      - name: Validate merged tree in isolated Arch container
+        if: env.UP_TO_DATE != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/repo" \
+            -w /repo \
+            archlinux/archlinux:latest \
+            bash -lc '
+              set -euo pipefail
+              pacman-key --init
+              pacman --noconfirm -Sy archlinux-keyring
+              pacman --noconfirm -Syyu
+              pacman --noconfirm -S python-pip python-pyparted pkgconfig gcc
+              pip install --break-system-packages --upgrade pip
+              pip install --break-system-packages .[dev]
+              pytest
+              ruff check .
+              ruff format --check .
+              mypy --config-file pyproject.toml
+            '
+
+      - name: Push validated merge
         if: env.UP_TO_DATE != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          SYNC_BRANCH: automation/upstream-sync
         shell: bash
         run: |
           set -euo pipefail
 
-          # Authentication is introduced only after merge preparation is done.
-          # No newly merged project code is executed in this write-capable step.
+          # The write credential is introduced only after all merged code has
+          # passed validation, and no project code is executed after this point.
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch origin "${SYNC_BRANCH}:refs/remotes/origin/${SYNC_BRANCH}" 2>/dev/null || true
-          git push --force-with-lease origin "HEAD:refs/heads/${SYNC_BRANCH}"
-
-          pr_number="$(gh pr list --head "${SYNC_BRANCH}" --base master --state open --json number --jq '.[0].number // empty')"
-          if [[ -z "${pr_number}" ]]; then
-            gh pr create \
-              --base master \
-              --head "${SYNC_BRANCH}" \
-              --title 'chore: sync upstream archinstall' \
-              --body 'Automated upstream synchronization. CI runs on this pull request before the merged tree reaches master.'
-          else
-            echo "Updated existing upstream-sync PR #${pr_number}."
-          fi
+          git push origin HEAD:master
