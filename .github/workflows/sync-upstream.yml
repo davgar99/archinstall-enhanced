@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: upstream-sync
@@ -30,6 +31,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: master
+          persist-credentials: false
 
       - name: Merge upstream and preserve fork changes
         shell: bash
@@ -43,10 +45,9 @@ jobs:
           git remote add upstream https://github.com/archlinux/archinstall.git
           git fetch --no-tags upstream master
 
-          # A real merge is important here. It makes upstream/master an ancestor
-          # of our master branch, so GitHub does not report the fork as behind.
           if git merge-base --is-ancestor upstream/master HEAD; then
             echo 'Fork is already up to date.'
+            echo 'UP_TO_DATE=true' >> "$GITHUB_ENV"
             exit 0
           fi
 
@@ -67,14 +68,12 @@ jobs:
               if git checkout --ours -- "$path" 2>/dev/null; then
                 git add -- "$path"
               else
-                # No stage-2 file means the fork deleted this path. Keep the
-                # deletion rather than restoring the upstream version.
                 git rm -f --ignore-unmatch -- "$path"
               fi
             done < <(git diff --name-only --diff-filter=U -z)
 
             if git ls-files -u | grep -q .; then
-              echo 'Unresolved merge entries remain; refusing to push.' >&2
+              echo 'Unresolved merge entries remain; refusing to publish.' >&2
               git status --short
               exit 1
             fi
@@ -82,11 +81,31 @@ jobs:
             git commit --no-edit
           fi
 
-          # Sanity checks only. Do not execute newly merged upstream code with a
-          # write-capable token in this synchronization job.
           git diff --check HEAD^ HEAD
           git status --short
 
-          # Never force-push. A concurrent user push causes this to fail safely,
-          # and the next scheduled run will retry from the newer branch state.
-          git push origin HEAD:master
+      - name: Publish sync branch and open pull request
+        if: env.UP_TO_DATE != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_BRANCH: automation/upstream-sync
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Authentication is introduced only after merge preparation is done.
+          # No newly merged project code is executed in this write-capable step.
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch origin "${SYNC_BRANCH}:refs/remotes/origin/${SYNC_BRANCH}" 2>/dev/null || true
+          git push --force-with-lease origin "HEAD:refs/heads/${SYNC_BRANCH}"
+
+          pr_number="$(gh pr list --head "${SYNC_BRANCH}" --base master --state open --json number --jq '.[0].number // empty')"
+          if [[ -z "${pr_number}" ]]; then
+            gh pr create \
+              --base master \
+              --head "${SYNC_BRANCH}" \
+              --title 'chore: sync upstream archinstall' \
+              --body 'Automated upstream synchronization. CI runs on this pull request before the merged tree reaches master.'
+          else
+            echo "Updated existing upstream-sync PR #${pr_number}."
+          fi
