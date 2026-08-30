@@ -8,7 +8,7 @@ import urllib.error
 import urllib.parse
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass, field
-from enum import Enum, StrEnum
+from enum import Enum, StrEnum, auto
 from pathlib import Path
 from typing import Any, Self
 from urllib.request import Request, urlopen
