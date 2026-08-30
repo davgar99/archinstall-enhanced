@@ -92,13 +92,21 @@ jobs:
               pacman-key --init
               pacman --noconfirm -Sy archlinux-keyring
               pacman --noconfirm -Syyu
-              pacman --noconfirm -S python-pip python-pyparted pkgconfig gcc
+              pacman --noconfirm -S \
+                bandit \
+                gcc \
+                pkgconfig \
+                python-pip \
+                python-pydantic \
+                python-pyparted \
+                python-setuptools \
+                python-textual \
+                python-uv
               pip install --break-system-packages --upgrade pip
               pip install --break-system-packages .[dev]
               pytest
-              ruff check .
-              ruff format --check .
-              mypy --config-file pyproject.toml
+              bandit -c pyproject.toml -r archinstall
+              uv build --no-build-isolation --wheel
             '
 
       - name: Push validated merge

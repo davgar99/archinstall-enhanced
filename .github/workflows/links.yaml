@@ -26,10 +26,15 @@ jobs:
             --retry-wait-time 2
             --accept 200,204,206,403,429
             --include-fragments
+            --exclude '^https://domain\.lan/'
+            --exclude '.*\$repo/os/\$arch.*'
+            --exclude '^https://archlinux\.life/aur-plugin$'
+            --exclude '^https://wiki\.archlinux\.org/title/Frequently_asked_questions#What_architectures_does_Arch_support.*$'
             README.md CONTRIBUTING.md docs/**/*.md docs/**/*.rst
           fail: true
       - name: Explain authoritative-site exceptions
         if: always()
         run: |
           echo 'HTTP 403 and 429 are accepted only because authoritative documentation sites may use anti-bot or rate-limit responses.'
+          echo 'Intentional example URLs and package-manager template URLs are excluded from live link checks.'
           echo 'Review redirects in the lychee output and update links to canonical targets.'
