@@ -147,15 +147,25 @@ async def save_config(config: ArchConfig) -> None:
 	).show()
 
 	enc_password: str | None = None
-	if enc_result.type_ == ResultType.Selection:
-		if enc_result.get_value():
-			password = await get_password(
-				header=tr('Credentials file encryption password'),
-				allow_skip=True,
-			)
 
-			if password:
-				enc_password = password.plaintext
+	if save_option in ('user_creds', 'all'):
+		header = tr('Do you want to encrypt the user_credentials.json file?')
+
+		enc_result = await Confirmation(
+			header=header,
+			allow_skip=False,
+			preset=False,
+		).show()
+
+		if enc_result.type_ == ResultType.Selection:
+			if enc_result.get_value():
+				password = await get_password(
+					header=tr('Credentials file encryption password'),
+					allow_skip=True,
+				)
+
+				if password:
+					enc_password = password.plaintext
 
 	match save_option:
 		case 'user_config':
