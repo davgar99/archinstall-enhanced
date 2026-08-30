@@ -23,5 +23,5 @@ jobs:
             - run: pylint --version
             - name: Lint with Pylint
               run: |
-                pylint . --ignore-paths='^archinstall/lib/args\.py$'
+                pylint archinstall tests --ignore-paths='.*archinstall/lib/args\.py$'
                 pylint archinstall/lib/args.py --disable=unused-import
