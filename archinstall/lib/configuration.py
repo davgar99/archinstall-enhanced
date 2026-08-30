@@ -139,13 +139,6 @@ async def save_config(config: ArchConfig) -> None:
 
 	debug(f'Saving configuration files to {dest_path.absolute()}')
 
-	header = tr('Do you want to encrypt the user_credentials.json file?')
-
-	enc_result = await Confirmation(
-		header=header,
-		allow_skip=False,
-	).show()
-
 	enc_password: str | None = None
 
 	if save_option in ('user_creds', 'all'):
@@ -154,7 +147,6 @@ async def save_config(config: ArchConfig) -> None:
 		enc_result = await Confirmation(
 			header=header,
 			allow_skip=False,
-			preset=False,
 		).show()
 
 		if enc_result.type_ == ResultType.Selection:

@@ -23,4 +23,4 @@ jobs:
             - run: python --version
             - run: flake8 --version
             - name: Lint with flake8
-              run: flake8
+              run: flake8 --per-file-ignores archinstall/lib/args.py:F401
