@@ -5,6 +5,11 @@ on:
     # Run away from the top of the hour, when GitHub Actions is busiest.
     - cron: '23 * * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/sync-upstream.yml
 
 permissions:
   contents: write
