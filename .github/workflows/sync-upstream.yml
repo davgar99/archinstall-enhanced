@@ -1,0 +1,87 @@
+name: Sync upstream
+
+on:
+  schedule:
+    # Run away from the top of the hour, when GitHub Actions is busiest.
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Merge archlinux/archinstall
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: Merge upstream and preserve fork changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config merge.conflictStyle zdiff3
+
+          git remote add upstream https://github.com/archlinux/archinstall.git
+          git fetch --no-tags upstream master
+
+          # A real merge is important here. It makes upstream/master an ancestor
+          # of our master branch, so GitHub does not report the fork as behind.
+          if git merge-base --is-ancestor upstream/master HEAD; then
+            echo 'Fork is already up to date.'
+            exit 0
+          fi
+
+          # Bring in every non-conflicting upstream change. If both sides changed
+          # the same hunk, prefer the fork's current version.
+          if ! git merge --no-ff --no-edit -X ours upstream/master; then
+            if [[ ! -f .git/MERGE_HEAD ]]; then
+              echo 'Merge failed before a merge was started.' >&2
+              exit 1
+            fi
+
+            # Some conflict types, such as modify/delete or rename conflicts,
+            # are not resolved by -X ours. Resolve only those unresolved paths
+            # in favor of the fork as well.
+            while IFS= read -r -d '' path; do
+              echo "Keeping fork version of conflicted path: $path"
+
+              if git checkout --ours -- "$path" 2>/dev/null; then
+                git add -- "$path"
+              else
+                # No stage-2 file means the fork deleted this path. Keep the
+                # deletion rather than restoring the upstream version.
+                git rm -f --ignore-unmatch -- "$path"
+              fi
+            done < <(git diff --name-only --diff-filter=U -z)
+
+            if git ls-files -u | grep -q .; then
+              echo 'Unresolved merge entries remain; refusing to push.' >&2
+              git status --short
+              exit 1
+            fi
+
+            git commit --no-edit
+          fi
+
+          # Sanity checks only. Do not execute newly merged upstream code with a
+          # write-capable token in this synchronization job.
+          git diff --check HEAD^ HEAD
+          git status --short
+
+          # Never force-push. A concurrent user push causes this to fail safely,
+          # and the next scheduled run will retry from the newer branch state.
+          git push origin HEAD:master
