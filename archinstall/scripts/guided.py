@@ -28,6 +28,7 @@ from archinstall.lib.models.device import DiskLayoutType, EncryptionType
 from archinstall.lib.models.packages import Repository
 from archinstall.lib.models.users import User
 from archinstall.lib.network.network_handler import install_network_config
+from archinstall.lib.network.regulatory import configure_wireless_regulatory
 from archinstall.lib.packages.util import check_version_upgrade
 from archinstall.lib.profile.profiles_handler import profile_handler
 from archinstall.lib.translationhandler import tr
@@ -184,6 +185,7 @@ def _perform_installation_core(
 			set_stage(stage_labels[7])
 			if timezone := config.timezone:
 				installation.set_timezone(timezone)
+				configure_wireless_regulatory(installation, timezone)
 			if config.hardware_clock_utc is not False:
 				installation.set_hardware_clock_utc()
 			if config.ntp:
