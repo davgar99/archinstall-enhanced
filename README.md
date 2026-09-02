@@ -1,249 +1,46 @@
 # Archinstall Enhanced
 
-<img src="https://github.com/archlinux/archinstall/raw/master/docs/logo.png" alt="Archinstall logo" width="200"/>
+<p align="center">
+  <img src="https://github.com/archlinux/archinstall/raw/master/docs/logo.png" alt="Archinstall logo" width="190" />
+</p>
 
-An enhanced fork of [Archinstall](https://github.com/archlinux/archinstall) focused on making Arch Linux desktop and gaming installations more complete out of the box.
+<p align="center">
+  A practical Arch Linux installer for complete desktop and gaming systems.
+</p>
 
-This fork adds more gaming, performance, desktop, and system configuration options directly to the Archinstall guided installer. The goal is to make it easier to install a well-configured Arch Linux system without having to manually set up many of these features after the first boot.
+<p align="center">
+  <a href="https://github.com/davgar99/archinstall-enhanced/actions/workflows/pytest.yaml"><img src="https://github.com/davgar99/archinstall-enhanced/actions/workflows/pytest.yaml/badge.svg?branch=master" alt="Pytest status" /></a>
+  <a href="https://github.com/davgar99/archinstall-enhanced/actions/workflows/ruff-lint.yaml"><img src="https://github.com/davgar99/archinstall-enhanced/actions/workflows/ruff-lint.yaml/badge.svg?branch=master" alt="Ruff status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--only-blue.svg" alt="GPL-3.0-only license" /></a>
+</p>
 
-Changes included in this fork are intended to be stable, properly implemented, and backed by official documentation, upstream behavior, or established community recommendations whenever possible. Experimental features are clearly identified and remain optional.
+Archinstall Enhanced builds on the official [Archinstall](https://github.com/archlinux/archinstall) guided installer. It keeps the familiar installation flow while adding the desktop integration, gaming support, hardware setup, and quality-of-life options that many users otherwise configure after their first boot.
 
-This project is not intended to throw random performance tweaks into Archinstall. Features are added because they provide a useful configuration option, solve a real problem, improve the installation experience, or make common desktop and gaming setups easier to configure.
+The project favors documented, maintainable configuration over collections of unexplained tweaks. Hardware-specific, workload-specific, or experimental features remain optional.
 
 > [!IMPORTANT]
-> This is an independent fork of Archinstall. It is not the official Arch Linux installer.
->
-> Installing the `archinstall` package from the Arch Linux repositories will install the official upstream version, not the changes included in this repository.
+> This is an independent fork. It is not an official Arch Linux project, and the `archinstall` package in the Arch repositories provides the upstream installer rather than this edition.
 
-> [!NOTE]
-> Archinstall Enhanced intentionally provides a broader desktop baseline than upstream Archinstall. A desktop installation may therefore contain more packages and use somewhat more disk space. The additional packages cover common codecs, hardware support, desktop integration, and diagnostic tools; workload-specific and experimental components remain optional so users can keep the system as lean as they prefer.
+> [!CAUTION]
+> An operating-system installer can erase disks. Review the installation summary and verify every target device before confirming changes. Test development builds in a virtual machine or on a disposable disk.
 
-## Screenshots
+## Quick start
 
-<p align="center">
-  <img src="docs/screenshots/01-main-menu.png" alt="Archinstall Enhanced guided installer main menu" width="900" />
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/02-system-services.png" alt="Archinstall Enhanced System services menu" width="900" />
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/03-gaming.png" alt="Archinstall Enhanced Gaming menu" width="900" />
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/04-installation.png" alt="Archinstall Enhanced installation in progress" width="900" />
-</p>
-
-## Why this fork exists
-
-Archinstall provides a very good base for installing Arch Linux, but it intentionally keeps the default installer fairly general.
-
-For desktop and gaming systems, there are still a number of useful packages, services, and configuration options that users commonly set up manually after installation.
-
-Archinstall Enhanced tries to bring more of that setup into the installer itself while keeping the familiar Archinstall workflow.
-
-The main goals of the project are:
-
-- provide useful desktop and gaming options during installation
-- make commonly used system configuration easier to set up
-- provide optional performance tuning without forcing it on the user
-- keep experimental features clearly separated from stable features
-- use documented and maintainable configuration methods
-- preserve normal Arch Linux behavior whenever possible
-- remain close enough to upstream Archinstall that upstream changes can still be incorporated cleanly
-
-Most additional features are optional. Users can decide how much or how little they want the installer to configure.
-
-The default desktop additions are limited to broadly useful integration and verification packages. Features that are hardware-specific, workload-specific, experimental, or likely to consume significant storage are presented as explicit choices instead of being installed unconditionally.
-
-## Main differences from upstream
-
-### Gaming and performance
-
-The guided installer includes a **Gaming** section with optional support for:
-
-- sched-ext CPU schedulers
-- `scx_loader`
-- Gaming mode scheduler configuration
-- NTSYNC module autoloading through `ntsync-autoload`
-- GameMode
-- MangoHud
-- Gamescope
-- an optional larger Mesa and NVIDIA shader cache based on CachyOS guidance
-- an optional SteamOS-style `vm.max_map_count` increase with a compatibility warning
-- 32-bit OpenGL and Vulkan libraries matched to the selected graphics driver
-- an option to prevent DualShock 4 and DualSense touchpads from controlling the desktop pointer
-- optional AMD and Intel hardware watchdog configuration for advanced users
-
-Stable and experimental sched-ext schedulers are separated so users can tell which options are considered more mature.
-
-NTSYNC remains optional, but is no longer labeled experimental: current official Arch kernels provide the module and current Wine and Proton versions use it automatically when available.
-
-Multilib is enabled automatically only when a selected feature requires a 32-bit package such as:
-
-- `lib32-gamemode`
-- `lib32-mangohud`
-
-If none of the selected options require Multilib, the installer does not enable it unnecessarily.
-
-When 32-bit graphics support is enabled, the installer selects the appropriate Mesa, Vulkan, or NVIDIA Multilib packages for the graphics driver chosen in the desktop profile. These libraries are commonly needed by Steam, Wine, Proton, and older games.
-
-The PlayStation controller option installs documented libinput udev rules for DualShock 4 and DualSense touchpads. It prevents the touchpads from moving the desktop pointer without disabling direct controller access in games.
-
-The shader-cache option writes a system-wide configuration with a 12 GB limit for both Mesa and NVIDIA. A larger cache can reduce shader recompilation and related stutter, but it can also use more disk space, so it remains optional.
-
-The `vm.max_map_count` option uses the SteamOS value. The installer explains that the normal Arch Linux default is sufficient for most users and warns about the older core-dump tools that the Arch Wiki identifies as potentially incompatible with unusually high values.
-
-### Zram
-
-Swap-on-zram can be configured directly through the installer.
-
-When zram is enabled, the installer applies the ArchWiki memory-management settings that prioritize compressed RAM over slower disk-backed pages and reduce swap read-ahead. These values are treated as part of the zram setup rather than exposed as a separate toggle.
-
-The installer configures zram to use up to the smaller of physical RAM or 8 GiB. The menu shows only compressor names. Behind the scenes, tunable compressors use their balanced kernel defaults: `zstd` level 3, `lz4` acceleration level 1, and `lz4hc` level 9. `lzo-rle`, `lzo`, and `842` do not support levels and are left unparameterized. Swap priority and other device settings continue to use `zram-generator` defaults. Idle recompression is not enabled automatically because it requires a separate userspace schedule to mark and process cold pages reliably.
-
-The selected compressor is saved with the rest of the Archinstall configuration. Older saved configurations containing a separate swappiness-tweak field remain loadable; that legacy field is ignored because the documented values are now part of every enabled zram setup.
-
-### Btrfs
-
-Automatically generated Btrfs layouts use transparent Zstandard compression by default. The installer still allows compression to be disabled or Copy-on-Write to be disabled when a workload requires different behavior.
-
-### Desktop configuration
-
-Archinstall Enhanced can install and configure additional packages when the user selects features that need them.
-
-Examples include:
-
-- `rtkit` with PipeWire for real-time audio scheduling
-- packaged PipeWire user services and socket activation without modifying user home directories
-- a complete GStreamer codec set, FFmpeg, and the VA-API GStreamer plugin
-- XDG desktop portal support, including a GTK fallback for graphical profiles and the wlroots screen-sharing backend for Sway
-- Avahi for network service discovery
-- `nss-mdns` for `.local` hostname resolution
-- network printer discovery
-- print service configuration
-- Bluetooth configuration
-- optional firmware updates through `fwupd`, including periodic metadata refreshes
-- power management options
-- firewall configuration
-- additional font packages
-
-Desktop installations also include a compact baseline of command-line documentation, archive, transfer, synchronization, and development utilities. This includes tools such as `man-db`, `man-pages`, `curl`, `git`, `rsync`, `unzip`, `7zip`, and shell completion.
-
-The installer does not automatically install every optional component.
-
-If a feature is not selected, the packages and services associated with that feature are left out.
-
-OpenCL compute support is available as a separate opt-in setting beside the graphics-driver selection. Mesa Rusticl is used for AMD and Nouveau, Intel Compute Runtime is used for Intel, and the NVIDIA OpenCL runtime is used with NVIDIA's open kernel module. Diagnostic tools and the vendor-neutral ICD loader are installed with the runtime.
-
-Selecting a graphics driver also installs `mesa-utils`, `vulkan-tools`, and `libva-utils`. These provide the ArchWiki-documented `eglinfo`/`glxinfo`, `vulkaninfo`, and `vainfo` checks for direct rendering, OpenGL/EGL, Vulkan, and hardware video acceleration after the first boot.
-
-Graphics packages follow the selected hardware profile. Modern Xorg modesetting is used for Nouveau instead of installing the legacy `xf86-video-nouveau` DDX, which current ArchWiki guidance no longer recommends. Optional 32-bit and OpenCL runtimes remain separate choices.
-
-Desktop profiles enable Fontconfig's maintained `70-no-bitmaps-except-emoji.conf` preset to avoid poor bitmap fallbacks while preserving bitmap emoji. Font families remain user-selectable through the existing Additional fonts menu; the installer does not force a subpixel layout or install font families automatically.
-
-The optional multimedia-codec setting installs the GStreamer base, good, bad, and ugly plugin families, `gst-libav`, `gst-plugin-va`, and FFmpeg. PipeWire installations continue to include `gst-plugin-pipewire` for PipeWire integration.
-
-When the installer detects that it is running specifically inside a VirtualBox guest, it installs `virtualbox-guest-utils`, enables `vboxservice.service`, and adds configured users to the `vboxsf` group for shared-folder access. This detection does not run for KVM, QEMU, VMware, or physical installations.
-
-### Networking and DNS caching
-
-NetworkManager installations can use a local DNS cache. The interactive installer recommends `systemd-resolved` by default while retaining the other choices:
-
-- `systemd-resolved` uses its `127.0.0.53` local stub, enables caching, and receives per-connection DNS information from NetworkManager.
-- `dnsmasq` runs as NetworkManager's local caching resolver with a larger cache.
-- DNS caching can be left disabled to retain NetworkManager's default resolver behavior.
-
-A local DNS cache can make repeated lookups, application connections, and the startup of downloads feel faster. It does not increase sustained download bandwidth.
-
-Printer discovery adapts to the selected resolver. With `systemd-resolved`, Avahi handles printer advertisement while resolved handles and caches mDNS lookups without installing a competing NSS mDNS resolver. The default and `dnsmasq` paths continue to use `nss-mdns` for `.local` name resolution.
-
-### Pacman configuration
-
-Additional Pacman settings are exposed through the guided installer.
-
-Current options include:
-
-- Parallel Downloads without requiring `--advanced`
-- Pacman color output
-- `ILoveCandy`
-
-Desktop profiles install `pacman-contrib` and enable the weekly `paccache.timer`. The standard paccache policy retains the three newest package versions, preserving downgrade options while preventing the package cache from growing indefinitely.
-
-These settings are also saved and restored through the normal Archinstall configuration system.
-
-### Installer improvements
-
-The fork includes several smaller improvements to the guided installation experience.
-
-These include:
-
-- grouped main and Gaming menus for a clearer installation flow
-- combined timezone, automatic NTP, and hardware-clock configuration
-- defaulting the UTC hardware-clock update off when a Windows Boot Manager EFI entry is detected, while keeping the choice user-overridable
-- enabling `systemd-timesyncd.service` and `systemd-time-wait-sync.service` when NTP is selected
-- consistent `Setting: Value` configuration summaries
-- consistent `Enabled` and `Disabled` status formatting
-- every configuration section shows a summary on the right side even before it has been set, rather than only after
-- selection prompts always start with the cursor on the first option, so lists behave the same way everywhere
-- confirmation prompts consistently list `No` before `Yes` with `No` preselected, including the prompts that can erase a disk
-- configuration persistence for the additional menus introduced by the fork
-- proper console font restoration when changing installer languages
-- improved handling of HiDPI console font configurations
-- better network printer and mDNS configuration handling
-- automatic VirtualBox guest integration when VirtualBox is positively detected
-- clearer descriptions for sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, zram, Pacman, watchdog, and networking options
-
-The goal of these changes is to make the installer easier to use without changing the overall Archinstall workflow.
-
-Because this fork targets a narrower set of desktop and gaming use cases, it has room to spend extra attention on interaction consistency across the menus it adds and the ones it touches. The aim is for every prompt to behave in a predictable way, so that once a user learns how one menu works they already know how the rest work. This is a set of small refinements layered on top of the interaction model that Archinstall already provides.
-
-## Stability and implementation
-
-Archinstall Enhanced is meant to provide useful additions without sacrificing the reliability expected from an operating system installer.
-
-Changes should be based on proper documentation and tested behavior instead of being added simply because a tweak is popular.
-
-When applicable, implementation decisions are based on sources such as:
-
-- [Arch Linux documentation](https://archlinux.org/)
-- the [ArchWiki](https://wiki.archlinux.org/)
-- the [CachyOS Wiki](https://wiki.cachyos.org/)
-- [EndeavourOS Discovery](https://discovery.endeavouros.com/)
-- the [Manjaro Wiki](https://wiki.manjaro.org/)
-- Linux kernel documentation
-- upstream project documentation
-- upstream Archinstall behavior
-- established community recommendations
-- testing and regression coverage
-
-Arch Linux and upstream project documentation take priority for package names and configuration behavior. Other Arch-based distributions are useful cross-checks for mature desktop integration and opt-in performance features, but distribution-specific tuning is not copied without checking that it is appropriate for a general Arch installation.
-
-Some defaults deliberately incorporate proven choices from other Linux distributions:
-
-- The zram size, `min(ram, 8192)`, follows [Fedora's system-wide zram configuration](https://fedoraproject.org/wiki/Changes/Scale_ZRAM_to_full_memory_size): a virtual device equal to RAM on smaller systems and capped at 8 GiB.
-- The zram virtual-memory settings (`vm.swappiness=180`, `vm.watermark_boost_factor=0`, `vm.watermark_scale_factor=125`, and `vm.page-cluster=0`) follow the [ArchWiki zram guidance](https://wiki.archlinux.org/title/Zram), which documents their origin in Pop!_OS and supporting Fedora community testing.
-- The optional `vm.max_map_count` value follows the SteamOS gaming-oriented default documented in the [ArchWiki gaming guidance](https://wiki.archlinux.org/title/Gaming).
-- CachyOS, EndeavourOS, and Manjaro documentation and installer defaults are used as comparison points for scheduler integration, hardware support, multimedia, firmware, and desktop-completeness decisions. A setting is adopted only when it also fits upstream kernel or Arch guidance and remains safe across general-purpose hardware.
-
-These projects are references and influences; Archinstall Enhanced is independent of them and does not apply their complete tuning profiles.
-
-Features that are still considered experimental should remain optional and should be clearly identified as experimental.
-
-The project also tries to avoid unnecessary defaults that could negatively affect compatibility, security, or system stability.
-
-## Installation
-
-The easiest way to use Archinstall Enhanced is from an official Arch Linux live ISO.
-
-The Arch Linux live environment already runs as root, so `sudo` is not required.
+Boot an official [Arch Linux installation image](https://archlinux.org/download/), connect to the internet, and run:
 
 ```bash
 pacman -Sy --needed git
 git clone https://github.com/davgar99/archinstall-enhanced.git
 cd archinstall-enhanced
+python -m archinstall
+```
+
+The live image already runs as root, so these commands do not need `sudo`.
+
+To update an existing clone:
+
+```bash
+git pull --ff-only
 python -m archinstall
 ```
 
@@ -254,85 +51,209 @@ pip install --break-system-packages .
 archinstall
 ```
 
-### Updating an existing clone
+## What is enhanced
 
-```bash
-git pull --ff-only
-python -m archinstall
-```
+| Area | Additions in this fork |
+|---|---|
+| Installer experience | Grouped menus, consistent summaries and prompt ordering, clearer destructive-action review, improved activity and error feedback |
+| Desktop foundation | Portals, codecs, hardware diagnostics, package-cache maintenance, Fontconfig defaults, common command-line utilities |
+| Gaming | 32-bit graphics libraries, sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, shader-cache and compatibility options |
+| Hardware | Graphics-aware OpenCL, firmware updates, Bluetooth, printing, VirtualBox guest integration, controller and watchdog options |
+| Storage and memory | Balanced zram profiles and Zstandard compression for automatically generated Btrfs layouts |
+| Networking | NetworkManager DNS caching, mDNS-aware printer discovery, and automatic Wi-Fi regulatory configuration |
+| Pacman | Parallel download controls, color output, `ILoveCandy`, and automatic package-cache cleanup for desktop profiles |
 
-## Configuration files
+Most additions are choices in the guided installer. The desktop baseline includes only broadly useful integration and diagnostic packages; larger, specialized, or experimental components require an explicit selection.
 
-Archinstall can save and load installer configuration using JSON files.
+## Guided installer
 
-The additional settings introduced by this fork use the existing Archinstall configuration system instead of relying on separate configuration files.
+The main screen is divided into the same decisions users make while planning an installation:
 
-Example configuration files are available here:
+- language, locale, and time
+- mirrors and repositories
+- disks, swap, bootloader, and kernels
+- hostname, authentication, networking, and system profile
+- system services, gaming options, Pacman settings, and additional packages
+- configuration saving, review, and installation
+
+Every section presents a consistent summary. Mandatory problems are identified before installation, and confirmation prompts begin with the safer choice selected.
+
+<p align="center">
+  <img src="docs/screenshots/01-main-menu.png" alt="Archinstall Enhanced main menu" width="900" />
+</p>
+
+### System services
+
+The **System services** menu brings common post-install decisions into one place:
+
+- PipeWire or PulseAudio, with `rtkit` integration for PipeWire
+- complete GStreamer and FFmpeg multimedia support
+- Bluetooth
+- CUPS printing and network-printer discovery
+- firmware updates through `fwupd`
+- `power-profiles-daemon` or TuneD power management
+- firewalld or UFW
+- optional Noto, emoji, CJK, Liberation, and DejaVu font families
+
+The installer coordinates related features. For example, printer discovery adapts to the selected DNS resolver so mDNS is provided without conflicting resolver paths.
+
+<p align="center">
+  <img src="docs/screenshots/02-system-services.png" alt="Archinstall Enhanced system services menu" width="900" />
+</p>
+
+### Gaming
+
+The dedicated **Gaming** menu can configure:
+
+- GPU-matched 32-bit OpenGL and Vulkan libraries for Steam, Wine, Proton, and older games
+- sched-ext CPU schedulers, grouped by stable or experimental status
+- NTSYNC autoloading for current Wine and Proton synchronization
+- GameMode
+- MangoHud
+- Gamescope
+- a 12 GiB Mesa and NVIDIA shader-cache limit
+- the SteamOS `vm.max_map_count` value for memory-map-heavy games
+- libinput rules that stop DualShock 4 and DualSense touchpads from moving the desktop pointer without hiding the controllers from games
+- an advanced option to disable AMD or Intel hardware watchdog modules on affected systems
+
+Multilib is enabled only when a selected option requires 32-bit packages. Compatibility and tuning choices include explanations and remain user-controlled.
+
+<p align="center">
+  <img src="docs/screenshots/03-gaming.png" alt="Archinstall Enhanced gaming menu" width="900" />
+</p>
+
+### Graphics and desktop integration
+
+Graphics packages follow the driver chosen in the desktop profile. The installer can add:
+
+- matching 32-bit Mesa, Vulkan, or NVIDIA libraries
+- driver-appropriate OpenCL runtimes for compute workloads
+- `mesa-utils`, `vulkan-tools`, and `libva-utils` for post-install verification
+- desktop portals, including GTK fallback coverage and the wlroots screen-sharing backend for Sway
+- a maintained Fontconfig preset that avoids poor bitmap fallbacks while preserving bitmap emoji
+
+Modern Xorg modesetting is used for Nouveau rather than the legacy Nouveau DDX. OpenCL remains separate from gaming because most games do not require it.
+
+When the installer positively detects a VirtualBox guest, it installs and enables the guest utilities and prepares configured users for shared-folder access. This does not run on physical machines, KVM, QEMU, or VMware guests.
+
+### Storage and memory defaults
+
+Swap-on-zram is enabled by default and can be disabled. When enabled, it uses:
+
+- a virtual device sized to the smaller of installed RAM or 8 GiB
+- Zstandard level 3 by default
+- balanced parameters for tunable LZ4 and LZ4HC alternatives
+- the ArchWiki-recommended virtual-memory values for prioritizing compressed RAM and reducing swap read-ahead
+
+Automatically generated Btrfs layouts use transparent Zstandard compression by default. Compression and Copy-on-Write behavior remain configurable when a workload needs something different.
+
+### Networking and DNS
+
+NetworkManager installations can use either:
+
+- `systemd-resolved`, the recommended default, through its local `127.0.0.53` caching stub
+- NetworkManager's local `dnsmasq` integration with an expanded cache
+- no local DNS cache
+
+DNS caching can reduce repeated lookup latency, but it does not increase connection bandwidth.
+
+#### Automatic Wi-Fi regulatory domains
+
+On systems with Wi-Fi hardware, the installer adds `wireless-regdb` and `iw` and enables a small `AUTO` regulatory-domain service. Ethernet-only systems do not receive those packages solely for this feature.
+
+`AUTO` is a mode implemented by Archinstall Enhanced. It is not a country code passed to the kernel. At boot and whenever `/etc/localtime` changes, the service:
+
+1. reads the current IANA timezone from `timedatectl`
+2. maps an unambiguous timezone to its ISO country code using `zone1970.tab`
+3. applies that code with `iw reg set`
+
+For example, `America/Chicago` maps to `US`, `Europe/Moscow` maps to `RU`, and `Asia/Shanghai` maps to `CN`. If the timezone is missing or spans multiple countries, the service makes no change and retains the conservative world regulatory domain.
+
+This feature does not track location or contact a geolocation service. Travel updates occur when the desktop environment or another system component changes the system timezone. Users who prefer a fixed setting can replace `AUTO` in `/etc/conf.d/wireless-regdom` with a two-letter code such as `US`.
+
+### Time and dual-boot behavior
+
+Timezone, network time synchronization, and hardware-clock behavior are configured together. Enabling NTP activates both `systemd-timesyncd.service` and `systemd-time-wait-sync.service`.
+
+When a Windows Boot Manager EFI entry is detected, the installer defaults away from writing the hardware clock as UTC to reduce common dual-boot clock conflicts. The user can override that choice.
+
+### Pacman and maintenance
+
+The guided Pacman menu exposes:
+
+- 1 to 10 parallel downloads
+- colored output
+- `ILoveCandy`
+
+Desktop profiles install `pacman-contrib` and enable the weekly `paccache.timer`. The normal policy keeps the three newest versions of cached packages, preserving useful downgrade options while limiting cache growth.
+
+## Saved configurations
+
+Archinstall Enhanced uses Archinstall's normal JSON configuration system. Fork-specific settings are saved alongside upstream settings and restored through the same interface.
+
+Examples are available in:
 
 - [`examples/config-sample.json`](examples/config-sample.json)
 - [`examples/creds-sample.json`](examples/creds-sample.json)
 
-A saved configuration can be loaded with:
+Load a saved configuration with:
 
 ```bash
 archinstall --config user_configuration.json --creds user_credentials.json
 ```
 
-User credentials can also be encrypted using Archinstall's existing credentials encryption support.
+Credentials can use Archinstall's existing encryption support. Review saved configurations after major upstream or fork updates before using them for unattended installation.
 
-## Staying close to upstream
+## Project principles
 
-This fork is based directly on the official Arch Linux Archinstall project.
+Archinstall Enhanced aims to be opinionated enough to save time without taking control away from the user:
 
-One of the goals of the project is to stay reasonably close to upstream instead of turning the installer into a completely separate codebase.
+- stay close to upstream Archinstall
+- prefer Arch Linux and upstream project documentation
+- make specialized or experimental behavior opt-in
+- explain meaningful compatibility and storage tradeoffs in the installer
+- detect hardware before installing hardware-specific support
+- avoid writing configuration into user home directories during installation
+- add regression coverage for fork-specific behavior
 
-Upstream changes can be reviewed and incorporated while keeping the additional functionality provided by this fork.
+Arch Linux documentation and upstream behavior take priority. Guidance from other Arch-based distributions may be used as a cross-check, but distribution-specific tuning is adopted only when it is suitable for a general Arch system.
 
-When an improvement makes sense for Archinstall in general, upstream implementation and discussion should be considered before creating a separate fork-specific solution.
+The automatic upstream-sync workflow checks hourly. New upstream commits are merged with fork changes preserved, then the merged tree is tested in an isolated Arch Linux container before write credentials are introduced and the result is pushed.
 
-## Testing
+## Development and testing
 
-The repository keeps the upstream testing and linting infrastructure.
-
-Useful development checks include:
+Install the project with its development dependencies, then run the relevant checks:
 
 ```bash
+pip install --break-system-packages '.[dev]'
 pytest
 ruff check .
 ruff format --check .
 mypy .
+bandit -c pyproject.toml -r archinstall
 ```
 
-Installer changes should also be tested in an Arch Linux environment whenever practical.
+The repository also retains upstream build, documentation, translation, lint, ISO, and UKI workflows. Installation-critical changes should be tested in an Arch Linux environment and on disposable virtual hardware before use on a real disk.
 
-Changes involving partitioning, bootloaders, filesystems, encryption, or other installation-critical behavior should be tested using a disposable virtual machine or test disk before being used on a real system.
+The installation progress screen reports the current stage while the detailed log remains available for diagnosis.
 
-Do not test experimental partitioning or installation changes against a disk containing important data.
-
-## Upstream Archinstall
-
-For general Archinstall documentation and information, use the official upstream resources:
-
-- [Archinstall documentation](https://archinstall.archlinux.page/)
-- [Archinstall GitHub repository](https://github.com/archlinux/archinstall)
-- [Arch Linux Wiki](https://wiki.archlinux.org/)
-
-Problems caused specifically by changes in Archinstall Enhanced should be reported to this repository rather than upstream Archinstall.
+<p align="center">
+  <img src="docs/screenshots/04-installation.png" alt="Archinstall Enhanced installation progress" width="900" />
+</p>
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution guidelines included with the repository.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before submitting a change. Fork-specific patches should have a focused purpose, preserve upstream compatibility where practical, include tests for behavioral changes, and cite supporting documentation for system-level defaults.
 
-For changes specific to this fork, patches should stay focused and include a clear reason for the change.
+Bug reports caused by this fork belong in this repository. General Archinstall questions and upstream issues should use the official project resources.
 
-When adding new performance, gaming, storage, security, or system configuration features, documentation supporting the implementation should be included whenever possible.
+## Resources
 
-New features should avoid changing existing Archinstall behavior unless there is a good reason to do so.
+- [Archinstall documentation](https://archinstall.archlinux.page/)
+- [Official Archinstall repository](https://github.com/archlinux/archinstall)
+- [Arch Linux Wiki](https://wiki.archlinux.org/)
+- [Arch Linux downloads](https://archlinux.org/download/)
 
 ## License
 
-Archinstall is licensed under the GNU General Public License v3.0.
-
-Archinstall Enhanced keeps the same license.
-
-See [LICENSE](LICENSE) for details.
+Archinstall Enhanced is distributed under the same [GNU General Public License v3.0](LICENSE) as upstream Archinstall.

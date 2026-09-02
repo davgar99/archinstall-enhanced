@@ -185,7 +185,7 @@ def _perform_installation_core(
 			set_stage(stage_labels[7])
 			if timezone := config.timezone:
 				installation.set_timezone(timezone)
-				configure_wireless_regulatory(installation, timezone)
+			configure_wireless_regulatory(installation, config.timezone)
 			if config.hardware_clock_utc is not False:
 				installation.set_hardware_clock_utc()
 			if config.ntp:
