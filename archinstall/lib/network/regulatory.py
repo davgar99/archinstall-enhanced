@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 _ZONE_TABLE = Path('/usr/share/zoneinfo/zone1970.tab')
 
 
-def country_code_for_timezone(timezone: str, zone_table: Path = _ZONE_TABLE) -> str | None:
+def country_code_for_timezone(timezone: str | None, zone_table: Path = _ZONE_TABLE) -> str | None:
 	"""Return an unambiguous ISO 3166-1 alpha-2 code for an IANA timezone."""
 	if not timezone or not zone_table.is_file():
 		return None
@@ -32,7 +32,7 @@ def country_code_for_timezone(timezone: str, zone_table: Path = _ZONE_TABLE) -> 
 	return None
 
 
-def configure_wireless_regulatory(installation: Installer, timezone: str) -> None:
+def configure_wireless_regulatory(installation: Installer, timezone: str | None) -> None:
 	"""Install and configure the Linux wireless regulatory database when Wi-Fi exists."""
 	if not SysInfo.has_wifi():
 		debug('No Wi-Fi hardware detected; skipping wireless regulatory database')
@@ -43,18 +43,20 @@ def configure_wireless_regulatory(installation: Installer, timezone: str) -> Non
 	country = country_code_for_timezone(timezone)
 	if country:
 		debug(f'Configuring wireless regulatory domain {country} from timezone {timezone}')
-	else:
+	elif timezone:
 		warn(f'Could not infer one country from timezone {timezone}; retaining the world regulatory domain')
+	else:
+		debug('No timezone configured; retaining the world regulatory domain until one is available')
 
-	_configure_regdom_files(installation.target, country)
+	_configure_regdom_files(installation.target)
 	installation.enable_service(['wireless-regdom.service', 'wireless-regdom.path'])
 
 
-def _configure_regdom_files(target: Path, country: str | None) -> None:
+def _configure_regdom_files(target: Path) -> None:
 	conf_dir = target / 'etc/conf.d'
 	conf_dir.mkdir(parents=True, exist_ok=True)
 	(conf_dir / 'wireless-regdom').write_text(
-		f'# Set this to an ISO 3166-1 alpha-2 country code to override timezone detection.\nWIRELESS_REGDOM={country or "AUTO"}\n',
+		'# Set this to an ISO 3166-1 alpha-2 country code to override timezone detection.\nWIRELESS_REGDOM=AUTO\n',
 		encoding='utf-8',
 	)
 
