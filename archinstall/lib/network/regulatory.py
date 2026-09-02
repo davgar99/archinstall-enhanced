@@ -34,7 +34,13 @@ def country_code_for_timezone(timezone: str | None, zone_table: Path = _ZONE_TAB
 
 def configure_wireless_regulatory(installation: Installer, timezone: str | None) -> None:
 	"""Install and configure the Linux wireless regulatory database when Wi-Fi exists."""
-	if not SysInfo.has_wifi():
+	try:
+		has_wifi = SysInfo.has_wifi()
+	except OSError as err:
+		warn(f'Could not inspect network interfaces for Wi-Fi hardware; skipping wireless regulatory setup: {err}')
+		return
+
+	if not has_wifi:
 		debug('No Wi-Fi hardware detected; skipping wireless regulatory database')
 		return
 

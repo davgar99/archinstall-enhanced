@@ -51,6 +51,17 @@ def test_skips_ethernet_only_system(has_wifi: object, tmp_path: Path) -> None:
 	assert not (tmp_path / 'etc/conf.d/wireless-regdom').exists()
 
 
+@patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', side_effect=PermissionError('network namespace denied'))
+def test_skips_regulatory_setup_when_wifi_detection_is_unavailable(has_wifi: object, tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+
+	configure_wireless_regulatory(installer, 'America/New_York')  # type: ignore[arg-type]
+
+	assert installer.packages == []
+	assert installer.services == []
+	assert not (tmp_path / 'etc/conf.d/wireless-regdom').exists()
+
+
 @patch('archinstall.lib.network.regulatory.country_code_for_timezone', return_value='US')
 @patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', return_value=True)
 def test_configures_wifi_system(has_wifi: object, country: object, tmp_path: Path) -> None:
