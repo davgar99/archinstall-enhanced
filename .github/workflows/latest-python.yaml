@@ -1,0 +1,54 @@
+name: Latest stable Python compatibility
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Re-run weekly so a new stable Python release is tested even without a commit.
+    - cron: "47 13 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  latest-python:
+    name: Test latest stable Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          # 3.x follows the newest stable Python 3 release. Release candidates
+          # remain excluded until they become a final release.
+          python-version: "3.x"
+          allow-prereleases: false
+          check-latest: true
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes gcc libparted-dev pkg-config
+
+      - name: Install latest compatible Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[dev]"
+
+      - name: Show resolved Python and dependency versions
+        run: |
+          python --version
+          python -m pip list
+
+      - name: Test latest stable Python
+        run: python -m pytest
+
+      - name: Compile Python sources
+        run: python -m compileall -q archinstall
