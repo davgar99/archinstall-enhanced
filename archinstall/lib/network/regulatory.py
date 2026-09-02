@@ -67,7 +67,10 @@ def _configure_regdom_files(target: Path) -> None:
 		"""#!/bin/sh
 set -eu
 
-config=/etc/conf.d/wireless-regdom
+config=${WIRELESS_REGDOM_CONFIG:-/etc/conf.d/wireless-regdom}
+timedatectl_command=${WIRELESS_REGDOM_TIMEDATECTL:-/usr/bin/timedatectl}
+zone_table=${WIRELESS_REGDOM_ZONE_TABLE:-/usr/share/zoneinfo/zone1970.tab}
+iw_command=${WIRELESS_REGDOM_IW:-/usr/bin/iw}
 regdom=AUTO
 if [ -r "$config" ]; then
 	. "$config"
@@ -75,17 +78,17 @@ if [ -r "$config" ]; then
 fi
 
 if [ "$regdom" = AUTO ]; then
-	timezone=$(timedatectl show --property=Timezone --value 2>/dev/null || true)
+	timezone=$("$timedatectl_command" show --property=Timezone --value 2>/dev/null || true)
 	regdom=$(awk -F '\t' -v zone="$timezone" '
 		$0 !~ /^#/ && $3 == zone && $1 !~ /,/ && length($1) == 2 {
 			print toupper($1)
 			exit
 		}
-	' /usr/share/zoneinfo/zone1970.tab)
+	' "$zone_table")
 fi
 
 case "$regdom" in
-	[A-Z][A-Z]) exec /usr/bin/iw reg set "$regdom" ;;
+	[A-Z][A-Z]) exec "$iw_command" reg set "$regdom" ;;
 	*) exit 0 ;;
 esac
 """,
