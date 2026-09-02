@@ -119,6 +119,22 @@ def test_state_provider_does_not_mutate_filterable_text() -> None:
 	assert group.get_enabled_items()[0].get_id() == item.get_id()
 
 
+def test_status_rendering_preserves_identity_for_keyless_items() -> None:
+	header = MenuItem('Graphics compatibility and compute', read_only=True)
+	keyed = MenuItem('Additional packages', key='packages')
+	group = MenuItemGroup([header, keyed], state_provider=lambda _item: MenuItemState.COMPLETE)
+
+	first_pass = group.get_enabled_items()
+	second_pass = group.get_enabled_items()
+	header_id_first = next(item for item in first_pass if item.text == header.text).get_id()
+	header_id_second = next(item for item in second_pass if item.text == header.text).get_id()
+	assert header_id_first == header_id_second == header.get_id()
+
+	header_index = next(index for index, item in enumerate(group.get_enabled_items()) if item.text == header.text)
+	group.focus_index(header_index)
+	assert group.get_focused_index() == header_index
+
+
 def test_required_authentication_and_kernels_are_blocking(menu_under_test: GlobalMenu) -> None:
 	menu_under_test._item_group.find_by_key('kernels').value = []
 	items = _rendered_items(menu_under_test)
