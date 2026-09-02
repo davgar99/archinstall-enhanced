@@ -1,3 +1,5 @@
+import os
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -88,3 +90,42 @@ def test_configures_wifi_system_without_timezone(has_wifi: object, tmp_path: Pat
 	assert installer.packages == ['wireless-regdb', 'iw']
 	assert installer.services == ['wireless-regdom.service', 'wireless-regdom.path']
 	assert (tmp_path / 'etc/conf.d/wireless-regdom').read_text().endswith('WIRELESS_REGDOM=AUTO\n')
+
+
+@patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', return_value=True)
+def test_automatic_regdom_follows_timezone_changes(has_wifi: object, tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	configure_wireless_regulatory(installer, 'America/New_York')  # type: ignore[arg-type]
+
+	timezone_file = tmp_path / 'timezone'
+	regdom_log = tmp_path / 'regdom.log'
+	zone_table = _zone_table(tmp_path)
+	timedatectl = tmp_path / 'timedatectl'
+	timedatectl.write_text('#!/bin/sh\nread -r timezone < "$TEST_TIMEZONE_FILE"\nprintf "%s\\n" "$timezone"\n', encoding='utf-8')
+	timedatectl.chmod(0o755)
+	iw = tmp_path / 'iw'
+	iw.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$TEST_REGDOM_LOG"\n', encoding='utf-8')
+	iw.chmod(0o755)
+
+	environment = os.environ.copy()
+	environment.update(
+		{
+			'WIRELESS_REGDOM_CONFIG': str(tmp_path / 'etc/conf.d/wireless-regdom'),
+			'WIRELESS_REGDOM_TIMEDATECTL': str(timedatectl),
+			'WIRELESS_REGDOM_ZONE_TABLE': str(zone_table),
+			'WIRELESS_REGDOM_IW': str(iw),
+			'TEST_TIMEZONE_FILE': str(timezone_file),
+			'TEST_REGDOM_LOG': str(regdom_log),
+		}
+	)
+	script = tmp_path / 'usr/lib/archinstall/set-wireless-regdom'
+
+	for timezone in ('America/New_York', 'Europe/Moscow'):
+		timezone_file.write_text(f'{timezone}\n', encoding='utf-8')
+		subprocess.run([script], env=environment, check=True)
+
+	zone_table.write_text(zone_table.read_text(encoding='utf-8') + 'CN\t+3114+12128\tAsia/Shanghai\n', encoding='utf-8')
+	timezone_file.write_text('Asia/Shanghai\n', encoding='utf-8')
+	subprocess.run([script], env=environment, check=True)
+
+	assert regdom_log.read_text(encoding='utf-8').splitlines() == ['reg set US', 'reg set RU', 'reg set CN']
