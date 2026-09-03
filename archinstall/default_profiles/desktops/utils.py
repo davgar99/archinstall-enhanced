@@ -1,6 +1,8 @@
 from enum import Enum
 
+from archinstall.default_profiles.profile import CustomSetting, Profile
 from archinstall.lib.installer import Installer
+from archinstall.lib.log import warn
 from archinstall.lib.menu.helpers import Selection
 from archinstall.lib.models.users import User
 from archinstall.lib.translationhandler import tr
@@ -9,8 +11,41 @@ from archinstall.tui.result import ResultType
 
 
 class SeatAccess(Enum):
-	seatd = 'seatd'
-	polkit = 'polkit'
+	Seatd = 'seatd'
+	Logind = 'systemd-logind'
+
+	@classmethod
+	def from_setting(cls, value: str | None) -> SeatAccess | None:
+		if value == 'polkit':
+			return cls.Logind
+		if value is None:
+			return None
+
+		try:
+			return cls(value)
+		except ValueError:
+			warn(f'Unknown seat access setting, ignoring it: {value}')
+			return None
+
+	@property
+	def packages(self) -> list[str]:
+		match self:
+			case SeatAccess.Seatd:
+				return ['seatd']
+			case SeatAccess.Logind:
+				return ['polkit']
+
+	@property
+	def services(self) -> list[str]:
+		match self:
+			case SeatAccess.Seatd:
+				return ['seatd']
+			case SeatAccess.Logind:
+				return []
+
+
+def seat_access_of(profile: Profile) -> SeatAccess | None:
+	return SeatAccess.from_setting(profile.custom_settings.get(CustomSetting.SeatAccess))
 
 
 def provision_seat_access(
@@ -18,7 +53,7 @@ def provision_seat_access(
 	users: list[User],
 	seat_access: str,
 ) -> None:
-	if seat_access == SeatAccess.seatd.value:
+	if SeatAccess.from_setting(seat_access) is SeatAccess.Seatd:
 		for user in users:
 			install_session.arch_chroot(f'usermod -a -G seat {user.username}')
 
@@ -31,7 +66,7 @@ async def select_seat_access(profile_name: str, default: str | None) -> SeatAcce
 	items = [MenuItem(s.value, value=s) for s in SeatAccess]
 	group = MenuItemGroup(items, sort_items=True)
 
-	group.set_default_by_value(default)
+	group.set_default_by_value(SeatAccess.from_setting(default))
 
 	result = await Selection[SeatAccess](
 		group,
