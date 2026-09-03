@@ -18,6 +18,7 @@ from archinstall.lib.translationhandler import tr
 
 ENC_IDENTIFIER = 'ainst'
 DEFAULT_ITER_TIME = 10000
+SWAP_MOUNTPOINT = '[SWAP]'
 
 
 class DiskLayoutType(Enum):
@@ -1634,11 +1635,18 @@ class LsblkInfo(BaseModel):
 			return Size(value, Unit.B, sector_size)
 		return value
 
+	@field_validator('mountpoint', mode='before')
+	@classmethod
+	def remove_swap_mountpoint(cls, value: Any) -> Any:
+		if value == SWAP_MOUNTPOINT:
+			return None
+		return value
+
 	@field_validator('mountpoints', 'fsroots', mode='before')
 	@classmethod
-	def remove_none(cls, value: Any) -> Any:
+	def remove_non_paths(cls, value: Any) -> Any:
 		if isinstance(value, list):
-			return [item for item in value if item is not None]
+			return [item for item in value if item is not None and item != SWAP_MOUNTPOINT]
 		return value
 
 	@field_serializer('size', when_used='json')

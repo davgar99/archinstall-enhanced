@@ -198,6 +198,27 @@ def swapon(path: Path) -> None:
 		raise DiskError(f'Could not enable swap {path}:\n{err.message}')
 
 
+def _active_swap_areas() -> set[Path]:
+	try:
+		output = SysCommand(['swapon', '--show=NAME', '--noheadings', '--raw']).decode()
+	except SysCallError as err:
+		raise DiskError(f'Could not read active swap areas:\n{err.message}')
+
+	return {Path(line).resolve() for line in output.splitlines() if line}
+
+
+def swapoff(path: Path) -> None:
+	if path.resolve() not in _active_swap_areas():
+		return
+
+	debug(f'Disabling swap: {path}')
+
+	try:
+		SysCommand(['swapoff', str(path)])
+	except SysCallError as err:
+		raise DiskError(f'Could not disable swap {path}:\n{err.message}')
+
+
 def linux_root_guid(arch: str | None) -> PartitionGUID:
 	if arch == 'aarch64':
 		return PartitionGUID.LINUX_ROOT_AARCH64
