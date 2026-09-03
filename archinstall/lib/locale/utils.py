@@ -71,22 +71,22 @@ def get_kb_layout() -> str:
 			.decode()
 			.splitlines()
 		)
+
+		vcline = ''
+		for line in lines:
+			if 'VC Keymap: ' in line:
+				vcline = line
+
+		if vcline == '':
+			return ''
+
+		layout = vcline.split(': ')[1]
+		if not verify_keyboard_layout(layout):
+			return ''
+
+		return layout
 	except Exception:
 		return ''
-
-	vcline = ''
-	for line in lines:
-		if 'VC Keymap: ' in line:
-			vcline = line
-
-	if vcline == '':
-		return ''
-
-	layout = vcline.split(': ')[1]
-	if not verify_keyboard_layout(layout):
-		return ''
-
-	return layout
 
 
 def set_kb_layout(locale: str) -> bool:
