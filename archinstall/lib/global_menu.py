@@ -414,6 +414,9 @@ class GlobalMenu(AbstractMenu[None]):
 				firewall_config = app_config.firewall_config
 				output += f'{tr("Firewall")}: {firewall_config.firewall.value}'
 				output += '\n'
+				ssh_status = tr('Allowed') if firewall_config.allow_ssh else tr('Blocked')
+				output += f'{tr("Incoming SSH")}: {ssh_status}'
+				output += '\n'
 
 			return output
 

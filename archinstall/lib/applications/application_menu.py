@@ -100,6 +100,7 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 			MenuItem(
 				text=tr('Firewall'),
 				action=select_firewall,
+				value=self._app_config.firewall_config,
 				preview_action=self._prev_firewall,
 				key='firewall_config',
 			),
@@ -152,7 +153,8 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 	def _prev_firewall(self, item: MenuItem) -> str | None:
 		if item.value is not None:
 			config: FirewallConfiguration = item.value
-			return f'{tr("Firewall")}: {config.firewall.value}'
+			ssh_status = tr('Allowed') if config.allow_ssh else tr('Blocked')
+			return f'{tr("Firewall")}: {config.firewall.value}\n{tr("Incoming SSH")}: {ssh_status}'
 		return None
 
 	def _prev_fonts(self, item: MenuItem) -> str | None:
@@ -283,7 +285,18 @@ async def select_firewall(preset: FirewallConfiguration | None = None) -> Firewa
 		case ResultType.Skip:
 			return preset
 		case ResultType.Selection:
-			return FirewallConfiguration(firewall=result.get_value())
+			firewall = result.get_value()
+			ssh_result = await Confirmation(
+				header=tr('Allow incoming SSH connections through the firewall?') + '\n',
+				allow_skip=True,
+			).show()
+
+			if ssh_result.type_ == ResultType.Skip:
+				allow_ssh = preset.allow_ssh if preset else False
+			else:
+				allow_ssh = bool(ssh_result.get_value())
+
+			return FirewallConfiguration(firewall=firewall, allow_ssh=allow_ssh)
 		case ResultType.Reset:
 			return None
 
