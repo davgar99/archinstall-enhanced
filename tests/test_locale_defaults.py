@@ -1,6 +1,6 @@
 from typing import Any
 
-from pytest import MonkeyPatch
+from pytest import MonkeyPatch, raises
 
 from archinstall.lib.exceptions import SysCallError
 from archinstall.lib.locale import utils
@@ -34,3 +34,11 @@ def test_keyboard_layout_returns_verified_layout(monkeypatch: MonkeyPatch) -> No
 	monkeypatch.setattr(utils, 'SysCommand', command)
 
 	assert utils.get_kb_layout() == 'us'
+
+
+def test_keyboard_layout_does_not_hide_unexpected_errors(monkeypatch: MonkeyPatch) -> None:
+	monkeypatch.setattr(utils, 'SysCommand', lambda *args, **kwargs: CommandResult('VC Keymap: us\n'))
+	monkeypatch.setattr(utils, 'verify_keyboard_layout', lambda layout: (_ for _ in ()).throw(RuntimeError('unexpected')))
+
+	with raises(RuntimeError, match='unexpected'):
+		utils.get_kb_layout()
