@@ -32,6 +32,13 @@ class FirewallApp:
 			'firewalld.service',
 		]
 
+	def _allow_ssh(self, install_session: Installer, firewall: Firewall) -> None:
+		match firewall:
+			case Firewall.UFW:
+				install_session.arch_chroot('ufw allow 22/tcp')
+			case Firewall.FWD:
+				install_session.arch_chroot('firewall-offline-cmd --add-service=ssh')
+
 	def install(
 		self,
 		install_session: Installer,
@@ -50,3 +57,6 @@ class FirewallApp:
 			case Firewall.FWD:
 				install_session.add_additional_packages(self.fwd_packages)
 				install_session.enable_service(self.fwd_services)
+
+		if firewall_config.allow_ssh:
+			self._allow_ssh(install_session, firewall_config.firewall)
