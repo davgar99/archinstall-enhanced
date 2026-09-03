@@ -85,7 +85,7 @@ def get_kb_layout() -> str:
 			return ''
 
 		return layout
-	except Exception:
+	except SysCallError:
 		return ''
 
 
