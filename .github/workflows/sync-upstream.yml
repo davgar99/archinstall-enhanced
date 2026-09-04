@@ -26,13 +26,13 @@ jobs:
 
     steps:
       - name: Check out fork
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: master
           persist-credentials: false
 
-      - name: Merge upstream and preserve fork changes
+      - name: Merge upstream without hiding conflicts
         shell: bash
         run: |
           set -euo pipefail
@@ -50,41 +50,51 @@ jobs:
             exit 0
           fi
 
-          if ! git merge --no-ff --no-edit -X ours upstream/master; then
+          if ! git merge --no-ff --no-edit upstream/master; then
             if [[ ! -f .git/MERGE_HEAD ]]; then
               echo 'Merge failed before a merge was started.' >&2
               exit 1
             fi
 
-            while IFS= read -r -d '' path; do
-              echo "Keeping fork version of conflicted path: $path"
+            {
+              echo '## Upstream sync requires review'
+              echo
+              echo 'The following files conflict with upstream. No conflict resolution was committed or pushed:'
+              echo
+              git diff --name-only --diff-filter=U | sed 's/^/- `/' | sed 's/$/`/'
+            } >> "$GITHUB_STEP_SUMMARY"
 
-              if git checkout --ours -- "$path" 2>/dev/null; then
-                git add -- "$path"
-              else
-                git rm -f --ignore-unmatch -- "$path"
-              fi
-            done < <(git diff --name-only --diff-filter=U -z)
-
-            if git ls-files -u | grep -q .; then
-              echo 'Unresolved merge entries remain; refusing to push.' >&2
-              git status --short
-              exit 1
-            fi
-
-            git commit --no-edit
+            echo 'Upstream merge has conflicts; refusing to silently discard upstream changes.' >&2
+            git diff --name-only --diff-filter=U >&2
+            git merge --abort
+            exit 1
           fi
 
           git diff --check HEAD^ HEAD
-          git status --short
+
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            echo 'Working tree changed unexpectedly after merge; refusing to continue.' >&2
+            git status --short >&2
+            exit 1
+          fi
+
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Validate merged tree in isolated Arch container
         if: env.UP_TO_DATE != 'true'
         shell: bash
         run: |
           set -euo pipefail
+
+          validation_dir="$(mktemp -d)"
+          trap 'rm -rf "$validation_dir"' EXIT
+
+          # Validate an exported tree without .git instead of exposing the live
+          # checkout to code and build hooks from the merged upstream tree.
+          git archive --format=tar "$EXPECTED_HEAD" | tar -xf - -C "$validation_dir"
+
           docker run --rm \
-            -v "$PWD:/repo" \
+            -v "$validation_dir:/repo" \
             -w /repo \
             archlinux/archlinux:latest \
             bash -lc '
@@ -109,7 +119,7 @@ jobs:
               uv build --no-build-isolation --wheel
             '
 
-      - name: Push validated merge
+      - name: Verify checkout integrity and push validated merge
         if: env.UP_TO_DATE != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -117,7 +127,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The write credential is introduced only after all merged code has
-          # passed validation, and no project code is executed after this point.
+          actual_head="$(git rev-parse HEAD)"
+          if [[ "$actual_head" != "$EXPECTED_HEAD" ]]; then
+            echo "HEAD changed during validation: expected $EXPECTED_HEAD, got $actual_head" >&2
+            exit 1
+          fi
+
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            echo 'Live checkout changed during validation; refusing to push.' >&2
+            git status --short >&2
+            exit 1
+          fi
+
+          # The write credential is introduced only after validation and after
+          # confirming the authenticated checkout is exactly the intended tree.
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin HEAD:master
