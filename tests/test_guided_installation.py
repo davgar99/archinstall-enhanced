@@ -68,6 +68,7 @@ def _handlers(tmp_path: Path) -> tuple[Any, ...]:
 def _patch_optional_collaborators(monkeypatch: pytest.MonkeyPatch) -> None:
 	monkeypatch.setattr(guided, 'accessibility_tools_in_use', lambda: False)
 	monkeypatch.setattr('archinstall.scripts.guided.VirtualBoxGuestApp.detected', lambda: False)
+	monkeypatch.setattr(guided, 'configure_wireless_regulatory', lambda *args, **kwargs: None)
 	monkeypatch.setattr(guided, 'disk_layouts', lambda: 'fake layout')
 	monkeypatch.setattr('archinstall.scripts.guided.GraphicsExtrasApp.install', lambda *args: None)
 	monkeypatch.setattr('archinstall.scripts.guided.FilesystemHandler.perform_filesystem_operations', lambda *args: None)
