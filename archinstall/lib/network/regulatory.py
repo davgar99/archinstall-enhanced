@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from archinstall.lib.hardware import SysInfo
 from archinstall.lib.log import debug, warn
 
 if TYPE_CHECKING:
@@ -33,17 +32,12 @@ def country_code_for_timezone(timezone: str | None, zone_table: Path = _ZONE_TAB
 
 
 def configure_wireless_regulatory(installation: Installer, timezone: str | None) -> None:
-	"""Install and configure the Linux wireless regulatory database when Wi-Fi exists."""
-	try:
-		has_wifi = SysInfo.has_wifi()
-	except OSError as err:
-		warn(f'Could not inspect network interfaces for Wi-Fi hardware; skipping wireless regulatory setup: {err}')
-		return
+	"""Install wireless regulatory support for the target system.
 
-	if not has_wifi:
-		debug('No Wi-Fi hardware detected; skipping wireless regulatory database')
-		return
-
+	The target may gain or use Wi-Fi even when the installer host has no wireless
+	hardware (for example, installs performed in a VM or over wired networking), so
+	target configuration must not depend on host hardware detection.
+	"""
 	installation.add_additional_packages(['wireless-regdb', 'iw'])
 
 	country = country_code_for_timezone(timezone)
