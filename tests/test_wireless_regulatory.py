@@ -40,31 +40,18 @@ def test_country_code_for_timezone(tmp_path: Path) -> None:
 	assert country_code_for_timezone('America/Toronto', table) is None
 
 
-@patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', return_value=False)
-def test_skips_ethernet_only_system(has_wifi: object, tmp_path: Path) -> None:
+def test_configures_target_independent_of_host_wifi(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
 
 	configure_wireless_regulatory(installer, 'America/New_York')  # type: ignore[arg-type]
 
-	assert installer.packages == []
-	assert installer.services == []
-	assert not (tmp_path / 'etc/conf.d/wireless-regdom').exists()
-
-
-@patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', side_effect=PermissionError('network namespace denied'))
-def test_skips_regulatory_setup_when_wifi_detection_is_unavailable(has_wifi: object, tmp_path: Path) -> None:
-	installer = FakeInstaller(tmp_path)
-
-	configure_wireless_regulatory(installer, 'America/New_York')  # type: ignore[arg-type]
-
-	assert installer.packages == []
-	assert installer.services == []
-	assert not (tmp_path / 'etc/conf.d/wireless-regdom').exists()
+	assert installer.packages == ['wireless-regdb', 'iw']
+	assert installer.services == ['wireless-regdom.service', 'wireless-regdom.path']
+	assert (tmp_path / 'etc/conf.d/wireless-regdom').exists()
 
 
 @patch('archinstall.lib.network.regulatory.country_code_for_timezone', return_value='US')
-@patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', return_value=True)
-def test_configures_wifi_system(has_wifi: object, country: object, tmp_path: Path) -> None:
+def test_configures_wifi_system(country: object, tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
 
 	configure_wireless_regulatory(installer, 'America/New_York')  # type: ignore[arg-type]
@@ -79,9 +66,7 @@ def test_configures_wifi_system(has_wifi: object, country: object, tmp_path: Pat
 
 
 @patch('archinstall.lib.network.regulatory.country_code_for_timezone', return_value=None)
-@patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', return_value=True)
 def test_ambiguous_timezone_keeps_automatic_world_domain(
-	has_wifi: object,
 	country: object,
 	tmp_path: Path,
 ) -> None:
@@ -92,8 +77,7 @@ def test_ambiguous_timezone_keeps_automatic_world_domain(
 	assert (tmp_path / 'etc/conf.d/wireless-regdom').read_text().endswith('WIRELESS_REGDOM=AUTO\n')
 
 
-@patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', return_value=True)
-def test_configures_wifi_system_without_timezone(has_wifi: object, tmp_path: Path) -> None:
+def test_configures_wifi_system_without_timezone(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
 
 	configure_wireless_regulatory(installer, None)  # type: ignore[arg-type]
@@ -103,8 +87,7 @@ def test_configures_wifi_system_without_timezone(has_wifi: object, tmp_path: Pat
 	assert (tmp_path / 'etc/conf.d/wireless-regdom').read_text().endswith('WIRELESS_REGDOM=AUTO\n')
 
 
-@patch('archinstall.lib.network.regulatory.SysInfo.has_wifi', return_value=True)
-def test_automatic_regdom_follows_timezone_changes(has_wifi: object, tmp_path: Path) -> None:
+def test_automatic_regdom_follows_timezone_changes(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
 	configure_wireless_regulatory(installer, 'America/New_York')  # type: ignore[arg-type]
 
