@@ -122,4 +122,21 @@ def test_automatic_regdom_follows_timezone_changes(tmp_path: Path) -> None:
 	timezone_file.write_text('Asia/Shanghai\n', encoding='utf-8')
 	subprocess.run([script], env=environment, check=True)
 
-	assert regdom_log.read_text(encoding='utf-8').splitlines() == ['reg set US', 'reg set RU', 'reg set CN']
+	# An ambiguous or unknown timezone must clear the previous country's rules.
+	for timezone in ('America/Toronto', 'UTC'):
+		timezone_file.write_text(f'{timezone}\n', encoding='utf-8')
+		subprocess.run([script], env=environment, check=True)
+
+	# The world domain must also be usable as an explicit administrator override.
+	(tmp_path / 'etc/conf.d/wireless-regdom').write_text('WIRELESS_REGDOM=00\n', encoding='utf-8')
+	timezone_file.write_text('America/New_York\n', encoding='utf-8')
+	subprocess.run([script], env=environment, check=True)
+
+	assert regdom_log.read_text(encoding='utf-8').splitlines() == [
+		'reg set US',
+		'reg set RU',
+		'reg set CN',
+		'reg set 00',
+		'reg set 00',
+		'reg set 00',
+	]

@@ -85,10 +85,12 @@ if [ "$regdom" = AUTO ]; then
 			exit
 		}
 	' "$zone_table")
+	# Clear any previously selected country when detection is inconclusive.
+	regdom=${regdom:-00}
 fi
 
 case "$regdom" in
-	[A-Z][A-Z]) exec "$iw_command" reg set "$regdom" ;;
+	00|[A-Z][A-Z]) exec "$iw_command" reg set "$regdom" ;;
 	*) exit 0 ;;
 esac
 """,
