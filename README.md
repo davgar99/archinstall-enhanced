@@ -251,8 +251,11 @@ Bug reports caused by this fork belong in this repository. General Archinstall q
 
 - [Archinstall documentation](https://archinstall.archlinux.page/)
 - [Official Archinstall repository](https://github.com/archlinux/archinstall)
-- [Arch Linux Wiki](https://wiki.archlinux.org/)
-- [Arch Linux downloads](https://archlinux.org/download/)
+- [Arch Linux wiki](https://wiki.archlinux.org/)
+- [EndeavourOS wiki](https://discovery.endeavouros.com/wiki/)
+- [CachyOS wiki](https://wiki.cachyos.org/)
+- [Manjaro wiki](https://wiki.manjaro.org/)
+- [Fedora wiki](https://fedoraproject.org/wiki/Fedora_Project_Wiki)
 
 ## License
 
