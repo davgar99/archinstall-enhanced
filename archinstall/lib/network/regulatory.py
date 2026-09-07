@@ -77,6 +77,10 @@ if [ -r "$config" ]; then
 	regdom="${WIRELESS_REGDOM:-AUTO}"
 fi
 
+# Accept administrator overrides case-insensitively while keeping the value
+# passed to iw in its conventional uppercase form.
+regdom=$(printf '%s' "$regdom" | tr '[:lower:]' '[:upper:]')
+
 if [ "$regdom" = AUTO ]; then
 	timezone=$("$timedatectl_command" show --property=Timezone --value 2>/dev/null || true)
 	regdom=$(awk -F '\t' -v zone="$timezone" '
