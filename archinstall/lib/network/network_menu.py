@@ -3,7 +3,7 @@ from typing import assert_never, override
 
 from archinstall.lib.menu.helpers import Input, Selection
 from archinstall.lib.menu.list_manager import ListManager
-from archinstall.lib.models.network import DnsResolver, NetworkConfiguration, Nic, NicType
+from archinstall.lib.models.network import DnsResolver, MacAddressPolicy, NetworkConfiguration, Nic, NicType
 from archinstall.lib.networking import list_interfaces
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup
@@ -34,18 +34,18 @@ class ManualNetworkConfig(ListManager[Nic]):
 
 	@override
 	async def handle_action(self, action: str, entry: Nic | None, data: list[Nic]) -> list[Nic]:
-		if action == self._actions[0]:  # add
+		if action == self._actions[0]:
 			iface = await self._select_iface(data)
 			if iface:
 				nic = Nic(iface=iface)
 				nic = await self._edit_iface(nic)
 				data += [nic]
 		elif entry:
-			if action == self._actions[1]:  # edit interface
+			if action == self._actions[1]:
 				data = [d for d in data if d.iface != entry.iface]
 				nic = await self._edit_iface(entry)
 				data.append(nic)
-			elif action == self._actions[2]:  # delete
+			elif action == self._actions[2]:
 				data = [d for d in data if d != entry]
 
 		return data
@@ -54,9 +54,6 @@ class ManualNetworkConfig(ListManager[Nic]):
 		all_ifaces = list_interfaces().values()
 		existing_ifaces = [d.iface for d in data]
 		available = set(all_ifaces) - set(existing_ifaces)
-
-		if not available:
-			return None
 
 		if not available:
 			return None
@@ -120,16 +117,11 @@ class ManualNetworkConfig(ListManager[Nic]):
 		default_mode = 'DHCP (auto detect)'
 
 		header = tr('Select which mode to configure for "{}"').format(iface_name)
-
 		items = [MenuItem(m, value=m) for m in modes]
 		group = MenuItemGroup(items, sort_items=True)
 		group.set_default_by_value(default_mode)
 
-		result = await Selection[str](
-			group,
-			header=header,
-			allow_skip=False,
-		).show()
+		result = await Selection[str](group, header=header, allow_skip=False).show()
 
 		match result.type_:
 			case ResultType.Selection:
@@ -144,48 +136,25 @@ class ManualNetworkConfig(ListManager[Nic]):
 		if mode == 'IP (static)':
 			header = tr('Enter the IP and subnet for {} (example: 192.168.0.5/24): ').format(iface_name) + '\n'
 			ip = await self._get_ip_address(header, False, False)
-
 			header = tr('Enter your gateway (router) IP address (leave blank for none)') + '\n'
 			gateway = await self._get_ip_address(header, True, False, allow_empty=True)
-
-			if edit_nic.dns:
-				display_dns = ' '.join(edit_nic.dns)
-			else:
-				display_dns = None
-
+			display_dns = ' '.join(edit_nic.dns) if edit_nic.dns else None
 			header = tr('Enter your DNS servers with space separated (leave blank for none)') + '\n'
 			dns_servers = await self._get_ip_address(header, True, True, display_dns, allow_empty=True)
-
-			dns = []
-			if dns_servers is not None:
-				dns = dns_servers.split(' ')
-
+			dns = dns_servers.split(' ') if dns_servers is not None else []
 			return Nic(iface=iface_name, ip=ip, gateway=gateway, dns=dns, dhcp=False)
-		else:
-			# this will contain network iface names
-			return Nic(iface=iface_name)
+		return Nic(iface=iface_name)
 
 
 async def select_network(preset: NetworkConfiguration | None) -> NetworkConfiguration | None:
-	"""
-	Configure the network on the newly installed system
-	"""
-
 	items = [MenuItem(n.display_msg(), value=n) for n in NicType]
 	group = MenuItemGroup(items, sort_items=False)
-
 	if preset:
 		group.set_selected_by_value(preset.type)
 
 	header = tr('Choose network configuration') + '\n'
 	header += tr('Recommended: Network Manager for desktop, Manual for server') + '\n'
-
-	result = await Selection[NicType](
-		group,
-		header=header,
-		allow_reset=True,
-		allow_skip=True,
-	).show()
+	result = await Selection[NicType](group, header=header, allow_reset=True, allow_skip=True).show()
 
 	match result.type_:
 		case ResultType.Skip:
@@ -195,22 +164,23 @@ async def select_network(preset: NetworkConfiguration | None) -> NetworkConfigur
 		case ResultType.Selection:
 			config = result.get_value()
 			dns_resolver = DnsResolver.SYSTEMD_RESOLVED
+			mac_address_policy = MacAddressPolicy.DEFAULT
 			if config in (NicType.NM, NicType.NM_IWD):
 				dns_resolver = await _select_dns_resolver(preset)
+				mac_address_policy = await _select_mac_address_policy(preset)
 
 			match config:
 				case NicType.ISO:
 					return NetworkConfiguration(NicType.ISO)
 				case NicType.NM:
-					return NetworkConfiguration(NicType.NM, dns_resolver=dns_resolver)
+					return NetworkConfiguration(NicType.NM, dns_resolver=dns_resolver, mac_address_policy=mac_address_policy)
 				case NicType.NM_IWD:
-					return NetworkConfiguration(NicType.NM_IWD, dns_resolver=dns_resolver)
+					return NetworkConfiguration(NicType.NM_IWD, dns_resolver=dns_resolver, mac_address_policy=mac_address_policy)
 				case NicType.IWD:
 					return NetworkConfiguration(NicType.IWD)
 				case NicType.MANUAL:
 					preset_nics = preset.nics if preset else []
 					nics = await ManualNetworkConfig(tr('Configure interfaces'), preset_nics).show()
-
 					if nics:
 						return NetworkConfiguration(NicType.MANUAL, nics)
 
@@ -226,14 +196,24 @@ async def _select_dns_resolver(preset: NetworkConfiguration | None) -> DnsResolv
 		group.set_default_by_value(DnsResolver.SYSTEMD_RESOLVED)
 
 	header = tr('Choose DNS caching') + '\n'
-	header += (
-		tr(
-			'A local caching stub reuses recent DNS answers, which can make repeated connections and download startup feel faster. '
-			'It does not increase your connection bandwidth. systemd-resolved is recommended for most users.'
-		)
-		+ '\n'
-	)
+	header += tr('Choose a local DNS cache or encrypted DNS-over-HTTPS. systemd-resolved is recommended for most users.') + '\n'
 	result = await Selection[DnsResolver](group, header=header, allow_skip=False).show()
 	if result.type_ == ResultType.Selection:
 		return result.get_value()
 	return DnsResolver.DEFAULT
+
+
+async def _select_mac_address_policy(preset: NetworkConfiguration | None) -> MacAddressPolicy:
+	items = [MenuItem(policy.display_msg(), value=policy) for policy in MacAddressPolicy]
+	group = MenuItemGroup(items, sort_items=False)
+	if preset:
+		group.set_selected_by_value(preset.mac_address_policy)
+	else:
+		group.set_default_by_value(MacAddressPolicy.DEFAULT)
+
+	header = tr('Choose Wi-Fi MAC address privacy') + '\n'
+	header += tr('A private MAC can reduce passive tracking. Stable mode keeps one private address per Wi-Fi network.') + '\n'
+	result = await Selection[MacAddressPolicy](group, header=header, allow_skip=False).show()
+	if result.type_ == ResultType.Selection:
+		return result.get_value()
+	return MacAddressPolicy.DEFAULT
