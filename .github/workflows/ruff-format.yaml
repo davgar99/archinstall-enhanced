@@ -1,6 +1,13 @@
-on: [ push, pull_request ]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 name: ruff check formatting
 permissions: {}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   ruff_format_check:
     runs-on: ubuntu-latest

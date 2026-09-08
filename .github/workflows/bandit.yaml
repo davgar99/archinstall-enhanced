@@ -1,6 +1,13 @@
-on: [ push, pull_request ]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 name: Bandit security checkup
 permissions: {}
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 jobs:
     bandit:
         runs-on: ubuntu-latest
