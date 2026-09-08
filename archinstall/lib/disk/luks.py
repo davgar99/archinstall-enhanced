@@ -5,12 +5,42 @@ from subprocess import CalledProcessError
 from types import TracebackType
 
 from archinstall.lib.command import SysCommand, SysCommandWorker, run
-from archinstall.lib.disk.utils import get_lsblk_info, umount
+from archinstall.lib.disk.utils import get_lsblk_info, swapon, umount
 from archinstall.lib.exceptions import DiskError, SysCallError
 from archinstall.lib.log import debug, info
 from archinstall.lib.models.device import DEFAULT_ITER_TIME
 from archinstall.lib.models.users import Password
 from archinstall.lib.utils.util import generate_password
+
+
+def ensure_dm_crypt_available() -> None:
+	"""Ensure the live environment exposes the device-mapper crypt target before opening LUKS volumes."""
+	if Path('/sys/module/dm_crypt').exists():
+		return
+
+	try:
+		SysCommand('modprobe dm-crypt')
+	except SysCallError as err:
+		raise DiskError(
+			'dm-crypt kernel support is unavailable. The installer cannot unlock LUKS volumes until the dm-crypt module is available.'
+		) from err
+
+	if not Path('/sys/module/dm_crypt').exists():
+		raise DiskError('dm-crypt was requested but the kernel did not expose the dm-crypt module.')
+
+
+def activate_swap_mapper_if_needed(mapper_dev: Path) -> bool:
+	"""Activate an unlocked mapper when its inner filesystem is swap."""
+	try:
+		fs_type = SysCommand(['blkid', '-o', 'value', '-s', 'TYPE', str(mapper_dev)]).decode().strip()
+	except SysCallError:
+		return False
+
+	if fs_type != 'swap':
+		return False
+
+	swapon(mapper_dev)
+	return True
 
 
 @dataclass
@@ -137,6 +167,7 @@ class Luks2:
 		if not self.mapper_name:
 			raise ValueError('mapper name missing')
 
+		ensure_dm_crypt_available()
 		key_file_arg, passphrase = self._get_passphrase_args(key_file)
 
 		cmd = [
@@ -259,5 +290,8 @@ def unlock_luks2_dev(
 
 	if not luks_handler.is_unlocked():
 		luks_handler.unlock()
+
+	if mapper_dev := luks_handler.mapper_dev:
+		activate_swap_mapper_if_needed(mapper_dev)
 
 	return luks_handler
