@@ -1,7 +1,7 @@
 import textwrap
 
 from archinstall.lib.installer import Installer
-from archinstall.lib.models.network import DnsResolver, NetworkConfiguration, NicType
+from archinstall.lib.models.network import DnsResolver, MacAddressPolicy, NetworkConfiguration, NicType
 from archinstall.lib.models.profile import ProfileConfiguration
 
 
@@ -29,6 +29,7 @@ def install_network_config(
 			installation.add_additional_packages(packages)
 			installation.enable_service('NetworkManager.service')
 			_configure_dns_cache(installation, network_config.dns_resolver)
+			_configure_mac_address_policy(installation, network_config.mac_address_policy)
 
 			if network_config.type == NicType.NM_IWD:
 				_configure_nm_iwd(installation)
@@ -62,6 +63,28 @@ def _configure_dns_cache(installation: Installer, resolver: DnsResolver) -> None
 
 	nm_conf_dir = installation.target / 'etc/NetworkManager/conf.d'
 	nm_conf_dir.mkdir(parents=True, exist_ok=True)
+
+	if resolver == DnsResolver.DNS_OVER_HTTPS:
+		installation.add_additional_packages(['dnscrypt-proxy'])
+		installation.enable_service('dnscrypt-proxy.service')
+		(nm_conf_dir / 'dns-cache.conf').write_text('[main]\ndns=none\n')
+
+		dnscrypt_dir = installation.target / 'etc/dnscrypt-proxy'
+		dnscrypt_dir.mkdir(parents=True, exist_ok=True)
+		(dnscrypt_dir / 'dnscrypt-proxy.toml').write_text(
+			"listen_addresses = ['127.0.0.1:53', '[::1]:53']\n"
+			'dnscrypt_servers = false\n'
+			'doh_servers = true\n'
+			'odoh_servers = false\n'
+			'require_dnssec = true\n'
+			'cache = true\n'
+		)
+		resolv_conf = installation.target / 'etc/resolv.conf'
+		if resolv_conf.exists() or resolv_conf.is_symlink():
+			resolv_conf.unlink()
+		resolv_conf.write_text('nameserver 127.0.0.1\nnameserver ::1\noptions edns0\n')
+		return
+
 	(nm_conf_dir / 'dns-cache.conf').write_text(f'[main]\ndns={resolver.value}\n')
 
 	if resolver == DnsResolver.SYSTEMD_RESOLVED:
@@ -75,6 +98,15 @@ def _configure_dns_cache(installation: Installer, resolver: DnsResolver) -> None
 		dnsmasq_dir = installation.target / 'etc/NetworkManager/dnsmasq.d'
 		dnsmasq_dir.mkdir(parents=True, exist_ok=True)
 		(dnsmasq_dir / 'cache.conf').write_text('cache-size=1000\n')
+
+
+def _configure_mac_address_policy(installation: Installer, policy: MacAddressPolicy) -> None:
+	if policy == MacAddressPolicy.DEFAULT:
+		return
+
+	nm_conf_dir = installation.target / 'etc/NetworkManager/conf.d'
+	nm_conf_dir.mkdir(parents=True, exist_ok=True)
+	(nm_conf_dir / 'wifi-mac-privacy.conf').write_text(f'[device]\nwifi.scan-rand-mac-address=yes\n\n[connection]\nwifi.cloned-mac-address={policy.value}\n')
 
 
 def _configure_iwd_standalone(installation: Installer) -> None:
