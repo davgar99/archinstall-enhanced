@@ -2,7 +2,9 @@ name: Latest stable Python compatibility
 
 on:
   push:
+    branches: [master]
   pull_request:
+    branches: [master]
   schedule:
     # Re-run weekly so a new stable Python release is tested even without a commit.
     - cron: "47 13 * * 1"
@@ -10,6 +12,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   latest-python:

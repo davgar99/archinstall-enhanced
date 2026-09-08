@@ -2,10 +2,12 @@ name: documentation
 
 on:
   push:
+    branches: [master]
     paths:
       - "docs/**"
 
   pull_request:
+    branches: [master]
     paths:
       - "docs/**"
 
@@ -13,6 +15,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   docs:
