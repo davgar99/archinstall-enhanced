@@ -9,6 +9,23 @@ from archinstall.tui.menu_item import MenuItem, MenuItemGroup
 from archinstall.tui.result import ResultType
 
 
+def recommended_gfx_driver() -> GfxDriver:
+	"""Choose the narrowest safe default for detected graphics hardware."""
+	if SysInfo.virtualization() == 'oracle':
+		return GfxDriver.VMOpenSource
+
+	detected = [
+		(SysInfo.has_amd_graphics(), GfxDriver.AmdOpenSource),
+		(SysInfo.has_intel_graphics(), GfxDriver.IntelOpenSource),
+		(SysInfo.has_nvidia_graphics(), GfxDriver.NvidiaOpenKernel),
+	]
+	matches = [driver for present, driver in detected if present]
+
+	if len(matches) == 1:
+		return matches[0]
+	return GfxDriver.AllOpenSource
+
+
 async def select_kernel(preset: list[str] | None = None) -> list[str]:
 	"""
 	Asks the user to select a kernel for system.
@@ -78,15 +95,18 @@ async def select_driver(
 	]
 
 	group = MenuItemGroup(items, sort_items=True)
-	group.set_default_by_value(GfxDriver.AllOpenSource)
+	recommended = recommended_gfx_driver()
+	if recommended not in options:
+		recommended = GfxDriver.AllOpenSource if GfxDriver.AllOpenSource in options else options[0]
+	group.set_default_by_value(preset or recommended)
 
-	header = ''
+	header = tr('Hardware detection selected a recommended graphics driver. You can override it below.') + '\n'
 	if SysInfo.has_amd_graphics():
-		header += tr('For the best compatibility with your AMD hardware, you may want to use either the all open-source or AMD / ATI options.') + '\n'
+		header += tr('AMD graphics detected.') + '\n'
 	if SysInfo.has_intel_graphics():
-		header += tr('For the best compatibility with your Intel hardware, you may want to use either the all open-source or Intel options.\n')
+		header += tr('Intel graphics detected.') + '\n'
 	if SysInfo.has_nvidia_graphics():
-		header += tr('For the best compatibility with your Nvidia hardware, you may want to use the Nvidia proprietary driver.\n')
+		header += tr('Nvidia graphics detected.') + '\n'
 
 	result = await Selection[GfxDriver](
 		group,

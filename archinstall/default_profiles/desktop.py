@@ -3,14 +3,21 @@ from typing import TYPE_CHECKING, Self, override
 from archinstall.default_profiles.desktops.utils import provision_seat_access
 from archinstall.default_profiles.profile import CustomSetting, DisplayServerType, GreeterType, Profile, ProfileType, SelectResult
 from archinstall.lib.log import info
-from archinstall.lib.menu.helpers import Selection
+from archinstall.lib.menu.helpers import Confirmation, Selection
 from archinstall.lib.profile.profiles_handler import profile_handler
+from archinstall.lib.translationhandler import tr
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup
 from archinstall.tui.result import ResultType
 
 if TYPE_CHECKING:
 	from archinstall.lib.installer import Installer
 	from archinstall.lib.models.users import User
+
+
+def desktop_profiles_for_mode(profiles: list[Profile], include_xorg: bool) -> list[Profile]:
+	if include_xorg:
+		return profiles
+	return [profile for profile in profiles if profile.display_server != DisplayServerType.Xorg]
 
 
 class DesktopProfile(Profile):
@@ -68,19 +75,31 @@ class DesktopProfile(Profile):
 
 	@override
 	async def do_on_select(self) -> SelectResult:
+		profiles = profile_handler.get_desktop_profiles()
+		include_xorg = any(profile.display_server == DisplayServerType.Xorg for profile in self.current_selection)
+
+		if not include_xorg:
+			xorg_result = await Confirmation(
+				header=tr('Show legacy Xorg-only desktop environments? Wayland-first selection is recommended for new installations.'),
+				allow_skip=True,
+			).show()
+			if xorg_result.type_ == ResultType.Selection:
+				include_xorg = xorg_result.get_value()
+
+		profiles = desktop_profiles_for_mode(profiles, include_xorg)
 		items = [
 			MenuItem(
 				p.name,
 				value=p,
 				preview_action=lambda x: x.value.preview_text() if x.value else None,
 			)
-			for p in profile_handler.get_desktop_profiles()
+			for p in profiles
 		]
 
 		group = MenuItemGroup(items, sort_items=True, sort_case_sensitive=False)
 		group.set_selected_by_value(self.current_selection)
 
-		result = await Selection[Self](
+		selection_result = await Selection[Self](
 			group,
 			multi=True,
 			allow_reset=True,
@@ -88,9 +107,9 @@ class DesktopProfile(Profile):
 			preview_location='right',
 		).show()
 
-		match result.type_:
+		match selection_result.type_:
 			case ResultType.Selection:
-				self.current_selection = result.get_values()
+				self.current_selection = selection_result.get_values()
 				await self._do_on_select_profiles()
 				return SelectResult.NewSelection
 			case ResultType.Skip:
