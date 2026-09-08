@@ -26,6 +26,7 @@ from archinstall.lib.disk.utils import (
 	swapon,
 )
 from archinstall.lib.exceptions import DiskError, HardwareIncompatibilityError, RequirementError, ServiceException, SysCallError
+from archinstall.lib.grub import ensure_grub_pkgdatadir
 from archinstall.lib.hardware import SysInfo
 from archinstall.lib.linux_path import LPath
 from archinstall.lib.locale.utils import verify_keyboard_layout, verify_x11_keyboard_layout
@@ -1338,6 +1339,8 @@ class Installer:
 		debug('Installing grub bootloader')
 
 		self.pacman.strap('grub')
+
+		ensure_grub_pkgdatadir(self.target / 'etc/grub.d/10_linux')
 
 		info(f'GRUB boot partition: {boot_partition.dev_path}')
 
