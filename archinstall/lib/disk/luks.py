@@ -21,9 +21,7 @@ def ensure_dm_crypt_available() -> None:
 	try:
 		SysCommand('modprobe dm-crypt')
 	except SysCallError as err:
-		raise DiskError(
-			'dm-crypt kernel support is unavailable. The installer cannot unlock LUKS volumes until the dm-crypt module is available.'
-		) from err
+		raise DiskError('dm-crypt kernel support is unavailable. The installer cannot unlock LUKS volumes until the dm-crypt module is available.') from err
 
 	if not Path('/sys/module/dm_crypt').exists():
 		raise DiskError('dm-crypt was requested but the kernel did not expose the dm-crypt module.')
