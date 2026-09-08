@@ -106,12 +106,7 @@ def _configure_mac_address_policy(installation: Installer, policy: MacAddressPol
 
 	nm_conf_dir = installation.target / 'etc/NetworkManager/conf.d'
 	nm_conf_dir.mkdir(parents=True, exist_ok=True)
-	(nm_conf_dir / 'wifi-mac-privacy.conf').write_text(
-		'[device]\n'
-		'wifi.scan-rand-mac-address=yes\n\n'
-		'[connection]\n'
-		f'wifi.cloned-mac-address={policy.value}\n'
-	)
+	(nm_conf_dir / 'wifi-mac-privacy.conf').write_text(f'[device]\nwifi.scan-rand-mac-address=yes\n\n[connection]\nwifi.cloned-mac-address={policy.value}\n')
 
 
 def _configure_iwd_standalone(installation: Installer) -> None:
