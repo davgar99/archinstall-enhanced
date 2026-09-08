@@ -54,8 +54,12 @@ def test_dm_crypt_preflight_reports_missing_kernel_support(monkeypatch: pytest.M
 def test_swap_mapper_is_activated(monkeypatch: pytest.MonkeyPatch) -> None:
 	mapper = Path('/dev/mapper/cryptswap')
 	activated: list[Path] = []
-	monkeypatch.setattr(luks, 'SysCommand', lambda command: FakeCommand('swap\n'))
-	monkeypatch.setattr(luks, 'swapon', lambda path: activated.append(path))
+
+	def sys_command(_command: str) -> FakeCommand:
+		return FakeCommand('swap\n')
+
+	monkeypatch.setattr(luks, 'SysCommand', sys_command)
+	monkeypatch.setattr(luks, 'swapon', activated.append)
 
 	assert luks.activate_swap_mapper_if_needed(mapper)
 	assert activated == [mapper]
@@ -64,8 +68,12 @@ def test_swap_mapper_is_activated(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_non_swap_mapper_is_not_activated(monkeypatch: pytest.MonkeyPatch) -> None:
 	mapper = Path('/dev/mapper/root')
 	activated: list[Path] = []
-	monkeypatch.setattr(luks, 'SysCommand', lambda command: FakeCommand('btrfs\n'))
-	monkeypatch.setattr(luks, 'swapon', lambda path: activated.append(path))
+
+	def sys_command(_command: str) -> FakeCommand:
+		return FakeCommand('btrfs\n')
+
+	monkeypatch.setattr(luks, 'SysCommand', sys_command)
+	monkeypatch.setattr(luks, 'swapon', activated.append)
 
 	assert not luks.activate_swap_mapper_if_needed(mapper)
 	assert activated == []
