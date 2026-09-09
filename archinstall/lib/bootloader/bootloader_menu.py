@@ -22,26 +22,18 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 		menu_options = self._define_menu_options()
 
 		self._item_group = MenuItemGroup(menu_options, sort_items=False, checkmarks=True)
-		super().__init__(
-			self._item_group,
-			config=self._bootloader_conf,
-			allow_reset=False,
-		)
+		super().__init__(self._item_group, config=self._bootloader_conf, allow_reset=False)
 
 	def _define_menu_options(self) -> list[MenuItem]:
 		bootloader = self._bootloader_conf.bootloader
-
-		# UKI availability
 		uki_enabled = self._uefi and bootloader.has_uki_support()
 		if not uki_enabled:
 			self._bootloader_conf.uki = False
 
-		# Removable availability
 		removable_enabled = self._uefi and bootloader.has_removable_support()
 		if not removable_enabled:
 			self._bootloader_conf.removable = False
 
-		# os-prober availability
 		os_prober_enabled = bootloader.has_os_prober_support()
 		if not os_prober_enabled:
 			self._bootloader_conf.os_prober = False
@@ -94,11 +86,8 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 		return None
 
 	def _prev_uki(self, item: MenuItem) -> str | None:
-		uki_text = f'{tr("Unified kernel images")}'
-		if item.value:
-			return f'{uki_text}: {tr("Enabled")}'
-		else:
-			return f'{uki_text}: {tr("Disabled")}'
+		uki_text = tr('Unified kernel images')
+		return f'{uki_text}: {tr("Enabled") if item.value else tr("Disabled")}'
 
 	def _prev_removable(self, item: MenuItem) -> str | None:
 		if item.value:
@@ -106,9 +95,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 		return tr('Will install to custom location with NVRAM entry')
 
 	def _prev_os_prober(self, item: MenuItem) -> str | None:
-		if item.value:
-			return f'os-prober: {tr("Enabled")}'
-		return f'os-prober: {tr("Disabled")}'
+		return f'os-prober: {tr("Enabled") if item.value else tr("Disabled")}'
 
 	def _prev_plymouth(self, item: MenuItem) -> str | None:
 		if item.value:
@@ -124,7 +111,6 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 		bootloader = await select_bootloader(preset, self._uefi, self._skip_boot)
 
 		if bootloader:
-			# Update UKI option based on bootloader
 			uki_item = self._menu_item_group.find_by_key('uki')
 			if not self._uefi or not bootloader.has_uki_support():
 				uki_item.enabled = False
@@ -133,7 +119,6 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 			else:
 				uki_item.enabled = True
 
-			# Update removable option based on bootloader
 			removable_item = self._menu_item_group.find_by_key('removable')
 			if not self._uefi or not bootloader.has_removable_support():
 				removable_item.enabled = False
@@ -145,7 +130,6 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 					self._bootloader_conf.removable = True
 				removable_item.enabled = True
 
-			# Update os-prober option based on bootloader
 			os_prober_item = self._menu_item_group.find_by_key('os_prober')
 			if not bootloader.has_os_prober_support():
 				os_prober_item.enabled = False
@@ -157,10 +141,6 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 		return bootloader
 
 	async def _select_plymouth(self, preset: PlymouthTheme | None) -> PlymouthTheme | None:
-		# Plymouth is purely cosmetic and a frequent source of boot breakage
-		# (notably with the NVIDIA driver and disk encryption), so confirm before
-		# enabling it. When it is already enabled the user is only changing the
-		# theme, so the warning is skipped.
 		if preset is None:
 			prompt = (
 				'[ansi_bright_yellow]'
@@ -173,9 +153,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 				+ tr('Would you like to enable it?')
 				+ '[/]\n'
 			)
-
 			result = await Confirmation(header=prompt, allow_skip=True).show()
-
 			match result.type_:
 				case ResultType.Skip:
 					return preset
@@ -184,14 +162,10 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 						return preset
 				case ResultType.Reset:
 					raise ValueError('Unhandled result type')
-
 		return await select_plymouth_theme(preset)
 
 	async def _select_uki(self, preset: bool) -> bool:
-		prompt = tr('Would you like to use unified kernel images?') + '\n'
-
-		result = await Confirmation(header=prompt, allow_skip=True).show()
-
+		result = await Confirmation(header=tr('Would you like to use unified kernel images?') + '\n', allow_skip=True).show()
 		match result.type_:
 			case ResultType.Skip:
 				return preset
@@ -207,7 +181,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 			+ tr('This installs the bootloader to /EFI/BOOT/BOOTX64.EFI (or similar) which is useful for:')
 			+ '\n\n  • '
 			+ tr('Firmware that does not properly support NVRAM boot entries like most MSI motherboards,')
-			+ '\n	 '
+			+ '\n '
 			+ tr('most Apple Macs, many laptops...')
 			+ '\n  • '
 			+ tr('USB drives or other portable external media.')
@@ -231,12 +205,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 			)
 			+ '\n'
 		)
-
-		result = await Confirmation(
-			header=prompt,
-			allow_skip=True,
-		).show()
-
+		result = await Confirmation(header=prompt, allow_skip=True).show()
 		match result.type_:
 			case ResultType.Skip:
 				return preset
@@ -251,9 +220,7 @@ class BootloaderMenu(AbstractSubMenu[BootloaderConfiguration]):
 			'GRUB will scan other partitions and filesystems during configuration. '
 			'Leave this disabled unless you need automatic dual-boot detection.\n'
 		)
-
 		result = await Confirmation(header=prompt, allow_skip=True).show()
-
 		match result.type_:
 			case ResultType.Skip:
 				return preset
@@ -268,51 +235,52 @@ async def select_bootloader(
 	uefi: bool,
 	skip_boot: bool = False,
 ) -> Bootloader | None:
-	options = []
-	hidden_options = []
+	options: list[Bootloader] = [Bootloader.NO_BOOTLOADER]
 	header = tr('Select bootloader to install')
-
 	default = Bootloader.get_default(uefi, skip_boot)
-
-	if not skip_boot:
-		hidden_options += [Bootloader.NO_BOOTLOADER]
 
 	if not uefi:
 		options += [Bootloader.Grub, Bootloader.Limine]
 		header += '\n' + tr('UEFI is not detected and some options are disabled')
 	else:
-		options += [b for b in Bootloader if b not in hidden_options]
+		options += [bootloader for bootloader in Bootloader if bootloader != Bootloader.NO_BOOTLOADER]
 
-	items = [MenuItem(o.value, value=o) for o in options]
-	group = MenuItemGroup(items)
+	items = [MenuItem(option.value, value=option) for option in options]
+	group = MenuItemGroup(items, sort_items=False)
 	group.set_default_by_value(default)
 
-	result = await Selection[Bootloader](
-		group,
-		header=header,
-		allow_skip=True,
-	).show()
-
+	result = await Selection[Bootloader](group, header=header, allow_skip=True).show()
+	selection = default
 	match result.type_:
 		case ResultType.Skip:
 			return preset
-		case ResultType.Selection:
-			return result.get_value()
 		case ResultType.Reset:
 			raise ValueError('Unhandled result type')
+		case ResultType.Selection:
+			selection = result.get_value()
+
+	if selection != Bootloader.NO_BOOTLOADER or skip_boot:
+		return selection
+
+	warning = (
+		tr('No bootloader will be installed. The installed system may not be directly bootable from firmware.')
+		+ '\n'
+		+ tr('Choose this only if another boot manager or manual boot setup will handle startup. Continue?')
+		+ '\n'
+	)
+	confirmation = await Confirmation(header=warning, allow_skip=False).show()
+	return selection if confirmation.get_value() else preset
 
 
 async def select_plymouth_theme(preset: PlymouthTheme | None = None) -> PlymouthTheme | None:
-	items = [MenuItem(t.value, value=t) for t in PlymouthTheme]
+	items = [MenuItem(theme.value, value=theme) for theme in PlymouthTheme]
 	group = MenuItemGroup(items, sort_items=False)
-
 	result = await Selection[PlymouthTheme](
 		group,
 		header=tr('Select Plymouth theme'),
 		allow_reset=True,
 		allow_skip=True,
 	).show()
-
 	match result.type_:
 		case ResultType.Skip:
 			return preset

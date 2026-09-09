@@ -38,6 +38,8 @@ def _handlers(tmp_path: Path) -> tuple[Any, ...]:
 		mountpoint=tmp_path / 'target',
 		config_type=DiskLayoutType.Pre_mount,
 		disk_encryption=None,
+		device_modifications=[],
+		lvm_config=None,
 		has_default_btrfs_vols=lambda: False,
 	)
 	config = SimpleNamespace(

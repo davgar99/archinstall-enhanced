@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import override
 
+from archinstall.lib.disk.encryption_cipher import LuksCipher, validate_luks_cipher
 from archinstall.lib.disk.fido import Fido2
 from archinstall.lib.menu.abstract_menu import AbstractSubMenu
-from archinstall.lib.menu.helpers import Input, Selection, Table
+from archinstall.lib.menu.helpers import Input, Notify, Selection, Table
 from archinstall.lib.menu.menu_helper import MenuHelper
 from archinstall.lib.menu.util import get_password
 from archinstall.lib.models.device import (
@@ -30,22 +31,13 @@ class DiskEncryptionMenu(AbstractSubMenu[DiskEncryption]):
 		lvm_config: LvmConfiguration | None = None,
 		preset: DiskEncryption | None = None,
 	):
-		if preset:
-			self._enc_config = preset
-		else:
-			self._enc_config = DiskEncryption()
-
+		self._enc_config = preset or DiskEncryption()
 		self._device_modifications = device_modifications
 		self._lvm_config = lvm_config
 
 		menu_options = self._define_menu_options()
 		self._item_group = MenuItemGroup(menu_options, sort_items=False, checkmarks=True)
-
-		super().__init__(
-			self._item_group,
-			self._enc_config,
-			allow_reset=True,
-		)
+		super().__init__(self._item_group, self._enc_config, allow_reset=True)
 
 	def _define_menu_options(self) -> list[MenuItem]:
 		return [
@@ -71,6 +63,14 @@ class DiskEncryptionMenu(AbstractSubMenu[DiskEncryption]):
 				dependencies=[self._check_dep_enc_type],
 				preview_action=self._prev_iter_time,
 				key='iter_time',
+			),
+			MenuItem(
+				text=tr('LUKS cipher'),
+				action=select_luks_cipher,
+				value=self._enc_config.cipher,
+				dependencies=[self._check_dep_enc_type],
+				preview_action=self._prev_cipher,
+				key='cipher',
 			),
 			MenuItem(
 				text=tr('Partitions'),
@@ -105,21 +105,15 @@ class DiskEncryptionMenu(AbstractSubMenu[DiskEncryption]):
 
 	def _check_dep_enc_type(self) -> bool:
 		enc_type: EncryptionType | None = self._item_group.find_by_key('encryption_type').value
-		if enc_type and enc_type != EncryptionType.NO_ENCRYPTION:
-			return True
-		return False
+		return bool(enc_type and enc_type != EncryptionType.NO_ENCRYPTION)
 
 	def _check_dep_partitions(self) -> bool:
 		enc_type: EncryptionType | None = self._item_group.find_by_key('encryption_type').value
-		if enc_type and enc_type in [EncryptionType.LUKS, EncryptionType.LVM_ON_LUKS]:
-			return True
-		return False
+		return bool(enc_type and enc_type in [EncryptionType.LUKS, EncryptionType.LVM_ON_LUKS])
 
 	def _check_dep_lvm_vols(self) -> bool:
 		enc_type: EncryptionType | None = self._item_group.find_by_key('encryption_type').value
-		if enc_type and enc_type == EncryptionType.LUKS_ON_LVM:
-			return True
-		return False
+		return bool(enc_type and enc_type == EncryptionType.LUKS_ON_LVM)
 
 	@override
 	async def show(self) -> DiskEncryption | None:
@@ -130,6 +124,7 @@ class DiskEncryptionMenu(AbstractSubMenu[DiskEncryption]):
 		enc_type: EncryptionType | None = self._item_group.find_by_key('encryption_type').value
 		enc_password: Password | None = self._item_group.find_by_key('encryption_password').value
 		iter_time: int | None = self._item_group.find_by_key('iter_time').value
+		cipher: str | None = self._item_group.find_by_key('cipher').value
 		enc_partitions = self._item_group.find_by_key('partitions').value
 		enc_lvm_vols = self._item_group.find_by_key('lvm_volumes').value
 
@@ -139,124 +134,124 @@ class DiskEncryptionMenu(AbstractSubMenu[DiskEncryption]):
 
 		if enc_type in [EncryptionType.LUKS, EncryptionType.LVM_ON_LUKS] and enc_partitions:
 			enc_lvm_vols = []
-
 		if enc_type == EncryptionType.LUKS_ON_LVM:
 			enc_partitions = []
 
 		if enc_type != EncryptionType.NO_ENCRYPTION and enc_password and (enc_partitions or enc_lvm_vols):
-			return DiskEncryption(
+			result = DiskEncryption(
 				encryption_password=enc_password,
 				encryption_type=enc_type,
 				partitions=enc_partitions,
 				lvm_volumes=enc_lvm_vols,
 				hsm_device=enc_config.hsm_device,
 				iter_time=iter_time or DEFAULT_ITER_TIME,
+				cipher=cipher,
 			)
+			return result
 
 		return None
 
-	def _preview(self, item: MenuItem) -> str | None:
-		output = ''
-
-		if (enc_type := self._prev_type(item)) is not None:
-			output += enc_type
-
-		if (enc_pwd := self._prev_password(item)) is not None:
-			output += f'\n{enc_pwd}'
-
-		if (iter_time := self._prev_iter_time(item)) is not None:
-			output += f'\n{iter_time}'
-
-		if (fido_device := self._prev_hsm(item)) is not None:
-			output += f'\n{fido_device}'
-
-		if (partitions := self._prev_partitions(item)) is not None:
-			output += f'\n\n{partitions}'
-
-		if (lvm := self._prev_lvm_vols(item)) is not None:
-			output += f'\n\n{lvm}'
-
-		if not output:
-			return None
-
-		return output
-
 	def _prev_type(self, item: MenuItem) -> str | None:
 		enc_type = self._item_group.find_by_key('encryption_type').value
-
 		if enc_type:
-			enc_text = enc_type.type_to_text()
-			return f'{tr("Encryption type")}: {enc_text}'
-
+			return f'{tr("Encryption type")}: {enc_type.type_to_text()}'
 		return None
 
 	def _prev_password(self, item: MenuItem) -> str | None:
 		if item.value:
 			return f'{tr("Encryption password")}: {item.value.hidden()}'
-
 		return None
+
+	def _prev_cipher(self, item: MenuItem) -> str | None:
+		cipher = item.value or tr('Cryptsetup default')
+		return f'{tr("LUKS cipher")}: {cipher}'
 
 	def _prev_partitions(self, item: MenuItem) -> str | None:
 		if item.value:
-			output = tr('Partitions to be encrypted') + '\n'
-			output += as_table(item.value)
-			return output.rstrip()
-
+			return (tr('Partitions to be encrypted') + '\n' + as_table(item.value)).rstrip()
 		return None
 
 	def _prev_lvm_vols(self, item: MenuItem) -> str | None:
 		if item.value:
-			output = tr('LVM volumes to be encrypted') + '\n'
-			output += as_table(item.value)
-			return output.rstrip()
-
+			return (tr('LVM volumes to be encrypted') + '\n' + as_table(item.value)).rstrip()
 		return None
 
 	def _prev_hsm(self, item: MenuItem) -> str | None:
 		if not item.value:
 			return None
-
 		fido_device: Fido2Device = item.value
-
-		output = str(fido_device.path)
-		output += f' ({fido_device.manufacturer}, {fido_device.product})'
+		output = f'{fido_device.path} ({fido_device.manufacturer}, {fido_device.product})'
 		return f'{tr("HSM device")}: {output}'
 
 	def _prev_iter_time(self, item: MenuItem) -> str | None:
 		if item.value:
 			iter_time = item.value
 			enc_type = self._item_group.find_by_key('encryption_type').value
-
 			if iter_time and enc_type != EncryptionType.NO_ENCRYPTION:
 				return f'{tr("Iteration time")}: {iter_time}ms'
-
 		return None
+
+
+async def select_luks_cipher(preset: str | None = None) -> str | None:
+	items = [MenuItem(cipher.display_msg(), value=cipher) for cipher in LuksCipher]
+	group = MenuItemGroup(items, sort_items=False)
+	group.set_default_by_value(LuksCipher.DEFAULT)
+	result = await Selection[LuksCipher](
+		group,
+		header=tr('Select a LUKS2 cipher. The cryptsetup default is recommended unless you have a specific requirement.'),
+		allow_skip=True,
+		allow_reset=True,
+	).show()
+
+	choice = LuksCipher.DEFAULT
+	match result.type_:
+		case ResultType.Skip:
+			return preset
+		case ResultType.Reset:
+			return None
+		case ResultType.Selection:
+			choice = result.get_value()
+
+	if choice == LuksCipher.DEFAULT:
+		return None
+
+	if choice == LuksCipher.CUSTOM:
+		custom = await Input(
+			header=tr('Enter a cryptsetup cipher specification (for example aes-xts-plain64).'),
+			allow_skip=True,
+			default_value=preset or '',
+			validator_callback=lambda value: validate_luks_cipher(value or ''),
+		).show()
+		if custom.type_ == ResultType.Skip:
+			return preset
+		if custom.type_ != ResultType.Selection or not custom.get_value():
+			return preset
+		candidate = custom.get_value()
+	else:
+		candidate = choice.value
+
+	if error := validate_luks_cipher(candidate):
+		await Notify(error).show()
+		return preset
+	return candidate
 
 
 async def select_encryption_type(
 	lvm_config: LvmConfiguration | None = None,
 	preset: EncryptionType | None = None,
 ) -> EncryptionType | None:
-	options: list[EncryptionType] = []
-
-	if lvm_config:
-		options = [EncryptionType.LVM_ON_LUKS, EncryptionType.LUKS_ON_LVM]
-	else:
-		options = [EncryptionType.LUKS]
-
+	options = [EncryptionType.LVM_ON_LUKS, EncryptionType.LUKS_ON_LVM] if lvm_config else [EncryptionType.LUKS]
 	if not preset:
 		preset = options[0]
 
-	items = [MenuItem(o.type_to_text(), value=o) for o in options]
+	items = [MenuItem(option.type_to_text(), value=option) for option in options]
 	group = MenuItemGroup(items)
-
 	result = await Selection[EncryptionType](
 		group,
 		header=tr('Select encryption type'),
 		allow_skip=True,
 		allow_reset=True,
 	).show()
-
 	match result.type_:
 		case ResultType.Reset:
 			return None
@@ -267,18 +262,11 @@ async def select_encryption_type(
 
 
 async def select_encrypted_password() -> Password | None:
-	header = tr('Enter disk encryption password (leave blank for no encryption)') + '\n'
-	password = await get_password(
-		header=header,
-		allow_skip=True,
-	)
-
-	return password
+	return await get_password(header=tr('Enter disk encryption password (leave blank for no encryption)') + '\n', allow_skip=True)
 
 
 async def select_hsm(preset: Fido2Device | None = None) -> Fido2Device | None:
 	header = tr('Select a FIDO2 device to use for HSM') + '\n'
-
 	try:
 		fido_devices = Fido2.get_cryptenroll_devices()
 	except ValueError:
@@ -286,13 +274,7 @@ async def select_hsm(preset: Fido2Device | None = None) -> Fido2Device | None:
 
 	if fido_devices:
 		group = MenuHelper(data=fido_devices).create_menu_group()
-
-		result = await Selection[Fido2Device](
-			group,
-			header=header,
-			allow_skip=True,
-		).show()
-
+		result = await Selection[Fido2Device](group, header=header, allow_skip=True).show()
 		match result.type_:
 			case ResultType.Reset:
 				return None
@@ -300,7 +282,6 @@ async def select_hsm(preset: Fido2Device | None = None) -> Fido2Device | None:
 				return preset
 			case ResultType.Selection:
 				return result.get_value()
-
 	return None
 
 
@@ -309,64 +290,47 @@ async def select_partitions_to_encrypt(
 	preset: list[PartitionModification],
 ) -> list[PartitionModification]:
 	partitions: list[PartitionModification] = []
-
-	# Boot partitions must remain readable by the bootloader. Swap may be encrypted,
-	# which protects hibernation contents as well as ordinary swapped memory.
 	for mod in modification:
-		partitions += [p for p in mod.partitions if p.mountpoint != Path('/boot')]
+		partitions += [partition for partition in mod.partitions if partition.mountpoint != Path('/boot')]
 
-	# do not allow encrypting existing partitions that are not marked as wipe
-	avail_partitions = [p for p in partitions if not p.exists()]
-
+	avail_partitions = [partition for partition in partitions if not partition.exists()]
 	if avail_partitions:
 		group = MenuItemGroup.from_objects(avail_partitions)
 		group.set_selected_by_value(preset)
-
 		result = await Table[PartitionModification](
 			header=tr('Select disks for the installation'),
 			group=group,
 			allow_skip=True,
 			multi=True,
 		).show()
-
 		match result.type_:
 			case ResultType.Reset:
 				return []
 			case ResultType.Skip:
 				return preset
 			case ResultType.Selection:
-				partitions = result.get_values()
-				return partitions
-
+				return result.get_values()
 	return []
 
 
-async def select_lvm_vols_to_encrypt(
-	lvm_config: LvmConfiguration,
-	preset: list[LvmVolume],
-) -> list[LvmVolume]:
-	volumes: list[LvmVolume] = lvm_config.get_all_volumes()
-
+async def select_lvm_vols_to_encrypt(lvm_config: LvmConfiguration, preset: list[LvmVolume]) -> list[LvmVolume]:
+	volumes = lvm_config.get_all_volumes()
 	if volumes:
 		group = MenuItemGroup.from_objects(volumes)
 		group.set_selected_by_value(preset)
-
 		result = await Table[LvmVolume](
 			header=tr('Select disks for the installation'),
 			group=group,
 			allow_skip=True,
 			multi=True,
 		).show()
-
 		match result.type_:
 			case ResultType.Reset:
 				return []
 			case ResultType.Skip:
 				return preset
 			case ResultType.Selection:
-				volumes = result.get_values()
-				return volumes
-
+				return result.get_values()
 	return []
 
 
@@ -392,7 +356,6 @@ async def select_iteration_time(preset: int | None = None) -> int | None:
 		default_value=str(preset) if preset else str(DEFAULT_ITER_TIME),
 		validator_callback=validate_iter_time,
 	).show()
-
 	match result.type_:
 		case ResultType.Skip:
 			return preset

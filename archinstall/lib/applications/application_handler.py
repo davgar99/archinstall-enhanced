@@ -8,6 +8,7 @@ from archinstall.applications.fonts import FontsApp
 from archinstall.applications.multimedia import MultimediaApp
 from archinstall.applications.power_management import PowerManagementApp
 from archinstall.applications.print_service import PrintServiceApp
+from archinstall.lib.general.kernel_packages import kernel_header_packages
 from archinstall.lib.models import Audio
 from archinstall.lib.models.application import ApplicationConfiguration
 from archinstall.lib.models.network import DnsResolver, NetworkConfiguration
@@ -28,6 +29,9 @@ class ApplicationHandler:
 		users: list[User] | None = None,
 		network_config: NetworkConfiguration | None = None,
 	) -> None:
+		if app_config.kernel_headers_config and app_config.kernel_headers_config.enabled:
+			install_session.add_additional_packages(kernel_header_packages(install_session.kernels))
+
 		if app_config.bluetooth_config and app_config.bluetooth_config.enabled:
 			BluetoothApp().install(install_session)
 

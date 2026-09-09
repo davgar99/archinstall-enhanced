@@ -27,12 +27,7 @@ def recommended_gfx_driver() -> GfxDriver:
 
 
 async def select_kernel(preset: list[str] | None = None) -> list[str]:
-	"""
-	Asks the user to select a kernel for system.
-
-	:return: The string as a selected kernel
-	:rtype: string
-	"""
+	"""Ask the user to select one or more kernels."""
 	if preset is None:
 		preset = []
 
@@ -59,9 +54,7 @@ async def select_kernel(preset: list[str] | None = None) -> list[str]:
 
 async def select_uki(preset: bool = True) -> bool:
 	prompt = tr('Would you like to use unified kernel images?') + '\n'
-
 	result = await Confirmation(header=prompt, allow_skip=True).show()
-
 	match result.type_:
 		case ResultType.Skip:
 			return preset
@@ -75,26 +68,21 @@ async def select_driver(
 	options: list[GfxDriver] | None = None,
 	preset: GfxDriver | None = None,
 ) -> GfxDriver | None:
-	"""
-	Somewhat convoluted function, whose job is simple.
-	Select a graphics driver from a pre-defined set of popular options.
-
-	(The template xorg is for beginner users, not advanced, and should
-	there for appeal to the general public first and edge cases later)
-	"""
+	"""Select a graphics driver, including an explicit no-driver option."""
 	if not options:
 		options = list(GfxDriver)
 
-	items = [
+	items: list[MenuItem] = [MenuItem(tr('None (do not install a graphics driver)'), value=None)]
+	items.extend(
 		MenuItem(
-			o.value,
-			value=o,
-			preview_action=lambda x: x.value.packages_text() if x.value else None,
+			driver.value,
+			value=driver,
+			preview_action=lambda item: item.value.packages_text() if item.value else None,
 		)
-		for o in options
-	]
+		for driver in options
+	)
 
-	group = MenuItemGroup(items, sort_items=True)
+	group = MenuItemGroup(items, sort_items=False)
 	recommended = recommended_gfx_driver()
 	if recommended not in options:
 		recommended = GfxDriver.AllOpenSource if GfxDriver.AllOpenSource in options else options[0]
@@ -108,7 +96,7 @@ async def select_driver(
 	if SysInfo.has_nvidia_graphics():
 		header += tr('Nvidia graphics detected.') + '\n'
 
-	result = await Selection[GfxDriver](
+	result = await Selection[GfxDriver | None](
 		group,
 		header=header,
 		allow_skip=True,
@@ -128,11 +116,7 @@ async def select_driver(
 async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True)) -> ZramConfiguration:
 	prompt = tr('Enable swap on zram?') + '\n'
 
-	result = await Confirmation(
-		header=prompt,
-		allow_skip=True,
-	).show()
-
+	result = await Confirmation(header=prompt, allow_skip=True).show()
 	match result.type_:
 		case ResultType.Skip:
 			return preset
@@ -141,16 +125,13 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 			if not enabled:
 				return ZramConfiguration(enabled=False)
 
-			# Ask for compression algorithm
 			algo_group = MenuItemGroup.from_enum(ZramAlgorithm, sort_items=False)
 			algo_group.set_default_by_value(ZramAlgorithm.ZSTD)
-
 			algo_result = await Selection[ZramAlgorithm](
 				algo_group,
 				header=tr('Select a zram compression algorithm.') + '\n',
 				allow_skip=True,
 			).show()
-
 			match algo_result.type_:
 				case ResultType.Skip:
 					algo = preset.algorithm
@@ -161,10 +142,7 @@ async def select_swap(preset: ZramConfiguration = ZramConfiguration(enabled=True
 				case _:
 					assert_never(algo_result.type_)
 
-			return ZramConfiguration(
-				enabled=True,
-				algorithm=algo,
-			)
+			return ZramConfiguration(enabled=True, algorithm=algo)
 		case ResultType.Reset:
 			raise ValueError('Unhandled result type')
 		case _:

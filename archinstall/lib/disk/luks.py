@@ -5,6 +5,7 @@ from subprocess import CalledProcessError
 from types import TracebackType
 
 from archinstall.lib.command import SysCommand, SysCommandWorker, run
+from archinstall.lib.disk.encryption_cipher import normalize_luks_cipher
 from archinstall.lib.disk.utils import get_lsblk_info, swapon, umount
 from archinstall.lib.exceptions import DiskError, SysCallError
 from archinstall.lib.log import debug, info
@@ -48,6 +49,7 @@ class Luks2:
 	password: Password | None = None
 	key_file: Path | None = None
 	auto_unmount: bool = False
+	cipher: str | None = None
 
 	@property
 	def mapper_dev(self) -> Path | None:
@@ -81,18 +83,12 @@ class Luks2:
 
 		if isinstance(self.password, bytes):
 			return self.password
-		else:
-			return bytes(self.password.plaintext, 'UTF-8')
+		return bytes(self.password.plaintext, 'UTF-8')
 
-	def _get_passphrase_args(
-		self,
-		key_file: Path | None = None,
-	) -> tuple[list[str], bytes | None]:
+	def _get_passphrase_args(self, key_file: Path | None = None) -> tuple[list[str], bytes | None]:
 		key_file = key_file or self.key_file
-
 		if key_file:
 			return ['--key-file', str(key_file)], None
-
 		return [], self._password_bytes()
 
 	def encrypt(
@@ -103,8 +99,9 @@ class Luks2:
 		key_file: Path | None = None,
 	) -> Path | None:
 		debug(f'Luks2 encrypting: {self.luks_dev_path}')
-
 		key_file_arg, passphrase = self._get_passphrase_args(key_file)
+		cipher = normalize_luks_cipher(self.cipher)
+		cipher_args = ['--cipher', cipher] if cipher else []
 
 		cmd = [
 			'cryptsetup',
@@ -120,6 +117,7 @@ class Luks2:
 			str(key_size),
 			'--iter-time',
 			str(iter_time),
+			*cipher_args,
 			*key_file_arg,
 			'--use-urandom',
 			'luksFormat',
@@ -127,7 +125,6 @@ class Luks2:
 		]
 
 		debug(f'cryptsetup format: {shlex.join(cmd)}')
-
 		try:
 			result = run(cmd, input_data=passphrase)
 		except CalledProcessError as err:
@@ -135,14 +132,11 @@ class Luks2:
 			raise DiskError(f'Could not encrypt volume "{self.luks_dev_path}": {output}')
 
 		debug(f'cryptsetup luksFormat output: {result.stdout.decode().rstrip()}')
-
 		self.key_file = key_file
-
 		return key_file
 
 	def _get_luks_uuid(self) -> str:
 		command = f'cryptsetup luksUUID {self.luks_dev_path}'
-
 		try:
 			return SysCommand(command).decode()
 		except SysCallError as err:
@@ -153,21 +147,12 @@ class Luks2:
 		return (mapper_dev := self.mapper_dev) is not None and mapper_dev.is_symlink()
 
 	def unlock(self, key_file: Path | None = None) -> None:
-		"""
-		Unlocks the luks device, an optional key file location for unlocking can be specified,
-		otherwise a default location for the key file will be used.
-
-		:param key_file: An alternative key file
-		:type key_file: Path
-		"""
 		debug(f'Unlocking luks2 device: {self.luks_dev_path}')
-
 		if not self.mapper_name:
 			raise ValueError('mapper name missing')
 
 		ensure_dm_crypt_available()
 		key_file_arg, passphrase = self._get_passphrase_args(key_file)
-
 		cmd = [
 			'cryptsetup',
 			'open',
@@ -185,37 +170,24 @@ class Luks2:
 			raise DiskError(f'Could not unlock luks2 device "{self.luks_dev_path}": {output}')
 
 		debug(f'cryptsetup open output: {result.stdout.decode().rstrip()}')
-
 		if not self.is_unlocked():
 			raise DiskError(f'Failed to open luks2 device: {self.luks_dev_path}')
 
 	def lock(self) -> None:
 		umount(self.luks_dev_path)
-
-		# Get crypt-information about the device by doing a reverse lookup starting with the partition path
-		# For instance: /dev/sda
 		lsblk_info = get_lsblk_info(self.luks_dev_path)
 
-		# For each child (sub-partition/sub-device)
 		for child in lsblk_info.children:
-			# Unmount the child location
 			for mountpoint in child.mountpoints:
 				debug(f'Unmounting {mountpoint}')
 				umount(mountpoint, recursive=True)
-
-			# And close it if possible.
 			debug(f'Closing crypt device {child.name}')
 			SysCommand(f'cryptsetup close {child.name}')
 
 	def create_keyfile(self, target_path: Path, override: bool = False) -> None:
-		"""
-		Routine to create keyfiles, so it can be moved elsewhere
-		"""
 		if self.mapper_name is None:
 			raise ValueError('Mapper name must be provided')
 
-		# Once we store the key as ../xyzloop.key systemd-cryptsetup can
-		# automatically load this key if we name the device to "xyzloop"
 		kf_path = Path(f'/etc/cryptsetup-keys.d/{self.mapper_name}.key')
 		key_file = target_path / kf_path.relative_to(kf_path.root)
 		crypttab_path = target_path / 'etc/crypttab'
@@ -224,24 +196,16 @@ class Luks2:
 			if not override:
 				info(f'Key file {key_file} already exists, keeping existing')
 				return
-			else:
-				info(f'Key file {key_file} already exists, overriding')
+			info(f'Key file {key_file} already exists, overriding')
 
 		key_file.parent.mkdir(parents=True, exist_ok=True)
-
 		pwd = generate_password(length=512)
 		key_file.write_text(pwd)
-
 		key_file.chmod(0o400)
-
 		self._add_key(key_file)
 		self._crypttab(crypttab_path, kf_path, options=['luks', 'key-slot=1'])
 
 	def create_crypttab_entry(self, target_path: Path) -> None:
-		"""
-		Add a crypttab entry without a keyfile so systemd prompts
-		for the passphrase at boot.
-		"""
 		if self.mapper_name is None:
 			raise ValueError('Mapper name must be provided')
 
@@ -251,7 +215,6 @@ class Luks2:
 
 	def _add_key(self, key_file: Path) -> None:
 		debug(f'Adding additional key-file {key_file}')
-
 		command = f'cryptsetup -q -v luksAddKey {self.luks_dev_path} {key_file}'
 		worker = SysCommandWorker(command)
 		pw_injected = False
@@ -264,14 +227,8 @@ class Luks2:
 		if worker.exit_code != 0:
 			raise DiskError(f'Could not add encryption key {key_file} to {self.luks_dev_path}: {worker.decode()}')
 
-	def _crypttab(
-		self,
-		crypttab_path: Path,
-		key_file: Path,
-		options: list[str],
-	) -> None:
+	def _crypttab(self, crypttab_path: Path, key_file: Path, options: list[str]) -> None:
 		debug(f'Adding crypttab entry for key {key_file}')
-
 		with open(crypttab_path, 'a') as crypttab:
 			opt = ','.join(options)
 			uuid = self._get_luks_uuid()
@@ -279,17 +236,10 @@ class Luks2:
 			crypttab.write(row)
 
 
-def unlock_luks2_dev(
-	dev_path: Path,
-	mapper_name: str,
-	enc_password: Password | None,
-) -> Luks2:
+def unlock_luks2_dev(dev_path: Path, mapper_name: str, enc_password: Password | None) -> Luks2:
 	luks_handler = Luks2(dev_path, mapper_name=mapper_name, password=enc_password)
-
 	if not luks_handler.is_unlocked():
 		luks_handler.unlock()
-
 	if mapper_dev := luks_handler.mapper_dev:
 		activate_swap_mapper_if_needed(mapper_dev)
-
 	return luks_handler

@@ -12,10 +12,14 @@ from archinstall.lib.authentication.authentication_handler import Authentication
 from archinstall.lib.bootloader.os_prober import prepare_grub_os_prober
 from archinstall.lib.bootloader.utils import validate_bootloader_layout
 from archinstall.lib.configuration import confirm_config
+from archinstall.lib.disk.btrfs_safety import discard_stale_btrfs_subvolumes_for_wipe
 from archinstall.lib.disk.filesystem import FilesystemHandler
+from archinstall.lib.disk.snapshot_setup import setup_btrfs_snapshot_safe
+from archinstall.lib.disk.teardown import teardown_installation
 from archinstall.lib.disk.utils import disk_layouts
 from archinstall.lib.gaming.gaming_handler import GamingHandler
 from archinstall.lib.general.general_menu import PostInstallationAction, select_post_installation
+from archinstall.lib.general.kernel_packages import installer_base_packages
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.installer import Installer, accessibility_tools_in_use, run_custom_user_commands
@@ -42,7 +46,6 @@ def show_menu(
 ) -> None:
 	upgrade = check_version_upgrade()
 	title_text = 'Archinstall Enhanced'
-
 	if upgrade:
 		text = tr('New version available') + f': {upgrade}'
 		title_text += f' ({text})'
@@ -54,7 +57,6 @@ def show_menu(
 		advanced=arch_config_handler.args.advanced,
 		title=title_text,
 	)
-
 	result: ArchConfig | None = tui.run(global_menu)
 	if result is None:
 		sys.exit(0)
@@ -86,6 +88,9 @@ def _perform_installation_core(
 	if config.gaming_config and config.gaming_config.requires_multilib() and Repository.Multilib not in optional_repositories:
 		optional_repositories.append(Repository.Multilib)
 
+	firmware_packages = config.app_config.firmware_packages_config if config.app_config else None
+	base_packages = installer_base_packages(firmware_packages)
+
 	stage_labels = [
 		tr('Storage and mount validation'),
 		tr('Encryption and mirrors'),
@@ -110,8 +115,16 @@ def _perform_installation_core(
 
 	try:
 		set_stage(stage_labels[0])
+		discard_stale_btrfs_subvolumes_for_wipe(disk_config)
 		FilesystemHandler(disk_config).perform_filesystem_operations()
-		with Installer(mountpoint, disk_config, kernels=config.kernels, silent=arch_config_handler.args.silent) as installation:
+
+		with Installer(
+			mountpoint,
+			disk_config,
+			base_packages=base_packages,
+			kernels=config.kernels,
+			silent=arch_config_handler.args.silent,
+		) as installation:
 			if disk_config.config_type != DiskLayoutType.Pre_mount:
 				installation.mount_ordered_layout()
 			installation.sanity_check(
@@ -207,7 +220,7 @@ def _perform_installation_core(
 				snapshot_config = btrfs_options.snapshot_config if btrfs_options else None
 				if snapshot_config and snapshot_config.snapshot_type:
 					bootloader = config.bootloader_config.bootloader if config.bootloader_config else None
-					installation.setup_btrfs_snapshot(snapshot_config.snapshot_type, bootloader)
+					setup_btrfs_snapshot_safe(installation, disk_config, snapshot_config.snapshot_type, bootloader)
 			if commands := config.custom_commands:
 				run_custom_user_commands(commands, installation)
 
@@ -244,8 +257,9 @@ def perform_installation(
 	else:
 		session = tui.run(lambda: Activity(tr('Installing Arch Linux'), operation, cancellable=False).show())
 
+	action = PostInstallationAction.EXIT
 	if not arch_config_handler.args.silent:
-		action: PostInstallationAction = tui.run(
+		action = tui.run(
 			lambda: select_post_installation(
 				session.outcome.elapsed_time,
 				str(session.outcome.log_path),
@@ -253,13 +267,15 @@ def perform_installation(
 			)
 		)
 
-		match action:
-			case PostInstallationAction.EXIT:
-				pass
-			case PostInstallationAction.REBOOT:
-				subprocess.run(['reboot'], check=False)
-			case PostInstallationAction.CHROOT:
-				session.installation.drop_to_shell()
+	if action == PostInstallationAction.CHROOT:
+		session.installation.drop_to_shell()
+
+	config = arch_config_handler.config
+	if config.disk_config:
+		teardown_installation(session.outcome.target_mountpoint, config.disk_config)
+
+	if action == PostInstallationAction.REBOOT:
+		subprocess.run(['reboot'], check=False)
 
 	return session.outcome
 
@@ -313,6 +329,15 @@ def main(arch_config_handler: ArchConfigHandler | None = None) -> None:
 				GamingHandler(),
 			)
 		except Exception as exception:
+			config = arch_config_handler.config
+			if config.disk_config:
+				mountpoint = getattr(config.disk_config, 'mountpoint', None) or getattr(arch_config_handler.args, 'mountpoint', None)
+				if mountpoint is not None:
+					try:
+						teardown_installation(mountpoint, config.disk_config)
+					except Exception as cleanup_error:
+						debug(f'Installation cleanup failed without replacing the original error: {cleanup_error}')
+
 			if arch_config_handler.args.silent:
 				raise
 
