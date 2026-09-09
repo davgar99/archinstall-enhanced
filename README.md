@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--only-blue.svg" alt="GPL-3.0-only license" /></a>
 </p>
 
-Archinstall Enhanced builds on the official [Archinstall](https://github.com/archlinux/archinstall) guided installer. It keeps the familiar installation flow while adding the desktop integration, gaming support, hardware setup, and quality-of-life options that many users otherwise configure after their first boot.
+Archinstall Enhanced builds on the official [Archinstall](https://github.com/archlinux/archinstall) guided installer. It keeps the familiar installation flow while adding the desktop integration, gaming support, hardware setup, privacy controls, and quality-of-life options that many users otherwise configure after their first boot.
 
 The project favors documented, maintainable configuration over collections of unexplained tweaks. Hardware-specific, workload-specific, or experimental features remain optional.
 
@@ -55,13 +55,14 @@ archinstall
 
 | Area | Additions in this fork |
 |---|---|
-| Installer experience | Grouped menus, consistent summaries and prompt ordering, clearer destructive-action review, improved activity and error feedback |
-| Desktop foundation | Portals, codecs, hardware diagnostics, package-cache maintenance, Fontconfig defaults, common command-line utilities |
+| Installer experience | Grouped menus, consistent summaries and prompt ordering, clearer destructive-action review, hardware-aware graphics defaults, improved activity and error feedback |
+| Desktop foundation | Wayland-first desktop selection with Xorg compatibility, portals, codecs, PipeWire surround upmixing, package-cache maintenance, Fontconfig defaults, common command-line utilities |
 | Gaming | 32-bit graphics libraries, sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, shader-cache and compatibility options |
-| Hardware | Graphics-aware OpenCL, firmware updates, Bluetooth, printing, VirtualBox guest integration, controller and watchdog options |
-| Storage and memory | Balanced zram profiles and Zstandard compression for automatically generated Btrfs layouts |
-| Networking | NetworkManager DNS caching, mDNS-aware printer discovery, and automatic Wi-Fi regulatory configuration |
+| Hardware | Detected graphics-driver recommendations with manual override, graphics-aware OpenCL, firmware updates, Bluetooth, printing, VirtualBox guest integration, controller and watchdog options |
+| Storage and memory | Balanced zram profiles, Zstandard compression for automatically generated Btrfs layouts, LUKS-encrypted swap support, and stronger encrypted-volume preflight checks |
+| Networking and privacy | NetworkManager DNS caching, optional DNS-over-HTTPS, Wi-Fi MAC privacy controls, mDNS-aware printer discovery, and automatic Wi-Fi regulatory configuration |
 | Pacman | Parallel download controls, color output, `ILoveCandy`, and automatic package-cache cleanup for desktop profiles |
+| Maintenance | Import-boundary CI, dependency dashboard support, and a maintainer-facing package dependency contract |
 
 Most additions are choices in the guided installer. The desktop baseline includes only broadly useful integration and diagnostic packages; larger, specialized, or experimental components require an explicit selection.
 
@@ -86,7 +87,7 @@ Every section presents a consistent summary. Mandatory problems are identified b
 
 The **System services** menu brings common post-install decisions into one place:
 
-- PipeWire or PulseAudio, with `rtkit` integration for PipeWire
+- PipeWire or PulseAudio, with `rtkit` integration for PipeWire; PipeWire installations also receive a system-wide surround-upmix preset
 - complete GStreamer and FFmpeg multimedia support
 - Bluetooth
 - CUPS printing and network-printer discovery
@@ -124,7 +125,11 @@ Multilib is enabled only when a selected option requires 32-bit packages. Compat
 
 ### Graphics and desktop integration
 
-Graphics packages follow the driver chosen in the desktop profile. The installer can add:
+Graphics packages follow the driver chosen in the desktop profile. Hardware detection now recommends a graphics driver automatically when there is one unambiguous AMD, Intel, NVIDIA, or VirtualBox choice. The recommendation is only a default: the normal driver menu remains available for manual override, and mixed-GPU systems fall back to the broad open-source option.
+
+New desktop selections are Wayland-first. Xorg-only environments remain available through an explicit compatibility choice, and existing saved configurations that already select an Xorg desktop continue to expose those profiles.
+
+The installer can also add:
 
 - matching 32-bit Mesa, Vulkan, or NVIDIA libraries
 - driver-appropriate OpenCL runtimes for compute workloads
@@ -145,17 +150,24 @@ Swap-on-zram is enabled by default and can be disabled. When enabled, it uses:
 - balanced parameters for tunable LZ4 and LZ4HC alternatives
 - the ArchWiki-recommended virtual-memory values for prioritizing compressed RAM and reducing swap read-ahead
 
+Disk-backed swap partitions can be selected for LUKS encryption. This is particularly useful for hibernation-capable systems because memory written to swap is then protected at rest. The installer unlocks and activates encrypted swap mappings so generated filesystem configuration sees the correct mapped device.
+
+Before opening any LUKS volume, the installer also verifies that the live environment exposes the kernel's `dm-crypt` target and attempts to load it when necessary. Missing kernel support produces a direct installer error rather than an opaque `cryptsetup` device-mapper failure.
+
 Automatically generated Btrfs layouts use transparent Zstandard compression by default. Compression and Copy-on-Write behavior remain configurable when a workload needs something different.
 
 ### Networking and DNS
 
-NetworkManager installations can use either:
+NetworkManager installations can use:
 
 - `systemd-resolved`, the recommended default, through its local `127.0.0.53` caching stub
 - NetworkManager's local `dnsmasq` integration with an expanded cache
+- encrypted DNS-over-HTTPS through `dnscrypt-proxy`
 - no local DNS cache
 
-DNS caching can reduce repeated lookup latency, but it does not increase connection bandwidth.
+The DNS-over-HTTPS option configures a local `dnscrypt-proxy` listener, restricts it to DoH-capable resolvers, requires DNSSEC-capable upstreams, and points the installed system's resolver at the local encrypted-DNS proxy. DNS caching can reduce repeated lookup latency, but it does not increase connection bandwidth.
+
+For Wi-Fi privacy, NetworkManager users can preserve the hardware MAC address, use a stable private address unique to each network, or generate a new random address for each connection. The two privacy modes also enable randomized MAC addresses during Wi-Fi scanning. The stable per-network option reduces passive tracking while avoiding needless address changes on every reconnect.
 
 #### Automatic Wi-Fi regulatory domains
 
@@ -177,6 +189,8 @@ Timezone, network time synchronization, and hardware-clock behavior are configur
 
 When a Windows Boot Manager EFI entry is detected, the installer defaults away from writing the hardware clock as UTC to reduce common dual-boot clock conflicts. The user can override that choice.
 
+For partitioning, BitLocker/device-encryption precautions, EFI System Partition reuse, Fast Startup, boot recovery, and post-install checks, see the [Windows dual-boot guide](docs/installing/windows-dual-boot.rst).
+
 ### Pacman and maintenance
 
 The guided Pacman menu exposes:
@@ -189,7 +203,7 @@ Desktop profiles install `pacman-contrib` and enable the weekly `paccache.timer`
 
 ## Saved configurations
 
-Archinstall Enhanced uses Archinstall's normal JSON configuration system. Fork-specific settings are saved alongside upstream settings and restored through the same interface.
+Archinstall Enhanced uses Archinstall's normal JSON configuration system. Fork-specific settings are saved alongside upstream settings and restored through the same interface, including DNS resolver and Wi-Fi MAC privacy choices.
 
 Examples are available in:
 
@@ -231,9 +245,14 @@ ruff check .
 ruff format --check .
 mypy .
 bandit -c pyproject.toml -r archinstall
+lint-imports
 ```
 
-The repository also retains upstream build, documentation, translation, lint, ISO, and UKI workflows. Installation-critical changes should be tested in an Arch Linux environment and on disposable virtual hardware before use on a real disk.
+Import Linter enforces package boundaries that are safe to require today; the initial contract prevents the model/data layer from depending on the terminal-UI layer. The contract can be tightened as older dependency cycles are removed.
+
+`packaging/archinstall-enhanced-meta/PKGBUILD` is a maintainer-facing dependency contract listing packages used by core installer and optional feature paths. It is intended to make package renames and rebuild-sensitive dependencies easier to audit, not as a package normal users need to install.
+
+The repository also retains build, documentation, translation, lint, ISO, and UKI workflows. Installation-critical changes should be tested in an Arch Linux environment and on disposable virtual hardware before use on a real disk.
 
 The installation progress screen reports the current stage while the detailed log remains available for diagnosis.
 
@@ -243,7 +262,7 @@ The installation progress screen reports the current stage while the detailed lo
 
 ## Contributing
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before submitting a change. Fork-specific patches should have a focused purpose, preserve upstream compatibility where practical, include tests for behavioral changes, and cite supporting documentation for system-level defaults.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before submitting a change. Fork-specific patches should have a focused purpose, preserve compatibility where practical, include tests for behavioral changes, and cite supporting documentation for system-level defaults. The contribution guide also defines expectations for AI-assisted development and review responsibility.
 
 Bug reports caused by this fork belong in this repository. General Archinstall questions and upstream issues should use the official project resources.
 
@@ -252,7 +271,6 @@ Bug reports caused by this fork belong in this repository. General Archinstall q
 - [Archinstall documentation](https://archinstall.archlinux.page/)
 - [Official Archinstall repository](https://github.com/archlinux/archinstall)
 - [Arch Linux wiki](https://wiki.archlinux.org/)
-- [EndeavourOS wiki](https://discovery.endeavouros.com/wiki/)
 - [CachyOS wiki](https://wiki.cachyos.org/)
 - [Manjaro wiki](https://wiki.manjaro.org/)
 - [Fedora wiki](https://fedoraproject.org/wiki/Fedora_Project_Wiki)

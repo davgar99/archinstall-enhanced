@@ -17,6 +17,7 @@ Some of the features of Archinstall are:
    :caption: Running Archinstall
 
    installing/guided
+   installing/windows-dual-boot
 
 .. toctree::
    :maxdepth: 3

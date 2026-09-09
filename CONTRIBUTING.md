@@ -36,6 +36,19 @@ The exceptions to PEP8 are:
 Most of these style guidelines have been put into place after the fact *(in an attempt to clean up the code)*.<br>
 There might therefore be older code which does not follow the coding convention and the code is subject to change.
 
+## AI-assisted contributions
+
+AI-assisted development is permitted, but the person submitting a change remains responsible for every line that is submitted.
+
+* Review and understand generated or suggested code before committing it.
+* Reproduce the bug or explain the feature requirement rather than submitting speculative bulk changes.
+* Run the relevant tests, linters, type checks, and build validation for the affected code.
+* Disclose substantial AI assistance in the pull-request description when it materially produced or transformed the implementation, tests, or documentation.
+* Do not use generated commit messages, review text, or documentation without checking that they accurately describe the actual change.
+* Large mechanically generated changes may be rejected when their scope, rationale, or verification is unclear.
+
+The same quality, licensing, security, and review requirements apply whether a contribution was written manually or with tooling assistance.
+
 ## Git hooks
 
 `archinstall` ships pre-commit hooks that make it easier to run checks such as `mypy`, `ruff check`, and `flake8` locally.
