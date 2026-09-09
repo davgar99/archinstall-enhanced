@@ -1,8 +1,16 @@
 name: Python syntax validation
 
-on: [ push, pull_request ]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 
 permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   compileall:

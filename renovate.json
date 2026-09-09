@@ -5,6 +5,8 @@
     "helpers:pinGitHubActionDigests"
   ],
   "configMigration": true,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
   "pre-commit": {
     "enabled": true
   },
