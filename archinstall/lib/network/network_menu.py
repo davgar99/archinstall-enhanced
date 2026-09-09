@@ -12,18 +12,8 @@ from archinstall.tui.result import ResultType
 
 class ManualNetworkConfig(ListManager[Nic]):
 	def __init__(self, prompt: str, preset: list[Nic]):
-		self._actions = [
-			tr('Add interface'),
-			tr('Edit interface'),
-			tr('Delete interface'),
-		]
-
-		super().__init__(
-			preset,
-			[self._actions[0]],
-			self._actions[1:],
-			prompt,
-		)
+		self._actions = [tr('Add interface'), tr('Edit interface'), tr('Delete interface')]
+		super().__init__(preset, [self._actions[0]], self._actions[1:], prompt)
 
 	async def show(self) -> list[Nic] | None:
 		return await super()._run()
@@ -37,36 +27,26 @@ class ManualNetworkConfig(ListManager[Nic]):
 		if action == self._actions[0]:
 			iface = await self._select_iface(data)
 			if iface:
-				nic = Nic(iface=iface)
-				nic = await self._edit_iface(nic)
+				nic = await self._edit_iface(Nic(iface=iface))
 				data += [nic]
 		elif entry:
 			if action == self._actions[1]:
 				data = [d for d in data if d.iface != entry.iface]
-				nic = await self._edit_iface(entry)
-				data.append(nic)
+				data.append(await self._edit_iface(entry))
 			elif action == self._actions[2]:
 				data = [d for d in data if d != entry]
-
 		return data
 
 	async def _select_iface(self, data: list[Nic]) -> str | None:
 		all_ifaces = list_interfaces().values()
 		existing_ifaces = [d.iface for d in data]
 		available = set(all_ifaces) - set(existing_ifaces)
-
 		if not available:
 			return None
 
 		items = [MenuItem(i, value=i) for i in available]
 		group = MenuItemGroup(items, sort_items=True)
-
-		result = await Selection[str](
-			group,
-			header=tr('Select an interface'),
-			allow_skip=True,
-		).show()
-
+		result = await Selection[str](group, header=tr('Select an interface'), allow_skip=True).show()
 		match result.type_:
 			case ResultType.Skip:
 				return None
@@ -75,23 +55,22 @@ class ManualNetworkConfig(ListManager[Nic]):
 			case ResultType.Reset:
 				raise ValueError('Unhandled result type')
 
-	async def _get_ip_address(self, header: str, allow_skip: bool, multi: bool, preset: str | None = None, allow_empty: bool = False) -> str | None:
+	async def _get_ip_address(
+		self,
+		header: str,
+		allow_skip: bool,
+		multi: bool,
+		preset: str | None = None,
+		allow_empty: bool = False,
+	) -> str | None:
 		def validator(ip: str | None) -> str | None:
 			failure = tr('You need to enter a valid IP in IP-config mode')
-
 			if not ip:
-				if allow_empty:
-					return None
-				return failure
-
-			if multi:
-				ips = ip.split(' ')
-			else:
-				ips = [ip]
-
+				return None if allow_empty else failure
+			ips = ip.split(' ') if multi else [ip]
 			try:
-				for ip in ips:
-					ipaddress.ip_interface(ip)
+				for candidate in ips:
+					ipaddress.ip_interface(candidate)
 				return None
 			except ValueError:
 				return failure
@@ -102,7 +81,6 @@ class ManualNetworkConfig(ListManager[Nic]):
 			allow_skip=allow_skip,
 			default_value=preset,
 		).show()
-
 		match result.type_:
 			case ResultType.Skip:
 				return preset
@@ -115,14 +93,11 @@ class ManualNetworkConfig(ListManager[Nic]):
 		iface_name = edit_nic.iface
 		modes = ['DHCP (auto detect)', 'IP (static)']
 		default_mode = 'DHCP (auto detect)'
-
 		header = tr('Select which mode to configure for "{}"').format(iface_name)
 		items = [MenuItem(m, value=m) for m in modes]
 		group = MenuItemGroup(items, sort_items=True)
 		group.set_default_by_value(default_mode)
-
 		result = await Selection[str](group, header=header, allow_skip=False).show()
-
 		match result.type_:
 			case ResultType.Selection:
 				mode = result.get_value()
@@ -147,14 +122,15 @@ class ManualNetworkConfig(ListManager[Nic]):
 
 
 async def select_network(preset: NetworkConfiguration | None) -> NetworkConfiguration | None:
-	items = [MenuItem(n.display_msg(), value=n) for n in NicType]
+	items: list[MenuItem] = [MenuItem(tr('None (leave networking unconfigured)'), value=None)]
+	items.extend(MenuItem(network_type.display_msg(), value=network_type) for network_type in NicType)
 	group = MenuItemGroup(items, sort_items=False)
 	if preset:
 		group.set_selected_by_value(preset.type)
 
 	header = tr('Choose network configuration') + '\n'
 	header += tr('Recommended: Network Manager for desktop, Manual for server') + '\n'
-	result = await Selection[NicType](group, header=header, allow_reset=True, allow_skip=True).show()
+	result = await Selection[NicType | None](group, header=header, allow_reset=True, allow_skip=True).show()
 
 	match result.type_:
 		case ResultType.Skip:
@@ -163,6 +139,9 @@ async def select_network(preset: NetworkConfiguration | None) -> NetworkConfigur
 			return None
 		case ResultType.Selection:
 			config = result.get_value()
+			if config is None:
+				return None
+
 			dns_resolver = DnsResolver.SYSTEMD_RESOLVED
 			mac_address_policy = MacAddressPolicy.DEFAULT
 			if config in (NicType.NM, NicType.NM_IWD):

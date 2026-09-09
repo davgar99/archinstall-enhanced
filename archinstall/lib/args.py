@@ -33,7 +33,7 @@ from archinstall.lib.models.packages import Repository
 from archinstall.lib.models.pacman import PacmanConfiguration
 from archinstall.lib.models.profile import ProfileConfiguration
 from archinstall.lib.models.users import Password, User, UserSerialization
-from archinstall.lib.plugins import load_plugin
+from archinstall.lib.plugins import load_plugin, load_plugin_url
 from archinstall.lib.translationhandler import Language, tr, translation_handler
 from archinstall.lib.utils.format import as_key_value_pair
 from archinstall.lib.version import get_version
@@ -673,7 +673,7 @@ class ArchConfigHandler:
 			type=str,
 			nargs='?',
 			default=None,
-			help='Url to a plugin file to load',
+			help='HTTPS URL to a plugin file to load',
 		)
 		parser.add_argument(
 			'--skip-version-check',
@@ -717,9 +717,7 @@ class ArchConfigHandler:
 			load_plugin(args.plugin)
 
 		if args.plugin_url:
-			plugin_data = self._fetch_from_url(args.plugin_url)
-			plugin_path = self._write_plugin_to_temp_file(plugin_data)
-			load_plugin(plugin_path)
+			load_plugin_url(args.plugin_url)
 
 		if args.creds_decryption_key is None:
 			if os.environ.get('ARCHINSTALL_CREDS_DECRYPTION_KEY'):
