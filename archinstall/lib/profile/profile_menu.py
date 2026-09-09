@@ -1,7 +1,7 @@
 from typing import override
 
 from archinstall.default_profiles.profile import GreeterType, Profile
-from archinstall.lib.general.system_menu import select_driver
+from archinstall.lib.general.system_menu import recommended_gfx_driver, select_driver
 from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.menu.abstract_menu import AbstractSubMenu
 from archinstall.lib.menu.helpers import Confirmation, Selection
@@ -83,7 +83,7 @@ class ProfileMenu(AbstractSubMenu[ProfileConfiguration]):
 				self._item_group.find_by_key('install_opencl').value = None
 			else:
 				self._item_group.find_by_key('gfx_driver').enabled = True
-				self._item_group.find_by_key('gfx_driver').value = GfxDriver.AllOpenSource
+				self._item_group.find_by_key('gfx_driver').value = recommended_gfx_driver()
 				self._item_group.find_by_key('install_opencl').enabled = True
 
 			if not profile.is_greeter_supported():

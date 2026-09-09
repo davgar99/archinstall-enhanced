@@ -50,5 +50,19 @@ class AudioApp:
 		match audio_config.audio:
 			case Audio.PIPEWIRE:
 				install_session.add_additional_packages(self.pipewire_packages)
+				self._configure_pipewire_surround(install_session)
 			case Audio.PULSEAUDIO:
 				install_session.add_additional_packages(self.pulseaudio_packages)
+
+	def _configure_pipewire_surround(self, install_session: Installer) -> None:
+		config_dir = install_session.target / 'etc/pipewire/pipewire-pulse.conf.d'
+		config_dir.mkdir(parents=True, exist_ok=True)
+		(config_dir / '10-surround-upmix.conf').write_text(
+			'stream.properties = {\n'
+			'    channelmix.upmix = true\n'
+			'    channelmix.upmix-method = psd\n'
+			'    channelmix.lfe-cutoff = 150.0\n'
+			'    channelmix.fc-cutoff = 12000.0\n'
+			'    channelmix.rear-delay = 12.0\n'
+			'}\n'
+		)
