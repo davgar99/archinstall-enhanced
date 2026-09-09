@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum, auto
 from typing import Any, NotRequired, Self, TypedDict, override
 
@@ -35,6 +35,43 @@ class MultimediaConfigSerialization(TypedDict):
 
 class FirmwareConfigSerialization(TypedDict):
 	enabled: bool
+
+
+class KernelHeadersConfigSerialization(TypedDict):
+	enabled: bool
+
+
+class FirmwarePackageMode(StrEnum):
+	FULL = 'full'
+	MINIMAL = 'minimal'
+	VENDOR = 'vendor'
+
+	def display_msg(self) -> str:
+		match self:
+			case FirmwarePackageMode.FULL:
+				return tr('Full firmware set (recommended)')
+			case FirmwarePackageMode.MINIMAL:
+				return tr('Minimal / no generic firmware (VMs and controlled servers only)')
+			case FirmwarePackageMode.VENDOR:
+				return tr('Selected vendor firmware packages')
+
+
+class FirmwareVendor(StrEnum):
+	AMD_GPU = 'linux-firmware-amdgpu'
+	ATHEROS = 'linux-firmware-atheros'
+	BROADCOM = 'linux-firmware-broadcom'
+	CIRRUS = 'linux-firmware-cirrus'
+	INTEL = 'linux-firmware-intel'
+	MEDIATEK = 'linux-firmware-mediatek'
+	NVIDIA = 'linux-firmware-nvidia'
+	OTHER = 'linux-firmware-other'
+	RADEON = 'linux-firmware-radeon'
+	REALTEK = 'linux-firmware-realtek'
+
+
+class FirmwarePackagesConfigSerialization(TypedDict):
+	mode: str
+	vendors: list[str]
 
 
 class PrintServiceConfigSerialization(TypedDict):
@@ -99,6 +136,8 @@ class ApplicationSerialization(TypedDict):
 	audio_config: NotRequired[AudioConfigSerialization]
 	multimedia_config: NotRequired[MultimediaConfigSerialization]
 	firmware_config: NotRequired[FirmwareConfigSerialization]
+	firmware_packages_config: NotRequired[FirmwarePackagesConfigSerialization]
+	kernel_headers_config: NotRequired[KernelHeadersConfigSerialization]
 	power_management_config: NotRequired[PowerManagementConfigSerialization]
 	print_service_config: NotRequired[PrintServiceConfigSerialization]
 	firewall_config: NotRequired[FirewallConfigSerialization]
@@ -110,15 +149,11 @@ class AudioConfiguration:
 	audio: Audio
 
 	def json(self) -> AudioConfigSerialization:
-		return {
-			'audio': self.audio.value,
-		}
+		return {'audio': self.audio.value}
 
 	@classmethod
 	def parse_arg(cls, arg: dict[str, Any]) -> Self:
-		return cls(
-			Audio(arg['audio']),
-		)
+		return cls(Audio(arg['audio']))
 
 
 @dataclass
@@ -146,6 +181,42 @@ class FirmwareConfiguration:
 
 
 @dataclass
+class KernelHeadersConfiguration:
+	enabled: bool = False
+
+	def json(self) -> KernelHeadersConfigSerialization:
+		return {'enabled': self.enabled}
+
+	@classmethod
+	def parse_arg(cls, arg: KernelHeadersConfigSerialization) -> Self:
+		return cls(enabled=arg.get('enabled', False))
+
+
+@dataclass
+class FirmwarePackagesConfiguration:
+	mode: FirmwarePackageMode = FirmwarePackageMode.FULL
+	vendors: list[FirmwareVendor] = field(default_factory=list)
+
+	def json(self) -> FirmwarePackagesConfigSerialization:
+		return {'mode': self.mode.value, 'vendors': [vendor.value for vendor in self.vendors]}
+
+	@classmethod
+	def parse_arg(cls, arg: FirmwarePackagesConfigSerialization) -> Self:
+		mode = FirmwarePackageMode(arg.get('mode', FirmwarePackageMode.FULL.value))
+		vendors = [FirmwareVendor(package) for package in arg.get('vendors', [])]
+		return cls(mode=mode, vendors=vendors)
+
+	def packages(self) -> list[str]:
+		match self.mode:
+			case FirmwarePackageMode.FULL:
+				return ['linux-firmware']
+			case FirmwarePackageMode.MINIMAL:
+				return []
+			case FirmwarePackageMode.VENDOR:
+				return [vendor.value for vendor in self.vendors]
+
+
+@dataclass
 class BluetoothConfiguration:
 	enabled: bool
 
@@ -162,15 +233,11 @@ class PowerManagementConfiguration:
 	power_management: PowerManagement
 
 	def json(self) -> PowerManagementConfigSerialization:
-		return {
-			'power_management': self.power_management.value,
-		}
+		return {'power_management': self.power_management.value}
 
 	@classmethod
 	def parse_arg(cls, arg: PowerManagementConfigSerialization) -> Self:
-		return cls(
-			PowerManagement(arg['power_management']),
-		)
+		return cls(PowerManagement(arg['power_management']))
 
 
 @dataclass
@@ -191,17 +258,11 @@ class FirewallConfiguration:
 	allow_ssh: bool = False
 
 	def json(self) -> FirewallConfigSerialization:
-		return {
-			'firewall': self.firewall.value,
-			'allow_ssh': self.allow_ssh,
-		}
+		return {'firewall': self.firewall.value, 'allow_ssh': self.allow_ssh}
 
 	@classmethod
 	def parse_arg(cls, arg: dict[str, Any]) -> Self:
-		return cls(
-			Firewall(arg['firewall']),
-			allow_ssh=arg.get('allow_ssh', False),
-		)
+		return cls(Firewall(arg['firewall']), allow_ssh=arg.get('allow_ssh', False))
 
 
 @dataclass
@@ -236,26 +297,18 @@ class ZramConfiguration(SubConfig):
 		algo = arg.get('algorithm', arg.get('algo', ZramAlgorithm.ZSTD.value))
 		if algo == 'lzo-rle zstd(level=3) (type=idle)':
 			algo = ZramAlgorithm.ZSTD.value
-		return cls(
-			enabled=enabled,
-			algorithm=ZramAlgorithm(algo),
-		)
+		return cls(enabled=enabled, algorithm=ZramAlgorithm(algo))
 
 	@override
 	def json(self) -> ZramConfigSerialization:
-		return {
-			'enabled': self.enabled,
-			'algorithm': self.algorithm.value,
-		}
+		return {'enabled': self.enabled, 'algorithm': self.algorithm.value}
 
 	@override
 	def summary(self) -> list[str]:
 		status = tr('Enabled') if self.enabled else tr('Disabled')
 		out = [f'{tr("Zram")}: {status}']
-
 		if self.enabled:
 			out.append(f'{tr("Zram algorithm")}: {self.algorithm.value}')
-
 		return out
 
 
@@ -265,6 +318,8 @@ class ApplicationConfiguration(SubConfig):
 	audio_config: AudioConfiguration | None = None
 	multimedia_config: MultimediaConfiguration | None = None
 	firmware_config: FirmwareConfiguration | None = None
+	firmware_packages_config: FirmwarePackagesConfiguration | None = None
+	kernel_headers_config: KernelHeadersConfiguration | None = None
 	power_management_config: PowerManagementConfiguration | None = None
 	print_service_config: PrintServiceConfiguration | None = None
 	firewall_config: FirewallConfiguration | None = None
@@ -280,97 +335,84 @@ class ApplicationConfiguration(SubConfig):
 
 		if args and (bluetooth_config := args.get('bluetooth_config')) is not None:
 			app_config.bluetooth_config = BluetoothConfiguration.parse_arg(bluetooth_config)
-
-		# deprecated: backwards compatibility
 		if old_audio_config is not None:
 			app_config.audio_config = AudioConfiguration.parse_arg(old_audio_config)
-
 		if args and (audio_config := args.get('audio_config')) is not None:
 			app_config.audio_config = AudioConfiguration.parse_arg(audio_config)
-
 		if args and (multimedia_config := args.get('multimedia_config')) is not None:
 			app_config.multimedia_config = MultimediaConfiguration.parse_arg(multimedia_config)
-
 		if args and (firmware_config := args.get('firmware_config')) is not None:
 			app_config.firmware_config = FirmwareConfiguration.parse_arg(firmware_config)
-
+		if args and (firmware_packages_config := args.get('firmware_packages_config')) is not None:
+			app_config.firmware_packages_config = FirmwarePackagesConfiguration.parse_arg(firmware_packages_config)
+		if args and (kernel_headers_config := args.get('kernel_headers_config')) is not None:
+			app_config.kernel_headers_config = KernelHeadersConfiguration.parse_arg(kernel_headers_config)
 		if args and (power_management_config := args.get('power_management_config')) is not None:
 			app_config.power_management_config = PowerManagementConfiguration.parse_arg(power_management_config)
-
 		if args and (print_service_config := args.get('print_service_config')) is not None:
 			app_config.print_service_config = PrintServiceConfiguration.parse_arg(print_service_config)
-
 		if args and (firewall_config := args.get('firewall_config')) is not None:
 			app_config.firewall_config = FirewallConfiguration.parse_arg(firewall_config)
-
 		if args and (fonts_config := args.get('fonts_config')) is not None:
 			app_config.fonts_config = FontsConfiguration.parse_arg(fonts_config)
-
 		return app_config
 
 	@override
 	def json(self) -> ApplicationSerialization:
 		config: ApplicationSerialization = {}
-
 		if self.bluetooth_config:
 			config['bluetooth_config'] = self.bluetooth_config.json()
-
 		if self.audio_config:
 			config['audio_config'] = self.audio_config.json()
-
 		if self.multimedia_config:
 			config['multimedia_config'] = self.multimedia_config.json()
-
 		if self.firmware_config:
 			config['firmware_config'] = self.firmware_config.json()
-
+		if self.firmware_packages_config:
+			config['firmware_packages_config'] = self.firmware_packages_config.json()
+		if self.kernel_headers_config:
+			config['kernel_headers_config'] = self.kernel_headers_config.json()
 		if self.power_management_config:
 			config['power_management_config'] = self.power_management_config.json()
-
 		if self.print_service_config:
 			config['print_service_config'] = self.print_service_config.json()
-
 		if self.firewall_config:
 			config['firewall_config'] = self.firewall_config.json()
-
 		if self.fonts_config:
 			config['fonts_config'] = self.fonts_config.json()
-
 		return config
 
 	@override
 	def summary(self) -> list[str]:
 		out: list[str] = []
-
 		if self.bluetooth_config:
 			status = tr('Enabled') if self.bluetooth_config.enabled else tr('Disabled')
 			out.append(f'{tr("Bluetooth")}: {status}')
-
 		if self.audio_config:
 			out.append(f'{tr("Audio server")}: {self.audio_config.audio.value}')
-
 		if self.multimedia_config:
 			status = tr('Enabled') if self.multimedia_config.enabled else tr('Disabled')
 			out.append(f'{tr("Multimedia codecs")}: {status}')
-
 		if self.firmware_config:
 			status = tr('Enabled') if self.firmware_config.enabled else tr('Disabled')
 			out.append(f'{tr("Firmware updates")}: {status}')
-
+		if self.firmware_packages_config:
+			out.append(f'{tr("Kernel firmware")}: {self.firmware_packages_config.mode.value}')
+			if self.firmware_packages_config.vendors:
+				out.append(', '.join(vendor.value for vendor in self.firmware_packages_config.vendors))
+		if self.kernel_headers_config:
+			status = tr('Enabled') if self.kernel_headers_config.enabled else tr('Disabled')
+			out.append(f'{tr("Kernel headers")}: {status}')
 		if self.power_management_config:
 			out.append(f'{tr("Power management")}: {self.power_management_config.power_management.value}')
-
 		if self.print_service_config:
 			status = tr('Enabled') if self.print_service_config.enabled else tr('Disabled')
 			out.append(f'{tr("Print service")}: {status}')
-
 		if self.firewall_config:
 			out.append(f'{tr("Firewall")}: {self.firewall_config.firewall.value}')
 			ssh_status = tr('Allowed') if self.firewall_config.allow_ssh else tr('Blocked')
 			out.append(f'{tr("Incoming SSH")}: {ssh_status}')
-
 		if self.fonts_config and self.fonts_config.fonts:
 			fonts = ', '.join(f.value for f in self.fonts_config.fonts)
 			out.append(f'{tr("Extra fonts")}: {fonts}')
-
 		return out

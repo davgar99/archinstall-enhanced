@@ -1,7 +1,7 @@
 from typing import override
 
 from archinstall.lib.menu.abstract_menu import AbstractSubMenu
-from archinstall.lib.menu.helpers import Confirmation, Selection
+from archinstall.lib.menu.helpers import Confirmation, Notify, Selection
 from archinstall.lib.models.application import (
 	ApplicationConfiguration,
 	Audio,
@@ -10,8 +10,12 @@ from archinstall.lib.models.application import (
 	Firewall,
 	FirewallConfiguration,
 	FirmwareConfiguration,
+	FirmwarePackageMode,
+	FirmwarePackagesConfiguration,
+	FirmwareVendor,
 	FontPackage,
 	FontsConfiguration,
+	KernelHeadersConfiguration,
 	MultimediaConfiguration,
 	PowerManagement,
 	PowerManagementConfiguration,
@@ -23,23 +27,11 @@ from archinstall.tui.result import ResultType
 
 
 class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
-	def __init__(
-		self,
-		preset: ApplicationConfiguration | None = None,
-	):
-		if preset:
-			self._app_config = preset
-		else:
-			self._app_config = ApplicationConfiguration()
-
+	def __init__(self, preset: ApplicationConfiguration | None = None):
+		self._app_config = preset or ApplicationConfiguration()
 		menu_options = self._define_menu_options()
 		self._item_group = MenuItemGroup(menu_options, checkmarks=True)
-
-		super().__init__(
-			self._item_group,
-			config=self._app_config,
-			allow_reset=True,
-		)
+		super().__init__(self._item_group, config=self._app_config, allow_reset=True)
 
 	@override
 	async def show(self) -> ApplicationConfiguration | None:
@@ -49,6 +41,20 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 	def _define_menu_options(self) -> list[MenuItem]:
 		return [
 			MenuItem(text=tr('Hardware'), role=MenuItemRole.SECTION),
+			MenuItem(
+				text=tr('Kernel firmware'),
+				action=select_firmware_packages,
+				value=self._app_config.firmware_packages_config,
+				preview_action=self._prev_firmware_packages,
+				key='firmware_packages_config',
+			),
+			MenuItem(
+				text=tr('Kernel headers'),
+				action=select_kernel_headers,
+				value=self._app_config.kernel_headers_config,
+				preview_action=self._prev_kernel_headers,
+				key='kernel_headers_config',
+			),
 			MenuItem(
 				text=tr('Bluetooth'),
 				action=select_bluetooth,
@@ -106,6 +112,22 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 			),
 		]
 
+	def _prev_firmware_packages(self, item: MenuItem) -> str | None:
+		if item.value is None:
+			return None
+		config: FirmwarePackagesConfiguration = item.value
+		text = f'{tr("Kernel firmware")}: {config.mode.display_msg()}'
+		if config.vendors:
+			text += '\n' + ', '.join(vendor.value for vendor in config.vendors)
+		return text
+
+	def _prev_kernel_headers(self, item: MenuItem) -> str | None:
+		if item.value is None:
+			return None
+		config: KernelHeadersConfiguration = item.value
+		status = tr('Enabled') if config.enabled else tr('Disabled')
+		return f'{tr("Kernel headers")}: {status}'
+
 	def _prev_power_management(self, item: MenuItem) -> str | None:
 		if item.value is not None:
 			config: PowerManagementConfiguration = item.value
@@ -114,11 +136,9 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 
 	def _prev_bluetooth(self, item: MenuItem) -> str | None:
 		if item.value is not None:
-			bluetooth_config: BluetoothConfiguration = item.value
-
-			output = f'{tr("Bluetooth")}: '
-			output += tr('Enabled') if bluetooth_config.enabled else tr('Disabled')
-			return output
+			config: BluetoothConfiguration = item.value
+			status = tr('Enabled') if config.enabled else tr('Disabled')
+			return f'{tr("Bluetooth")}: {status}'
 		return None
 
 	def _prev_audio(self, item: MenuItem) -> str | None:
@@ -129,11 +149,9 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 
 	def _prev_print_service(self, item: MenuItem) -> str | None:
 		if item.value is not None:
-			print_service_config: PrintServiceConfiguration = item.value
-
-			output = f'{tr("Print service")}: '
-			output += tr('Enabled') if print_service_config.enabled else tr('Disabled')
-			return output
+			config: PrintServiceConfiguration = item.value
+			status = tr('Enabled') if config.enabled else tr('Disabled')
+			return f'{tr("Print service")}: {status}'
 		return None
 
 	def _prev_multimedia(self, item: MenuItem) -> str | None:
@@ -165,16 +183,80 @@ class ApplicationMenu(AbstractSubMenu[ApplicationConfiguration]):
 		return None
 
 
-async def select_power_management(preset: PowerManagementConfiguration | None = None) -> PowerManagementConfiguration | None:
-	group = MenuItemGroup.from_enum(PowerManagement)
-	group.set_default_by_value(PowerManagement.POWER_PROFILES_DAEMON)
-
-	result = await Selection[PowerManagement](
+async def select_firmware_packages(preset: FirmwarePackagesConfiguration | None = None) -> FirmwarePackagesConfiguration | None:
+	items = [MenuItem(mode.display_msg(), value=mode) for mode in FirmwarePackageMode]
+	group = MenuItemGroup(items, sort_items=False)
+	group.set_default_by_value(preset.mode if preset else FirmwarePackageMode.FULL)
+	result = await Selection[FirmwarePackageMode](
 		group,
+		header=tr('Choose how Linux firmware packages should be installed.'),
 		allow_skip=True,
 		allow_reset=True,
 	).show()
 
+	mode = preset.mode if preset else FirmwarePackageMode.FULL
+	match result.type_:
+		case ResultType.Skip:
+			return preset
+		case ResultType.Reset:
+			return None
+		case ResultType.Selection:
+			mode = result.get_value()
+
+	if mode != FirmwarePackageMode.VENDOR:
+		return FirmwarePackagesConfiguration(mode=mode)
+
+	vendor_items = [MenuItem(vendor.value, value=vendor) for vendor in FirmwareVendor]
+	vendor_group = MenuItemGroup(vendor_items, sort_items=True)
+	if preset and preset.mode == FirmwarePackageMode.VENDOR:
+		vendor_group.set_selected_by_value(preset.vendors)
+
+	has_preset_vendors = bool(preset and preset.mode == FirmwarePackageMode.VENDOR and preset.vendors)
+
+	while True:
+		vendor_result = await Selection[FirmwareVendor](
+			vendor_group,
+			header=tr('Select every firmware vendor needed by this machine.'),
+			allow_skip=True,
+			allow_reset=True,
+			multi=True,
+		).show()
+
+		match vendor_result.type_:
+			case ResultType.Selection:
+				vendors = vendor_result.get_values()
+				if not vendors:
+					await Notify(tr('Select at least one vendor, or choose a different firmware option.')).show()
+					continue
+				return FirmwarePackagesConfiguration(mode=mode, vendors=vendors)
+			case ResultType.Skip:
+				if has_preset_vendors:
+					return preset
+				await Notify(tr('No vendor selected — falling back to the full firmware set.')).show()
+				return FirmwarePackagesConfiguration(mode=FirmwarePackageMode.FULL)
+			case ResultType.Reset:
+				await Notify(tr('No vendor selected — falling back to the full firmware set.')).show()
+				return FirmwarePackagesConfiguration(mode=FirmwarePackageMode.FULL)
+
+
+async def select_kernel_headers(preset: KernelHeadersConfiguration | None = None) -> KernelHeadersConfiguration | None:
+	result = await Confirmation(
+		header=tr('Install matching header packages for every selected kernel? This is useful for DKMS and out-of-tree modules.'),
+		allow_skip=True,
+	).show()
+	match result.type_:
+		case ResultType.Selection:
+			return KernelHeadersConfiguration(enabled=result.get_value())
+		case ResultType.Skip:
+			return preset
+		case _:
+			raise ValueError('Unhandled result type')
+
+
+async def select_power_management(preset: PowerManagementConfiguration | None = None) -> PowerManagementConfiguration | None:
+	group = MenuItemGroup.from_enum(PowerManagement)
+	group.set_default_by_value(PowerManagement.POWER_PROFILES_DAEMON)
+	result = await Selection[PowerManagement](group, allow_skip=True, allow_reset=True).show()
 	match result.type_:
 		case ResultType.Skip:
 			return preset
@@ -185,13 +267,7 @@ async def select_power_management(preset: PowerManagementConfiguration | None = 
 
 
 async def select_bluetooth(preset: BluetoothConfiguration | None) -> BluetoothConfiguration | None:
-	header = tr('Would you like to configure Bluetooth?') + '\n'
-
-	result = await Confirmation(
-		header=header,
-		allow_skip=True,
-	).show()
-
+	result = await Confirmation(header=tr('Would you like to configure Bluetooth?') + '\n', allow_skip=True).show()
 	match result.type_:
 		case ResultType.Selection:
 			return BluetoothConfiguration(result.get_value())
@@ -202,16 +278,9 @@ async def select_bluetooth(preset: BluetoothConfiguration | None) -> BluetoothCo
 
 
 async def select_print_service(preset: PrintServiceConfiguration | None) -> PrintServiceConfiguration | None:
-	header = tr('Would you like to configure the print service?') + '\n'
-
-	result = await Confirmation(
-		header=header,
-		allow_skip=True,
-	).show()
-
+	result = await Confirmation(header=tr('Would you like to configure the print service?') + '\n', allow_skip=True).show()
 	match result.type_:
 		case ResultType.Selection:
-			result.get_value()
 			return PrintServiceConfiguration(result.get_value())
 		case ResultType.Skip:
 			return preset
@@ -222,13 +291,7 @@ async def select_print_service(preset: PrintServiceConfiguration | None) -> Prin
 async def select_audio(preset: AudioConfiguration | None = None) -> AudioConfiguration | None:
 	items = [MenuItem(a.value, value=a) for a in Audio]
 	group = MenuItemGroup(items)
-
-	result = await Selection[Audio](
-		group,
-		header=tr('Select audio configuration'),
-		allow_skip=True,
-	).show()
-
+	result = await Selection[Audio](group, header=tr('Select audio configuration'), allow_skip=True).show()
 	match result.type_:
 		case ResultType.Skip:
 			return preset
@@ -246,7 +309,6 @@ async def select_multimedia(preset: MultimediaConfiguration | None = None) -> Mu
 		),
 		allow_skip=True,
 	).show()
-
 	match result.type_:
 		case ResultType.Selection:
 			return MultimediaConfiguration(result.get_value())
@@ -261,7 +323,6 @@ async def select_firmware(preset: FirmwareConfiguration | None = None) -> Firmwa
 		header=tr('Install firmware update support and enable automatic update-metadata refreshes?'),
 		allow_skip=True,
 	).show()
-
 	match result.type_:
 		case ResultType.Selection:
 			return FirmwareConfiguration(result.get_value())
@@ -274,13 +335,7 @@ async def select_firmware(preset: FirmwareConfiguration | None = None) -> Firmwa
 async def select_firewall(preset: FirewallConfiguration | None = None) -> FirewallConfiguration | None:
 	group = MenuItemGroup.from_enum(Firewall)
 	group.set_default_by_value(Firewall.FWD)
-
-	result = await Selection[Firewall](
-		group,
-		allow_skip=True,
-		allow_reset=True,
-	).show()
-
+	result = await Selection[Firewall](group, allow_skip=True, allow_reset=True).show()
 	match result.type_:
 		case ResultType.Skip:
 			return preset
@@ -290,12 +345,10 @@ async def select_firewall(preset: FirewallConfiguration | None = None) -> Firewa
 				header=tr('Allow incoming SSH connections through the firewall?') + '\n',
 				allow_skip=True,
 			).show()
-
 			if ssh_result.type_ == ResultType.Skip:
 				allow_ssh = preset.allow_ssh if preset else False
 			else:
 				allow_ssh = bool(ssh_result.get_value())
-
 			return FirewallConfiguration(firewall=firewall, allow_ssh=allow_ssh)
 		case ResultType.Reset:
 			return None
@@ -304,11 +357,9 @@ async def select_firewall(preset: FirewallConfiguration | None = None) -> Firewa
 async def select_fonts(preset: FontsConfiguration | None = None) -> FontsConfiguration | None:
 	items = [MenuItem(f'{f.value} ({f.description()})', value=f) for f in FontPackage]
 	group = MenuItemGroup(items)
-
 	if preset:
-		for f in preset.fonts:
-			group.set_selected_by_value(f)
-
+		for font in preset.fonts:
+			group.set_selected_by_value(font)
 	result = await Selection[FontPackage](
 		group,
 		header=tr('Select font packages to install'),
@@ -316,14 +367,11 @@ async def select_fonts(preset: FontsConfiguration | None = None) -> FontsConfigu
 		allow_reset=True,
 		multi=True,
 	).show()
-
 	match result.type_:
 		case ResultType.Skip:
 			return preset
 		case ResultType.Selection:
 			selected = result.get_values()
-			if selected:
-				return FontsConfiguration(fonts=selected)
-			return None
+			return FontsConfiguration(fonts=selected) if selected else None
 		case ResultType.Reset:
 			return None
