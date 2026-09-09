@@ -30,6 +30,7 @@ class ProfileType(Enum):
 
 
 class GreeterType(Enum):
+	NoGreeter = 'None (do not install a greeter)'
 	Lightdm = 'lightdm-gtk-greeter'
 	LightdmSlick = 'lightdm-slick-greeter'
 	Sddm = 'sddm'
@@ -72,8 +73,6 @@ class Profile:
 		self._support_greeter = support_greeter
 		self._display_server = display_server
 
-		# self.gfx_driver: str | None = None
-
 		if current_selection is None:
 			current_selection = []
 
@@ -86,64 +85,37 @@ class Profile:
 
 	@property
 	def packages(self) -> list[str]:
-		"""
-		Returns a list of packages that should be installed when
-		this profile is among the chosen ones
-		"""
+		"""Returns packages installed when this profile is selected."""
 		return self._packages
 
 	@property
 	def services(self) -> list[str]:
-		"""
-		Returns a list of services that should be enabled when
-		this profile is among the chosen ones
-		"""
+		"""Returns services enabled when this profile is selected."""
 		return self._services
 
 	@property
 	def default_greeter_type(self) -> GreeterType | None:
-		"""
-		Setting a default greeter type for a desktop profile
-		"""
+		"""Setting a default greeter type for a desktop profile."""
 		return None
 
 	def install(self, install_session: Installer) -> None:
-		"""
-		Performs installation steps when this profile was selected
-		"""
+		"""Perform installation steps when this profile is selected."""
 
 	def post_install(self, install_session: Installer) -> None:
-		"""
-		Hook that will be called when the installation process is
-		finished and custom installation steps for specific default_profiles
-		are needed
-		"""
+		"""Hook for profile-specific post-installation work."""
 
 	def provision(self, install_session: Installer, users: list[User]) -> None:
-		"""
-		Hook that will be called when the installation process is
-		finished and user configuration for specific default_profiles
-		is needed
-		"""
+		"""Hook for user provisioning after profile installation."""
 
 	def json(self) -> dict[str, str]:
-		"""
-		Returns a json representation of the profile
-		"""
+		"""Returns a JSON representation of the profile."""
 		return {}
 
 	async def do_on_select(self) -> SelectResult | None:
-		"""
-		Hook that will be called when a profile is selected
-		"""
+		"""Hook called when a profile is selected."""
 		return SelectResult.NewSelection
 
 	def set_custom_settings(self, settings: dict[CustomSetting, str | None]) -> None:
-		"""
-		Set the custom settings for the profile.
-		This is also called when the settings are parsed from the config
-		and can be overridden to perform further actions based on the profile
-		"""
 		self.custom_settings = settings
 
 	def current_selection_names(self) -> list[str]:
@@ -176,10 +148,9 @@ class Profile:
 	def is_graphic_driver_supported(self) -> bool:
 		if not self.current_selection:
 			return self._support_gfx_driver
-		else:
-			if any(p._support_gfx_driver for p in self.current_selection):
-				return True
-			return False
+		if any(p._support_gfx_driver for p in self.current_selection):
+			return True
+		return False
 
 	def is_greeter_supported(self) -> bool:
 		return self._support_greeter
@@ -189,9 +160,7 @@ class Profile:
 		return self._display_server
 
 	def preview_text(self) -> str:
-		"""
-		Override this method to provide a preview text for the profile
-		"""
+		"""Override this method to provide a preview text for the profile."""
 		if self.is_desktop_type_profile():
 			if self._display_server:
 				text = tr('Environment type: {} {}').format(self._display_server.value, self.profile_type.value)

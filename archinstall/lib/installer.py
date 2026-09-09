@@ -459,6 +459,7 @@ class Installer:
 				part_mod.safe_dev_path,
 				mapper_name=part_mod.mapper_name,
 				password=self._disk_encryption.encryption_password,
+				cipher=self._disk_encryption.cipher,
 			)
 
 			if gen_enc_file and not part_mod.is_root():
@@ -488,6 +489,7 @@ class Installer:
 				vol.safe_dev_path,
 				mapper_name=vol.mapper_name,
 				password=self._disk_encryption.encryption_password,
+				cipher=self._disk_encryption.cipher,
 			)
 
 			if gen_enc_file and not vol.is_root():

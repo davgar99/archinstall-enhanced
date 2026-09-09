@@ -43,17 +43,17 @@ class Bootloader(Enum):
 	def get_default(uefi: bool, skip_boot: bool = False) -> Bootloader:
 		if skip_boot:
 			return Bootloader.NO_BOOTLOADER
-		elif uefi:
+		if uefi:
 			return Bootloader.Systemd
-		else:
-			return Bootloader.Grub
+		return Bootloader.Grub
 
 	@classmethod
 	def from_arg(cls, bootloader: str, skip_boot: bool) -> Self:
-		# to support old configuration files
+		# ``skip_boot`` remains part of the public parser API and only affects the
+		# default. An explicitly saved "No bootloader" value must round-trip too.
+		_ = skip_boot
 		bootloader = bootloader.capitalize()
-
-		bootloader_options = [e.value for e in cls if e != cls.NO_BOOTLOADER or skip_boot is True]
+		bootloader_options = [entry.value for entry in cls]
 
 		if bootloader not in bootloader_options:
 			values = ', '.join(bootloader_options)
@@ -81,13 +81,10 @@ class PlymouthTheme(Enum):
 			return None
 
 		plymouth = plymouth.lower()
-
-		values = [e.value for e in cls]
-
+		values = [entry.value for entry in cls]
 		if plymouth not in values:
 			warn(f'Invalid plymouth value "{plymouth}". Allowed values: {", ".join(values)}')
 			sys.exit(1)
-
 		return cls(plymouth)
 
 
@@ -107,7 +104,6 @@ class BootloaderConfiguration(SubConfig):
 			'removable': self.removable,
 			'os_prober': self.os_prober,
 		}
-
 		if self.plymouth is not None:
 			data['plymouth'] = self.plymouth.value
 		return data
@@ -115,7 +111,6 @@ class BootloaderConfiguration(SubConfig):
 	@override
 	def summary(self) -> list[str]:
 		out = [tr('Bootloader "{}"').format(self.bootloader.value)]
-
 		if self.uki:
 			out.append(tr('UKI enabled'))
 		if self.removable:
@@ -124,7 +119,6 @@ class BootloaderConfiguration(SubConfig):
 			out.append(f'os-prober: {tr("Enabled")}')
 		if self.plymouth is not None:
 			out.append(tr('Plymouth "{}"').format(self.plymouth.value))
-
 		return out
 
 	@classmethod
@@ -141,35 +135,19 @@ class BootloaderConfiguration(SubConfig):
 		bootloader = Bootloader.get_default(uefi, skip_boot)
 		removable = uefi and bootloader.has_removable_support()
 		uki = uefi and bootloader.has_uki_support()
-		plymouth = None
-		os_prober = False
-		return cls(bootloader=bootloader, uki=uki, removable=removable, plymouth=plymouth, os_prober=os_prober)
+		return cls(bootloader=bootloader, uki=uki, removable=removable, plymouth=None, os_prober=False)
 
 	def preview(self, uefi: bool) -> str:
-		text = f'{tr("Bootloader")}: {self.bootloader.value}'
-		text += '\n'
+		text = f'{tr("Bootloader")}: {self.bootloader.value}\n'
 		if uefi and self.bootloader.has_uki_support():
-			if self.uki:
-				uki_string = tr('Enabled')
-			else:
-				uki_string = tr('Disabled')
-			text += f'UKI: {uki_string}'
-			text += '\n'
+			uki_string = tr('Enabled') if self.uki else tr('Disabled')
+			text += f'UKI: {uki_string}\n'
 		if uefi and self.bootloader.has_removable_support():
-			if self.removable:
-				removable_string = tr('Enabled')
-			else:
-				removable_string = tr('Disabled')
-			text += f'{tr("Removable")}: {removable_string}'
-			text += '\n'
+			removable_string = tr('Enabled') if self.removable else tr('Disabled')
+			text += f'{tr("Removable")}: {removable_string}\n'
 		if self.bootloader.has_os_prober_support():
-			if self.os_prober:
-				os_prober_string = tr('Enabled')
-			else:
-				os_prober_string = tr('Disabled')
-			text += f'os-prober: {os_prober_string}'
-			text += '\n'
+			os_prober_string = tr('Enabled') if self.os_prober else tr('Disabled')
+			text += f'os-prober: {os_prober_string}\n'
 		if self.plymouth is not None:
-			text += f'{tr("Plymouth")}: {self.plymouth.value}'
-			text += '\n'
+			text += f'{tr("Plymouth")}: {self.plymouth.value}\n'
 		return text
