@@ -1,7 +1,7 @@
 from typing import override
 
 from archinstall.lib.menu.abstract_menu import AbstractSubMenu
-from archinstall.lib.menu.helpers import Confirmation, Selection
+from archinstall.lib.menu.helpers import Confirmation, Notify, Selection
 from archinstall.lib.models.application import (
 	ApplicationConfiguration,
 	Audio,
@@ -210,20 +210,33 @@ async def select_firmware_packages(preset: FirmwarePackagesConfiguration | None 
 	vendor_group = MenuItemGroup(vendor_items, sort_items=True)
 	if preset and preset.mode == FirmwarePackageMode.VENDOR:
 		vendor_group.set_selected_by_value(preset.vendors)
-	vendor_result = await Selection[FirmwareVendor](
-		vendor_group,
-		header=tr('Select every firmware vendor needed by this machine.'),
-		allow_skip=True,
-		allow_reset=True,
-		multi=True,
-	).show()
-	match vendor_result.type_:
-		case ResultType.Selection:
-			return FirmwarePackagesConfiguration(mode=mode, vendors=vendor_result.get_values())
-		case ResultType.Skip:
-			return preset if preset else FirmwarePackagesConfiguration(mode=mode)
-		case ResultType.Reset:
-			return FirmwarePackagesConfiguration(mode=mode)
+
+	has_preset_vendors = bool(preset and preset.mode == FirmwarePackageMode.VENDOR and preset.vendors)
+
+	while True:
+		vendor_result = await Selection[FirmwareVendor](
+			vendor_group,
+			header=tr('Select every firmware vendor needed by this machine.'),
+			allow_skip=True,
+			allow_reset=True,
+			multi=True,
+		).show()
+
+		match vendor_result.type_:
+			case ResultType.Selection:
+				vendors = vendor_result.get_values()
+				if not vendors:
+					await Notify(tr('Select at least one vendor, or choose a different firmware option.')).show()
+					continue
+				return FirmwarePackagesConfiguration(mode=mode, vendors=vendors)
+			case ResultType.Skip:
+				if has_preset_vendors:
+					return preset
+				await Notify(tr('No vendor selected — falling back to the full firmware set.')).show()
+				return FirmwarePackagesConfiguration(mode=FirmwarePackageMode.FULL)
+			case ResultType.Reset:
+				await Notify(tr('No vendor selected — falling back to the full firmware set.')).show()
+				return FirmwarePackagesConfiguration(mode=FirmwarePackageMode.FULL)
 
 
 async def select_kernel_headers(preset: KernelHeadersConfiguration | None = None) -> KernelHeadersConfiguration | None:

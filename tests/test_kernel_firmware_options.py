@@ -1,6 +1,12 @@
+import asyncio
+
+from pytest import MonkeyPatch
+
 from archinstall.lib.applications.application_handler import ApplicationHandler
+from archinstall.lib.applications.application_menu import select_firmware_packages
 from archinstall.lib.general.kernel_packages import installer_base_packages, kernel_header_packages
 from archinstall.lib.hardware import GfxDriver
+from archinstall.lib.menu.helpers import Notify, Selection
 from archinstall.lib.models.application import (
 	ApplicationConfiguration,
 	FirmwarePackageMode,
@@ -9,6 +15,7 @@ from archinstall.lib.models.application import (
 	KernelHeadersConfiguration,
 )
 from archinstall.lib.profile.profiles_handler import ProfileHandler
+from archinstall.tui.result import Result
 
 
 class FakeInstaller:
@@ -68,3 +75,59 @@ def test_firmware_policy_round_trip() -> None:
 	assert parsed.firmware_packages_config is not None
 	assert parsed.firmware_packages_config.mode == FirmwarePackageMode.VENDOR
 	assert parsed.firmware_packages_config.vendors == [FirmwareVendor.AMD_GPU, FirmwareVendor.NVIDIA]
+
+
+def test_vendor_mode_reprompts_on_empty_selection(monkeypatch: MonkeyPatch) -> None:
+	selection_calls = 0
+	notifications = 0
+
+	async def show_selection(_selection: Selection[object]) -> Result[object]:
+		nonlocal selection_calls
+		selection_calls += 1
+		if selection_calls == 1:
+			return Result.selection(FirmwarePackageMode.VENDOR)
+		if selection_calls == 2:
+			return Result.selection([])
+		return Result.selection([FirmwareVendor.INTEL])
+
+	async def show_notify(_notify: Notify) -> Result[bool]:
+		nonlocal notifications
+		notifications += 1
+		return Result.true()
+
+	monkeypatch.setattr(Selection, 'show', show_selection)
+	monkeypatch.setattr(Notify, 'show', show_notify)
+
+	result = asyncio.run(select_firmware_packages(preset=None))
+	assert result is not None
+	assert result.mode == FirmwarePackageMode.VENDOR
+	assert result.vendors == [FirmwareVendor.INTEL]
+	assert selection_calls == 3
+	assert notifications == 1
+
+
+def test_vendor_mode_skip_with_no_preset_falls_back_to_full(monkeypatch: MonkeyPatch) -> None:
+	selection_calls = 0
+	notifications = 0
+
+	async def show_selection(_selection: Selection[object]) -> Result[object]:
+		nonlocal selection_calls
+		selection_calls += 1
+		if selection_calls == 1:
+			return Result.selection(FirmwarePackageMode.VENDOR)
+		return Result.skip()
+
+	async def show_notify(_notify: Notify) -> Result[bool]:
+		nonlocal notifications
+		notifications += 1
+		return Result.true()
+
+	monkeypatch.setattr(Selection, 'show', show_selection)
+	monkeypatch.setattr(Notify, 'show', show_notify)
+
+	result = asyncio.run(select_firmware_packages(preset=None))
+	assert result is not None
+	assert result.mode == FirmwarePackageMode.FULL
+	assert result.vendors == []
+	assert selection_calls == 2
+	assert notifications == 1
