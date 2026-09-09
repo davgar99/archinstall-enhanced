@@ -5,7 +5,7 @@ import pytest
 
 from archinstall.lib.global_menu import GlobalMenu
 from archinstall.lib.menu.helpers import Selection
-from archinstall.lib.models.network import DnsResolver, NetworkConfiguration, NicType
+from archinstall.lib.models.network import DnsResolver, MacAddressPolicy, NetworkConfiguration, NicType
 from archinstall.lib.network.network_handler import install_network_config
 from archinstall.lib.network.network_menu import _select_dns_resolver
 from archinstall.tui.menu_item import MenuItem
@@ -20,8 +20,11 @@ class FakeInstaller:
 		self.disabled_services: list[str] = []
 		self.stub_mode = False
 
-	def add_additional_packages(self, packages: list[str]) -> None:
-		self.packages.extend(packages)
+	def add_additional_packages(self, packages: str | list[str]) -> None:
+		if isinstance(packages, str):
+			self.packages.append(packages)
+		else:
+			self.packages.extend(packages)
 
 	def enable_service(self, services: str | list[str]) -> None:
 		if isinstance(services, str):
@@ -62,8 +65,55 @@ def test_dnsmasq_dns_cache(tmp_path: Path) -> None:
 	assert not installer.stub_mode
 
 
-def test_dns_cache_configuration_round_trip() -> None:
-	config = NetworkConfiguration(NicType.NM, dns_resolver=DnsResolver.SYSTEMD_RESOLVED)
+def test_dns_over_https_uses_dnscrypt_proxy(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	config = NetworkConfiguration(NicType.NM, dns_resolver=DnsResolver.DNS_OVER_HTTPS)
+
+	install_network_config(config, installer)  # type: ignore[arg-type]
+
+	assert 'dnscrypt-proxy' in installer.packages
+	assert 'dnscrypt-proxy.service' in installer.services
+	assert (tmp_path / 'etc/NetworkManager/conf.d/dns-cache.conf').read_text() == '[main]\ndns=none\n'
+	proxy_config = (tmp_path / 'etc/dnscrypt-proxy/dnscrypt-proxy.toml').read_text()
+	assert 'dnscrypt_servers = false' in proxy_config
+	assert 'doh_servers = true' in proxy_config
+	assert 'require_dnssec = true' in proxy_config
+	assert (tmp_path / 'etc/resolv.conf').read_text().startswith('nameserver 127.0.0.1\n')
+
+
+def test_dns_over_https_replaces_existing_resolver_symlink(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+	etc = tmp_path / 'etc'
+	etc.mkdir()
+	resolved = etc / 'resolved.conf'
+	resolved.write_text('keep me\n')
+	(etc / 'resolv.conf').symlink_to('resolved.conf')
+
+	install_network_config(NetworkConfiguration(NicType.NM, dns_resolver=DnsResolver.DNS_OVER_HTTPS), installer)  # type: ignore[arg-type]
+
+	assert not (etc / 'resolv.conf').is_symlink()
+	assert (etc / 'resolv.conf').read_text().startswith('nameserver 127.0.0.1\n')
+	assert resolved.read_text() == 'keep me\n'
+
+
+@pytest.mark.parametrize('policy', [MacAddressPolicy.STABLE, MacAddressPolicy.RANDOM])
+def test_wifi_mac_privacy_policy(tmp_path: Path, policy: MacAddressPolicy) -> None:
+	installer = FakeInstaller(tmp_path)
+	config = NetworkConfiguration(NicType.NM, mac_address_policy=policy)
+
+	install_network_config(config, installer)  # type: ignore[arg-type]
+
+	assert (tmp_path / 'etc/NetworkManager/conf.d/wifi-mac-privacy.conf').read_text() == (
+		f'[device]\nwifi.scan-rand-mac-address=yes\n\n[connection]\nwifi.cloned-mac-address={policy.value}\n'
+	)
+
+
+def test_network_privacy_configuration_round_trip() -> None:
+	config = NetworkConfiguration(
+		NicType.NM,
+		dns_resolver=DnsResolver.DNS_OVER_HTTPS,
+		mac_address_policy=MacAddressPolicy.STABLE,
+	)
 
 	assert NetworkConfiguration.parse_arg(config.json()) == config
 
@@ -78,6 +128,16 @@ def test_dns_cache_is_included_in_network_summary() -> None:
 	assert config.summary() == 'Use Network Manager (default backend)\nDNS cache: systemd-resolved'
 
 
+def test_privacy_settings_are_included_in_network_summary() -> None:
+	config = NetworkConfiguration(
+		NicType.NM,
+		dns_resolver=DnsResolver.DNS_OVER_HTTPS,
+		mac_address_policy=MacAddressPolicy.STABLE,
+	)
+
+	assert config.summary() == 'Use Network Manager (default backend)\nDNS cache: dns-over-https\nWi-Fi MAC policy: stable-ssid'
+
+
 def test_dns_cache_is_included_in_global_menu_preview() -> None:
 	config = NetworkConfiguration(NicType.NM, dns_resolver=DnsResolver.DNSMASQ)
 	item = MenuItem('Network configuration', value=config)
@@ -90,10 +150,8 @@ def test_dns_cache_is_included_in_global_menu_preview() -> None:
 def test_dns_resolver_menu_marks_recommended_and_focuses_first(monkeypatch: pytest.MonkeyPatch) -> None:
 	async def select_focused(selection: Selection[DnsResolver]) -> Result[DnsResolver]:
 		group = selection._group
-		# systemd-resolved stays labelled as the recommended option...
 		assert group.default_item is not None
 		assert group.default_item.value == DnsResolver.SYSTEMD_RESOLVED
-		# ...while the cursor starts on the first option like every other prompt.
 		first = group.get_enabled_items()[0]
 		assert group.focus_item is first
 		return Result.selection(first.value)

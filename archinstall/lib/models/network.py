@@ -33,6 +33,7 @@ class DnsResolver(Enum):
 	DEFAULT = 'default'
 	SYSTEMD_RESOLVED = 'systemd-resolved'
 	DNSMASQ = 'dnsmasq'
+	DNS_OVER_HTTPS = 'dns-over-https'
 
 	def display_msg(self) -> str:
 		match self:
@@ -42,6 +43,23 @@ class DnsResolver(Enum):
 				return tr('systemd-resolved: Cache DNS through the local 127.0.0.53 stub')
 			case DnsResolver.DNSMASQ:
 				return tr("dnsmasq: Cache DNS through NetworkManager's local resolver")
+			case DnsResolver.DNS_OVER_HTTPS:
+				return tr('Encrypted DNS: DNS-over-HTTPS through dnscrypt-proxy')
+
+
+class MacAddressPolicy(Enum):
+	DEFAULT = 'preserve'
+	STABLE = 'stable-ssid'
+	RANDOM = 'random'
+
+	def display_msg(self) -> str:
+		match self:
+			case MacAddressPolicy.DEFAULT:
+				return tr('Preserve hardware MAC address')
+			case MacAddressPolicy.STABLE:
+				return tr('Private per-network MAC address (recommended)')
+			case MacAddressPolicy.RANDOM:
+				return tr('Random MAC address on every Wi-Fi connection')
 
 
 class _NicSerialization(TypedDict):
@@ -120,6 +138,7 @@ class _NetworkConfigurationSerialization(TypedDict):
 	type: str
 	nics: NotRequired[list[_NicSerialization]]
 	dns_resolver: NotRequired[str]
+	mac_address_policy: NotRequired[str]
 
 
 @dataclass
@@ -127,6 +146,7 @@ class NetworkConfiguration(SubConfig):
 	type: NicType
 	nics: list[Nic] = field(default_factory=list)
 	dns_resolver: DnsResolver = DnsResolver.DEFAULT
+	mac_address_policy: MacAddressPolicy = MacAddressPolicy.DEFAULT
 
 	@override
 	def json(self) -> _NetworkConfigurationSerialization:
@@ -135,14 +155,19 @@ class NetworkConfiguration(SubConfig):
 			config['nics'] = [n.json() for n in self.nics]
 		if self.dns_resolver != DnsResolver.DEFAULT:
 			config['dns_resolver'] = self.dns_resolver.value
+		if self.mac_address_policy != MacAddressPolicy.DEFAULT:
+			config['mac_address_policy'] = self.mac_address_policy.value
 
 		return config
 
 	@override
 	def summary(self) -> str:
-		if self.dns_resolver == DnsResolver.DEFAULT:
-			return self.type.display_msg()
-		return f'{self.type.display_msg()}\n{tr("DNS cache")}: {self.dns_resolver.value}'
+		lines = [self.type.display_msg()]
+		if self.dns_resolver != DnsResolver.DEFAULT:
+			lines.append(f'{tr("DNS cache")}: {self.dns_resolver.value}')
+		if self.mac_address_policy != MacAddressPolicy.DEFAULT:
+			lines.append(f'{tr("Wi-Fi MAC policy")}: {self.mac_address_policy.value}')
+		return '\n'.join(lines)
 
 	@classmethod
 	def parse_arg(cls, config: _NetworkConfigurationSerialization) -> Self | None:
@@ -150,21 +175,22 @@ class NetworkConfiguration(SubConfig):
 		if not nic_type:
 			return None
 		dns_resolver = DnsResolver(config.get('dns_resolver', DnsResolver.DEFAULT.value))
+		mac_address_policy = MacAddressPolicy(config.get('mac_address_policy', MacAddressPolicy.DEFAULT.value))
 
 		match NicType(nic_type):
 			case NicType.ISO:
-				return cls(NicType.ISO, dns_resolver=dns_resolver)
+				return cls(NicType.ISO, dns_resolver=dns_resolver, mac_address_policy=mac_address_policy)
 			case NicType.NM:
-				return cls(NicType.NM, dns_resolver=dns_resolver)
+				return cls(NicType.NM, dns_resolver=dns_resolver, mac_address_policy=mac_address_policy)
 			case NicType.NM_IWD:
-				return cls(NicType.NM_IWD, dns_resolver=dns_resolver)
+				return cls(NicType.NM_IWD, dns_resolver=dns_resolver, mac_address_policy=mac_address_policy)
 			case NicType.IWD:
-				return cls(NicType.IWD, dns_resolver=dns_resolver)
+				return cls(NicType.IWD, dns_resolver=dns_resolver, mac_address_policy=mac_address_policy)
 			case NicType.MANUAL:
 				nics_arg = config.get('nics', [])
 				if nics_arg:
 					nics = [Nic.parse_arg(n) for n in nics_arg]
-					return cls(NicType.MANUAL, nics, dns_resolver)
+					return cls(NicType.MANUAL, nics, dns_resolver, mac_address_policy)
 
 		return None
 
@@ -236,13 +262,13 @@ class WifiConfiguredNetwork:
 
 		Selected interface 'wlan0'
 		network id / ssid / bssid / flags
-		0	WifiGuest any	[CURRENT]
-		1		any [DISABLED]
-		2		any [DISABLED]
+		0\tWifiGuest any\t[CURRENT]
+		1\t\tany [DISABLED]
+		2\t\tany [DISABLED]
 		"""
 
 		lines = list_networks.strip().splitlines()
-		lines = lines[1:]  # remove the header row from the wpa_cli output
+		lines = lines[1:]
 
 		networks: list[Self] = []
 
@@ -254,7 +280,6 @@ class WifiConfiguredNetwork:
 				continue
 
 			try:
-				# flags = cls._extract_flags(parts[3])
 				flags: list[str] = []
 
 				networks.append(

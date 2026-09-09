@@ -37,3 +37,26 @@ def test_pipewire_relies_on_packaged_socket_activation(tmp_path: Path, monkeypat
 
 	assert installer.packages == AudioApp().pipewire_packages
 	assert not (tmp_path / 'home').exists()
+
+
+def test_pipewire_enables_system_wide_surround_upmix(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+	installer = FakeInstaller(tmp_path)
+	monkeypatch.setattr(SysInfo, 'requires_sof_fw', lambda: False)
+	monkeypatch.setattr(SysInfo, 'requires_alsa_fw', lambda: False)
+
+	AudioApp().install(installer, AudioConfiguration(Audio.PIPEWIRE))  # type: ignore[arg-type]
+
+	config = (tmp_path / 'etc/pipewire/pipewire-pulse.conf.d/10-surround-upmix.conf').read_text()
+	assert 'channelmix.upmix = true' in config
+	assert 'channelmix.upmix-method = psd' in config
+	assert 'channelmix.lfe-cutoff = 150.0' in config
+
+
+def test_pulseaudio_does_not_write_pipewire_configuration(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+	installer = FakeInstaller(tmp_path)
+	monkeypatch.setattr(SysInfo, 'requires_sof_fw', lambda: False)
+	monkeypatch.setattr(SysInfo, 'requires_alsa_fw', lambda: False)
+
+	AudioApp().install(installer, AudioConfiguration(Audio.PULSEAUDIO))  # type: ignore[arg-type]
+
+	assert not (tmp_path / 'etc/pipewire').exists()

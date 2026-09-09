@@ -36,7 +36,7 @@ class MenuHelper[ValueT]:
 
 		if data:
 			table = as_table(data)
-			rows = table.split('\n')
+			rows = table.splitlines()
 
 			# these are the header rows of the table
 			display_data = {f'{rows[0]}': None, f'{rows[1]}': None}
