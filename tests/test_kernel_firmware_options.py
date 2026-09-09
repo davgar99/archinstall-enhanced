@@ -48,6 +48,15 @@ def test_firmware_policy_defaults_and_vendor_packages() -> None:
 	) == ['base', 'sudo', 'mkinitcpio', 'linux-firmware-intel', 'linux-firmware-realtek']
 
 
+def test_empty_vendor_firmware_config_fails_safe_to_full_set() -> None:
+	assert installer_base_packages(FirmwarePackagesConfiguration(mode=FirmwarePackageMode.VENDOR)) == [
+		'base',
+		'sudo',
+		'linux-firmware',
+		'mkinitcpio',
+	]
+
+
 def test_application_handler_installs_explicit_kernel_headers() -> None:
 	installer = FakeInstaller(['linux', 'linux-lts'])
 	config = ApplicationConfiguration(kernel_headers_config=KernelHeadersConfiguration(enabled=True))
