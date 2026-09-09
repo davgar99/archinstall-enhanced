@@ -1,4 +1,4 @@
-from archinstall.lib.models.application import FirmwarePackagesConfiguration
+from archinstall.lib.models.application import FirmwarePackageMode, FirmwarePackagesConfiguration
 
 DEFAULT_BASE_PACKAGES = ['base', 'sudo', 'linux-firmware', 'mkinitcpio']
 
@@ -12,9 +12,16 @@ def installer_base_packages(firmware_config: FirmwarePackagesConfiguration | Non
 	"""Build the bootstrap package list for an explicit firmware policy.
 
 	Returning ``None`` preserves Installer's historical default package set.
+	A vendor policy without vendors is invalid but can still arrive through a
+	manually constructed or legacy configuration. Fail safe to the complete
+	firmware set rather than producing an installation with no firmware.
 	"""
 	if firmware_config is None:
 		return None
 
-	packages = ['base', 'sudo', 'mkinitcpio', *firmware_config.packages()]
+	firmware_packages = firmware_config.packages()
+	if firmware_config.mode == FirmwarePackageMode.VENDOR and not firmware_packages:
+		return DEFAULT_BASE_PACKAGES.copy()
+
+	packages = ['base', 'sudo', 'mkinitcpio', *firmware_packages]
 	return list(dict.fromkeys(packages))
