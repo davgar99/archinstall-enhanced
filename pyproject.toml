@@ -41,6 +41,7 @@ dev = [
     "pylint>=4.0.7",
     "pytest>=9.1.1",
     "hypothesis>=6.165.10",
+    "import-linter>=2.9",
 ]
 doc = ["sphinx", "sphinx-rtd-theme>=3.1.0"]
 
@@ -66,6 +67,17 @@ include-package-data = true
 
 [tool.setuptools.package-dir]
 archinstall = "archinstall"
+
+[tool.importlinter]
+root_package = "archinstall"
+include_external_packages = false
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Models must not depend on the terminal UI"
+type = "forbidden"
+source_modules = ["archinstall.lib.models"]
+forbidden_modules = ["archinstall.tui"]
 
 [tool.mypy]
 python_version = "3.14"

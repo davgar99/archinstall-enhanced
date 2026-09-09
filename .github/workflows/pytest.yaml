@@ -1,6 +1,13 @@
-on: [ push, pull_request ]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 name: pytest test validation
 permissions: {}
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 jobs:
     pytest:
         runs-on: ubuntu-latest

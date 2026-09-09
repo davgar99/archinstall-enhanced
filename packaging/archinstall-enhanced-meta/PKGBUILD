@@ -1,0 +1,85 @@
+# Maintainer-facing dependency contract for Archinstall Enhanced.
+# This package is not intended for normal installation. It provides one place
+# for packagers to see package names whose removal or rename can affect an
+# installer path or an optional feature.
+
+pkgname=archinstall-enhanced-meta
+pkgver=1
+pkgrel=1
+pkgdesc='Dependency contract for Archinstall Enhanced installer features'
+arch=('any')
+url='https://github.com/davgar99/archinstall-enhanced'
+license=('GPL-3.0-only')
+
+depends=(
+  'base'
+  'linux-firmware'
+  'mkinitcpio'
+  'cryptsetup'
+  'parted'
+  'python'
+  'python-pyparted'
+  'python-pydantic'
+  'python-cryptography'
+  'python-textual'
+  'python-markdown-it-py'
+  'python-linkify-it-py'
+  'networkmanager'
+  'wpa_supplicant'
+  'iwd'
+  'systemd-resolvconf'
+  'dnsmasq'
+  'dnscrypt-proxy'
+  'pipewire'
+  'pipewire-alsa'
+  'pipewire-jack'
+  'pipewire-pulse'
+  'wireplumber'
+  'rtkit'
+  'gst-plugin-pipewire'
+  'gst-plugins-base'
+  'gst-plugins-good'
+  'gst-plugins-bad'
+  'gst-plugins-ugly'
+  'gst-libav'
+  'ffmpeg'
+  'bluez'
+  'bluez-utils'
+  'cups'
+  'cups-filters'
+  'avahi'
+  'nss-mdns'
+  'fwupd'
+  'power-profiles-daemon'
+  'tuned'
+  'firewalld'
+  'ufw'
+  'mesa'
+  'mesa-utils'
+  'vulkan-tools'
+  'vulkan-radeon'
+  'vulkan-intel'
+  'vulkan-nouveau'
+  'nvidia-open-dkms'
+  'dkms'
+  'libva-utils'
+  'libva-nvidia-driver'
+  'intel-media-driver'
+  'vpl-gpu-rt'
+  'libvpl'
+  'xorg-server'
+  'xdg-desktop-portal'
+  'xdg-desktop-portal-gtk'
+  'xdg-desktop-portal-kde'
+  'xdg-desktop-portal-wlr'
+  'gamemode'
+  'mangohud'
+  'gamescope'
+  'pacman-contrib'
+  'wireless-regdb'
+  'iw'
+)
+
+package() {
+  install -Dm644 /dev/null "$pkgdir/usr/share/archinstall-enhanced/meta-package"
+}

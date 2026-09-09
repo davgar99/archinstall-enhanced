@@ -1,16 +1,21 @@
 name: Translation validation
 on:
     push:
+        branches: [master]
         paths:
             - 'archinstall/**/*.py'
             - 'archinstall/locales/**'
             - '.github/workflows/translation-check.yaml'
     pull_request:
+        branches: [master]
         paths:
             - 'archinstall/**/*.py'
             - 'archinstall/locales/**'
             - '.github/workflows/translation-check.yaml'
 permissions: {}
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 jobs:
     translations:
         name: Validate translations
