@@ -12,14 +12,16 @@ def installer_base_packages(firmware_config: FirmwarePackagesConfiguration | Non
 	"""Build the bootstrap package list for an explicit firmware policy.
 
 	Returning ``None`` preserves Installer's historical default package set.
-	A vendor policy without vendors is invalid but can still arrive through a
-	manually constructed or legacy configuration. Fail safe to the complete
-	firmware set rather than producing an installation with no firmware.
+	Malformed or empty vendor policies can still arrive through manually
+	constructed or legacy configuration. Fail safe to the complete firmware set
+	rather than crashing or producing an installation with no firmware.
 	"""
 	if firmware_config is None:
 		return None
 
 	firmware_packages = firmware_config.packages()
+	if firmware_packages is None:
+		return DEFAULT_BASE_PACKAGES.copy()
 	if firmware_config.mode == FirmwarePackageMode.VENDOR and not firmware_packages:
 		return DEFAULT_BASE_PACKAGES.copy()
 
