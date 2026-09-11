@@ -19,10 +19,12 @@ def installer_base_packages(firmware_config: FirmwarePackagesConfiguration | Non
 	if firmware_config is None:
 		return None
 
-	firmware_packages = firmware_config.packages()
-	if firmware_packages is None:
+	mode: object = firmware_config.mode
+	if not isinstance(mode, FirmwarePackageMode):
 		return DEFAULT_BASE_PACKAGES.copy()
-	if firmware_config.mode == FirmwarePackageMode.VENDOR and not firmware_packages:
+
+	firmware_packages = firmware_config.packages()
+	if mode == FirmwarePackageMode.VENDOR and not firmware_packages:
 		return DEFAULT_BASE_PACKAGES.copy()
 
 	packages = ['base', 'sudo', 'mkinitcpio', *firmware_packages]
