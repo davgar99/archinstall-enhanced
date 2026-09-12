@@ -3,6 +3,7 @@ import logging
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import override
 
 import pytest
 
@@ -86,6 +87,7 @@ def test_journal_log_reuses_single_handler(monkeypatch: pytest.MonkeyPatch) -> N
 	emitted: list[str] = []
 
 	class FakeJournalHandler(logging.Handler):
+		@override
 		def emit(self, record: logging.LogRecord) -> None:
 			emitted.append(record.getMessage())
 
