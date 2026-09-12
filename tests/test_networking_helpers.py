@@ -1,5 +1,9 @@
 import fcntl
-from typing import Any, Self
+import secrets
+import select
+import socket
+import time
+from typing import Any, Self, override
 
 import pytest
 
@@ -55,7 +59,7 @@ class FakeEpoll:
 
 	def poll(self, _timeout: float) -> list[tuple[int, int]]:
 		self.poll_calls += 1
-		return [(7, networking.select.EPOLLIN)] if self.poll_calls == 1 else []
+		return [(7, select.EPOLLIN)] if self.poll_calls == 1 else []
 
 	def close(self) -> None:
 		self.closed = True
@@ -86,7 +90,7 @@ def test_get_hw_addr_closes_socket(monkeypatch: pytest.MonkeyPatch) -> None:
 	mac = bytes.fromhex('001122334455')
 	ioctl_response = b'\x00' * 18 + mac + b'\x00' * 8
 
-	monkeypatch.setattr(networking.socket, 'socket', lambda *_args: fake_socket)
+	monkeypatch.setattr(socket, 'socket', lambda *_args: fake_socket)
 	monkeypatch.setattr(fcntl, 'ioctl', lambda *_args: ioctl_response)
 
 	assert networking.get_hw_addr('eth0') == '00:11:22:33:44:55'
@@ -102,10 +106,10 @@ def test_ping_handles_ipv4_options_and_closes_resources(monkeypatch: pytest.Monk
 	watchdog = FakeEpoll()
 	times = iter([0.0, 0.01, 0.02])
 
-	monkeypatch.setattr(networking.secrets, 'randbelow', lambda _limit: 0)
-	monkeypatch.setattr(networking.socket, 'socket', lambda *_args: fake_socket)
-	monkeypatch.setattr(networking.select, 'epoll', lambda: watchdog)
-	monkeypatch.setattr(networking.time, 'monotonic', lambda: next(times))
+	monkeypatch.setattr(secrets, 'randbelow', lambda _limit: 0)
+	monkeypatch.setattr(socket, 'socket', lambda *_args: fake_socket)
+	monkeypatch.setattr(select, 'epoll', lambda: watchdog)
+	monkeypatch.setattr(time, 'monotonic', lambda: next(times))
 
 	assert networking.ping('example.com', timeout=1) == 20
 	assert fake_socket.closed
@@ -114,14 +118,15 @@ def test_ping_handles_ipv4_options_and_closes_resources(monkeypatch: pytest.Monk
 
 def test_ping_closes_resources_when_send_fails(monkeypatch: pytest.MonkeyPatch) -> None:
 	class FailingSocket(FakeSocket):
+		@override
 		def sendto(self, data: bytes, address: tuple[str, int]) -> None:
 			raise OSError('send failed')
 
 	fake_socket = FailingSocket()
 	watchdog = FakeEpoll()
 
-	monkeypatch.setattr(networking.socket, 'socket', lambda *_args: fake_socket)
-	monkeypatch.setattr(networking.select, 'epoll', lambda: watchdog)
+	monkeypatch.setattr(socket, 'socket', lambda *_args: fake_socket)
+	monkeypatch.setattr(select, 'epoll', lambda: watchdog)
 
 	with pytest.raises(OSError, match='send failed'):
 		networking.ping('example.com', timeout=1)
