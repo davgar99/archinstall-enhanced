@@ -97,6 +97,11 @@ def test_get_hw_addr_closes_socket(monkeypatch: pytest.MonkeyPatch) -> None:
 	assert fake_socket.closed
 
 
+def test_calc_checksum_folds_repeated_carry() -> None:
+	packet = bytes.fromhex('a513fc27e12fabe9d1ac')
+	assert networking.calc_checksum(packet) == 0xFFFD
+
+
 def test_ping_handles_ipv4_options_and_closes_resources(monkeypatch: pytest.MonkeyPatch) -> None:
 	identifier = b'archinstall-1000'
 	# IPv4 version 4 with IHL=6 means a 24-byte IP header. The ICMP type is
