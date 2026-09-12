@@ -127,10 +127,10 @@ class _LogOutputState:
 	def __init__(self) -> None:
 		self.tui_active = False
 		self.status_sink: Callable[[str], None] | None = None
+		self.journal_handler: logging.Handler | None = None
 
 
 _log_output_state = _LogOutputState()
-_journal_handler: logging.Handler | None = None
 
 
 def set_tui_logging(active: bool, status_sink: Callable[[str], None] | None = None) -> None:
@@ -229,21 +229,19 @@ def _stylize_output(
 
 
 def journal_log(message: str, level: int = logging.DEBUG) -> None:
-	global _journal_handler
-
 	try:
 		import systemd.journal  # type: ignore[import-not-found]
 	except ModuleNotFoundError:
 		return
 
 	log_adapter = logging.getLogger('archinstall')
-	if _journal_handler is None:
+	if _log_output_state.journal_handler is None:
 		log_fmt = logging.Formatter('[%(levelname)s]: %(message)s')
-		_journal_handler = systemd.journal.JournalHandler()
-		_journal_handler.setFormatter(log_fmt)
+		_log_output_state.journal_handler = systemd.journal.JournalHandler()
+		_log_output_state.journal_handler.setFormatter(log_fmt)
 
-	if _journal_handler not in log_adapter.handlers:
-		log_adapter.addHandler(_journal_handler)
+	if _log_output_state.journal_handler not in log_adapter.handlers:
+		log_adapter.addHandler(_log_output_state.journal_handler)
 	log_adapter.setLevel(logging.DEBUG)
 
 	log_adapter.log(level, message)
