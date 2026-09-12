@@ -205,7 +205,7 @@ class FirmwarePackagesConfiguration:
 		try:
 			mode = FirmwarePackageMode(arg.get('mode', FirmwarePackageMode.FULL.value))
 			vendors = [FirmwareVendor(package) for package in arg.get('vendors', [])]
-		except TypeError, ValueError:
+		except (TypeError, ValueError):
 			return cls()
 
 		if mode == FirmwarePackageMode.VENDOR and not vendors:
