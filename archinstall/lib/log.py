@@ -125,6 +125,7 @@ class _LogOutputState:
 
 
 _log_output_state = _LogOutputState()
+_journal_handler: logging.Handler | None = None
 
 
 def set_tui_logging(active: bool, status_sink: Callable[[str], None] | None = None) -> None:
@@ -192,8 +193,8 @@ def _stylize_output(
 		'magenta': '5',
 		'cyan': '6',
 		'white': '7',
-		'teal': '8;5;109',  # Extended 256-bit colors (not always supported)
-		'orange': '8;5;208',  # https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html#256-colors
+		'teal': '8;5;109',
+		'orange': '8;5;208',
 		'darkorange': '8;5;202',
 		'gray': '8;5;246',
 		'grey': '8;5;246',
@@ -223,17 +224,20 @@ def _stylize_output(
 
 
 def journal_log(message: str, level: int = logging.DEBUG) -> None:
+	global _journal_handler
+
 	try:
 		import systemd.journal  # type: ignore[import-not-found]
 	except ModuleNotFoundError:
 		return
 
 	log_adapter = logging.getLogger('archinstall')
-	log_fmt = logging.Formatter('[%(levelname)s]: %(message)s')
-	log_ch = systemd.journal.JournalHandler()
-	log_ch.setFormatter(log_fmt)
-	log_adapter.addHandler(log_ch)
-	log_adapter.setLevel(logging.DEBUG)
+	if _journal_handler is None:
+		log_fmt = logging.Formatter('[%(levelname)s]: %(message)s')
+		_journal_handler = systemd.journal.JournalHandler()
+		_journal_handler.setFormatter(log_fmt)
+		log_adapter.addHandler(_journal_handler)
+		log_adapter.setLevel(logging.DEBUG)
 
 	log_adapter.log(level, message)
 
@@ -294,8 +298,6 @@ def log(
 
 	logger.log(level, text)
 
-	# Attempt to colorize the output if supported
-	# Insert default colors and override with **kwargs
 	if _supports_color():
 		text = _stylize_output(text, fg, bg, reset, font)
 
