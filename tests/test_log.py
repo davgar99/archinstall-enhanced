@@ -1,9 +1,12 @@
 import errno
 import logging
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
+import archinstall.lib.log as log_module
 from archinstall.lib.command import SysCommand
 from archinstall.lib.log import Logger, set_tui_logging
 
@@ -62,6 +65,34 @@ def test_logger_reports_to_stderr_when_fallback_fails(
 	assert output.count('unable to initialize file logging') == 1
 	assert 'still visible' in output
 	assert 'second message' in output
+
+
+def test_journal_log_reuses_single_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+	emitted: list[str] = []
+
+	class FakeJournalHandler(logging.Handler):
+		def emit(self, record: logging.LogRecord) -> None:
+			emitted.append(record.getMessage())
+
+	journal_module = ModuleType('systemd.journal')
+	setattr(journal_module, 'JournalHandler', FakeJournalHandler)
+	systemd_module = ModuleType('systemd')
+	setattr(systemd_module, 'journal', journal_module)
+	monkeypatch.setitem(sys.modules, 'systemd', systemd_module)
+	monkeypatch.setitem(sys.modules, 'systemd.journal', journal_module)
+	monkeypatch.setattr(log_module, '_journal_handler', None)
+
+	adapter = logging.getLogger('archinstall')
+	original_handlers = list(adapter.handlers)
+	adapter.handlers.clear()
+	try:
+		log_module.journal_log('first')
+		log_module.journal_log('second')
+
+		assert len(adapter.handlers) == 1
+		assert emitted == ['first', 'second']
+	finally:
+		adapter.handlers[:] = original_handlers
 
 
 def test_command_peek_output_is_suppressed_while_tui_owns_terminal() -> None:
