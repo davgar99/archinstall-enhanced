@@ -87,7 +87,7 @@ def test_firmware_policy_round_trip() -> None:
 
 
 def test_unknown_saved_firmware_mode_falls_back_to_full() -> None:
-	config = FirmwarePackagesConfiguration.parse_arg({'mode': 'future-mode', 'vendors': []})  # type: ignore[typeddict-item]
+	config = FirmwarePackagesConfiguration.parse_arg({'mode': 'future-mode', 'vendors': []})
 	assert config == FirmwarePackagesConfiguration()
 
 
