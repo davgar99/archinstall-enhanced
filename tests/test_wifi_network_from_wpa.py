@@ -1,4 +1,4 @@
-from archinstall.lib.models.network import WifiNetwork
+from archinstall.lib.models.network import WifiConfiguredNetwork, WifiNetwork
 
 SAMPLE_SCAN_RESULTS = """bssid / frequency / signal level / flags / ssid
 aa:bb:cc:dd:ee:01	2412	-40	[WPA2-PSK-CCMP][ESS]	NoSpacesSSID
@@ -58,3 +58,13 @@ def test_from_wpa_preserves_flags_and_fields() -> None:
 	assert network.frequency == '2412'
 	assert network.signal_level == '-50'
 	assert network.flags == '[WPA2-PSK-CCMP][ESS]'
+
+
+def test_configured_network_preserves_state_flags() -> None:
+	results = 'network id / ssid / bssid / flags\n0\tHome\tany\t[CURRENT][DISABLED]\n'
+
+	networks = WifiConfiguredNetwork.from_wpa_cli_output(results)
+
+	assert len(networks) == 1
+	assert networks[0].network_id == 0
+	assert networks[0].flags == ['CURRENT', 'DISABLED']

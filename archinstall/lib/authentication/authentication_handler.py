@@ -101,20 +101,26 @@ class AuthenticationHandler:
 
 			debug(f'Enrolling U2F device: {cmd}')
 
-			worker = SysCommandWorker(cmd, peek_output=True)
-			pin_inputted = False
+			with SysCommandWorker(cmd, peek_output=True) as worker:
+				pin_inputted = False
 
-			while worker.is_alive():
-				if pin_inputted is False:
-					if bytes('enter pin for', 'UTF-8') in worker._trace_log.lower():
-						worker.write(bytes(getpass.getpass(''), 'UTF-8'))
-						pin_inputted = True
+				while worker.is_alive():
+					if pin_inputted is False:
+						if bytes('enter pin for', 'UTF-8') in worker._trace_log.lower():
+							worker.write(bytes(getpass.getpass(''), 'UTF-8'))
+							pin_inputted = True
 
-			output = worker.decode().strip().splitlines()
-			debug(f'Output from pamu2fcfg: {output}')
+				output = worker.decode().strip().splitlines()
+				debug(f'Output from pamu2fcfg: {output}')
 
-			key = output[-1].strip()
-			registered_keys.append(key)
+				if not output:
+					raise ValueError(f'pamu2fcfg returned no registration data for user {user.username}')
+
+				key = output[-1].strip()
+				if not key:
+					raise ValueError(f'pamu2fcfg returned an empty registration for user {user.username}')
+
+				registered_keys.append(key)
 
 		all_keys = '\n'.join(registered_keys)
 

@@ -20,8 +20,9 @@ class WpaSupplicantNetwork:
 	mappings: dict[str, str] = field(default_factory=dict)
 
 	@property
-	def psk(self) -> str:
-		return _decode_config_value(self.mappings['psk'])
+	def psk(self) -> str | None:
+		value = self.mappings.get('psk')
+		return _decode_config_value(value) if value is not None else None
 
 	@property
 	def ssid(self) -> str:
@@ -70,29 +71,29 @@ class WpaSupplicantConfig:
 		return 'ctrl_interface=/run/wpa_supplicant\nupdate_config=1'
 
 	def get_existing_network(self, ssid: str) -> WpaSupplicantNetwork | None:
-		ssid = json.dumps(ssid, ensure_ascii=False)
+		encoded_ssid = json.dumps(ssid, ensure_ascii=False)
 
 		for network in self._wpa_networks:
-			if network.mappings['ssid'] == ssid:
+			if network.mappings.get('ssid') == encoded_ssid:
 				return network
 
 		return None
 
-	def set_network(self, network: WifiNetwork, psk: str) -> None:
+	def set_network(self, network: WifiNetwork, psk: str | None) -> None:
 		debug('setting new wifi network')
 
 		existing_network = self.get_existing_network(network.ssid)
+		if existing_network is None:
+			existing_network = WpaSupplicantNetwork(mappings={'ssid': json.dumps(network.ssid, ensure_ascii=False)})
+			self._wpa_networks.append(existing_network)
 
-		if not existing_network:
-			wpa_net_config = WpaSupplicantNetwork(
-				mappings={
-					'ssid': json.dumps(network.ssid, ensure_ascii=False),
-					'psk': json.dumps(psk, ensure_ascii=False),
-				}
-			)
-			self._wpa_networks.append(wpa_net_config)
+		if psk is None:
+			existing_network.mappings.pop('psk', None)
+			existing_network.mappings['key_mgmt'] = 'NONE'
 		else:
 			existing_network.mappings['psk'] = json.dumps(psk, ensure_ascii=False)
+			if existing_network.mappings.get('key_mgmt') == 'NONE':
+				existing_network.mappings.pop('key_mgmt')
 
 	def write_config(self) -> None:
 		debug('writing wpa_supplicant config')
