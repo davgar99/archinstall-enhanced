@@ -70,6 +70,12 @@ class Luks2:
 		worker.poll()
 		worker.write(b'YES\n', line_ending=False)
 
+		while worker.is_alive():
+			pass
+
+		if worker.exit_code != 0:
+			raise DiskError(f'Could not erase LUKS metadata on {self.luks_dev_path}: {worker.decode()}')
+
 	def __enter__(self) -> None:
 		self.unlock(self.key_file)
 
