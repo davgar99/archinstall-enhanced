@@ -67,6 +67,21 @@ def test_logger_reports_to_stderr_when_fallback_fails(
 	assert 'second message' in output
 
 
+def test_logger_zero_byte_limit_returns_no_content(tmp_path: Path) -> None:
+	logger = Logger(tmp_path / 'logs', tmp_path / 'fallback')
+	logger.log(logging.INFO, 'sensitive content')
+
+	assert logger.get_content(max_bytes=0) == b''
+
+
+def test_logger_rejects_negative_byte_limit(tmp_path: Path) -> None:
+	logger = Logger(tmp_path / 'logs', tmp_path / 'fallback')
+	logger.log(logging.INFO, 'content')
+
+	with pytest.raises(ValueError, match='non-negative'):
+		logger.get_content(max_bytes=-1)
+
+
 def test_journal_log_reuses_single_handler(monkeypatch: pytest.MonkeyPatch) -> None:
 	emitted: list[str] = []
 
