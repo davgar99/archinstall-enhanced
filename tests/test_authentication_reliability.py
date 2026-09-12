@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Self
 
 import pytest
 
@@ -29,7 +30,7 @@ class FakeWorker:
 		self._trace_log = b''
 		self.closed = False
 
-	def __enter__(self) -> 'FakeWorker':
+	def __enter__(self) -> Self:
 		return self
 
 	def __exit__(self, *_args: object) -> None:
