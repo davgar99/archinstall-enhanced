@@ -57,21 +57,24 @@ class SysCommandWorker:
 
 		index = self._trace_log.find(key, self._trace_log_pos)
 		if index >= 0:
-			self._trace_log_pos += index + len(key)
+			self._trace_log_pos = index + len(key)
 			return True
 
 		return False
 
 	def __iter__(self, *args: str, **kwargs: dict[str, Any]) -> Iterator[bytes]:
 		last_line = self._trace_log.rfind(b'\n')
-		lines = filter(None, self._trace_log[self._trace_log_pos : last_line].splitlines())
+		if last_line < self._trace_log_pos:
+			return
+
+		lines = filter(None, self._trace_log[self._trace_log_pos : last_line + 1].splitlines())
 		for line in lines:
 			if self.remove_vt100_escape_codes_from_lines:
 				line = clear_vt100_escape_codes(line)
 
 			yield line + b'\n'
 
-		self._trace_log_pos = last_line
+		self._trace_log_pos = last_line + 1
 
 	@override
 	def __repr__(self) -> str:
@@ -92,11 +95,14 @@ class SysCommandWorker:
 		# b''.join(sys_command('sync')) # No need to, since the underlying fs() object will call sync.
 		# TODO: https://stackoverflow.com/questions/28157929/how-to-safely-handle-an-exception-inside-a-context-manager
 
-		if self.child_fd:
+		if self.child_fd is not None:
 			try:
 				os.close(self.child_fd)
-			except Exception:
+			except OSError:
 				pass
+			self.child_fd = None
+
+		self.poll_object.close()
 
 		if self.peek_output:
 			# To make sure any peaked output didn't leave us hanging
@@ -207,10 +213,9 @@ class SysCommandWorker:
 
 			try:
 				os.execve(self.cmd[0], list(self.cmd), {**os.environ, **self.environment_vars})
-			except FileNotFoundError:
-				error(f'{self.cmd[0]} does not exist.')
-				self.exit_code = 1
-				return False
+			except OSError as err:
+				error(f'Failed to execute {self.cmd[0]}: {err}')
+				os._exit(127)
 		else:
 			# Only parent process moves back to the original working directory
 			os.chdir(old_dir)
