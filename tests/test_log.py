@@ -90,12 +90,12 @@ def test_journal_log_reuses_single_handler(monkeypatch: pytest.MonkeyPatch) -> N
 			emitted.append(record.getMessage())
 
 	journal_module = ModuleType('systemd.journal')
-	setattr(journal_module, 'JournalHandler', FakeJournalHandler)
+	journal_module.__dict__['JournalHandler'] = FakeJournalHandler
 	systemd_module = ModuleType('systemd')
-	setattr(systemd_module, 'journal', journal_module)
+	systemd_module.__dict__['journal'] = journal_module
 	monkeypatch.setitem(sys.modules, 'systemd', systemd_module)
 	monkeypatch.setitem(sys.modules, 'systemd.journal', journal_module)
-	monkeypatch.setattr(log_module, '_journal_handler', None)
+	monkeypatch.setattr(log_module._log_output_state, 'journal_handler', None)
 
 	adapter = logging.getLogger('archinstall')
 	original_handlers = list(adapter.handlers)
