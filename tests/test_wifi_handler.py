@@ -79,3 +79,11 @@ def test_network_id_zero_is_valid() -> None:
 		'network id / ssid / bssid / flags\n0\tHome\tany\t[CURRENT]\n',
 	)
 	assert handler._find_network_id('Home', 'wlan0') == 0
+
+
+def test_open_network_does_not_require_psk() -> None:
+	open_network = WifiNetwork('aa:bb:cc:dd:ee:ff', '2412', '-40', '[ESS]', 'Cafe')
+	secured_network = WifiNetwork('aa:bb:cc:dd:ee:00', '2412', '-40', '[WPA2-PSK-CCMP][ESS]', 'Home')
+
+	assert WifiHandler._requires_psk(open_network) is False
+	assert WifiHandler._requires_psk(secured_network) is True
