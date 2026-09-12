@@ -96,8 +96,6 @@ class Logger:
 				level_name = logging.getLevelName(level)
 				f.write(f'[{ts}] - {level_name} - {content}\n')
 		except OSError as exception:
-			# A mount can become read-only after initialization. Reporting this
-			# directly avoids the recursive failure mode of the old fallback.
 			self._writable = False
 			self._report_initialization_failure([(self.path, exception)])
 			level_name = logging.getLevelName(level)
@@ -107,8 +105,12 @@ class Logger:
 		content = self.path.read_bytes()
 
 		if max_bytes is not None:
-			size = self.path.stat().st_size
+			if max_bytes < 0:
+				raise ValueError('max_bytes must be non-negative')
+			if max_bytes == 0:
+				return b''
 
+			size = self.path.stat().st_size
 			if size > max_bytes:
 				content = content[-max_bytes:]
 
@@ -144,18 +146,7 @@ def _safe_status_message(message: str) -> bool:
 
 
 def _supports_color() -> bool:
-	"""
-	Found first reference here:
-		https://stackoverflow.com/questions/7445658/how-to-detect-if-the-console-does-support-ansi-escape-codes-in-python
-	And re-used this:
-		https://github.com/django/django/blob/master/django/core/management/color.py#L12
-
-	Return True if the running system's terminal supports color,
-	and False otherwise.
-	"""
 	supported_platform = sys.platform != 'win32' or 'ANSICON' in os.environ
-
-	# isatty is not always implemented, #6223.
 	is_a_tty = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
 	return supported_platform and is_a_tty
 
@@ -176,14 +167,6 @@ def _stylize_output(
 	reset: bool,
 	font: list[Font] | None = None,
 ) -> str:
-	"""
-	Heavily influenced by:
-		https://github.com/django/django/blob/ae8338daf34fd746771e0678081999b656177bae/django/utils/termcolors.py#L13
-	Color options here:
-		https://askubuntu.com/questions/528928/how-to-do-underline-bold-italic-strikethrough-color-background-and-size-i
-
-	Adds styling to a text given a set of color arguments.
-	"""
 	colors = {
 		'black': '0',
 		'red': '1',
@@ -219,7 +202,6 @@ def _stylize_output(
 			code_list.append(o.value)
 
 	ansi = ';'.join(code_list)
-
 	return f'\033[{ansi}m{text}\033[0m'
 
 
@@ -236,9 +218,10 @@ def journal_log(message: str, level: int = logging.DEBUG) -> None:
 		log_fmt = logging.Formatter('[%(levelname)s]: %(message)s')
 		_journal_handler = systemd.journal.JournalHandler()
 		_journal_handler.setFormatter(log_fmt)
-		log_adapter.addHandler(_journal_handler)
-		log_adapter.setLevel(logging.DEBUG)
 
+	if _journal_handler not in log_adapter.handlers:
+		log_adapter.addHandler(_journal_handler)
+	log_adapter.setLevel(logging.DEBUG)
 	log_adapter.log(level, message)
 
 
@@ -333,7 +316,6 @@ def share_install_log(
 
 	try:
 		req = urllib.request.Request(paste_url, data=content)
-		# The URL scheme is restricted to HTTP(S) above.
 		with urllib.request.urlopen(req) as response:  # nosec B310
 			url = response.read().decode().strip()
 	except urllib.error.URLError as e:
