@@ -184,8 +184,7 @@ class WifiHandler(InstanceRunnable[bool]):
 
 	@staticmethod
 	def _requires_psk(network: WifiNetwork) -> bool:
-		flags = network.flags.upper()
-		return any(marker in flags for marker in ('WPA', 'WEP', 'RSN', 'SAE'))
+		return network.flags.strip().upper() != '[ESS]'
 
 	async def _scan_wifi(self, wifi_iface: str) -> list[WifiNetwork]:
 		debug('Scanning Wifi networks')
