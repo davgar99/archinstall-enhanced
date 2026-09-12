@@ -1,7 +1,7 @@
 from typing import cast
 
 from archinstall.lib.general.kernel_packages import installer_base_packages
-from archinstall.lib.models.application import FirmwarePackageMode, FirmwarePackagesConfiguration, FirmwareVendor
+from archinstall.lib.models.application import FirmwarePackageMode, FirmwarePackagesConfiguration
 
 
 def test_malformed_firmware_mode_fails_safe_to_full_set() -> None:
@@ -18,7 +18,7 @@ def test_malformed_firmware_mode_fails_safe_to_full_set() -> None:
 
 def test_malformed_firmware_vendor_fails_safe_to_full_set() -> None:
 	config = FirmwarePackagesConfiguration(mode=FirmwarePackageMode.VENDOR)
-	config.vendors = cast(list[FirmwareVendor], ['unknown-vendor'])
+	config.vendors = ['unknown-vendor']  # type: ignore[list-item]
 
 	assert installer_base_packages(config) == [
 		'base',
