@@ -138,10 +138,11 @@ class WifiHandler(InstanceRunnable[bool]):
 				assert_never(result.type_)
 
 		existing_network = self._wpa_config.get_existing_network(network.ssid)
-		existing_psk = existing_network.psk if existing_network else None
-		psk = await self._prompt_psk(existing_psk)
+		requires_psk = self._requires_psk(network)
+		existing_psk = existing_network.psk if existing_network and requires_psk else None
+		psk = await self._prompt_psk(existing_psk) if requires_psk else None
 
-		if not psk:
+		if requires_psk and not psk:
 			debug('No password specified')
 			return False
 
@@ -180,6 +181,11 @@ class WifiHandler(InstanceRunnable[bool]):
 		if not connected:
 			await self._notify_failure()
 		return connected
+
+	@staticmethod
+	def _requires_psk(network: WifiNetwork) -> bool:
+		flags = network.flags.upper()
+		return any(marker in flags for marker in ('WPA', 'WEP', 'RSN', 'SAE'))
 
 	async def _scan_wifi(self, wifi_iface: str) -> list[WifiNetwork]:
 		debug('Scanning Wifi networks')
