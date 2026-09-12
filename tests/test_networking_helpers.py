@@ -1,5 +1,5 @@
 import fcntl
-from typing import Any
+from typing import Any, Self
 
 import pytest
 
@@ -11,7 +11,7 @@ class FakeResponse:
 		self.data = data
 		self.closed = False
 
-	def __enter__(self) -> 'FakeResponse':
+	def __enter__(self) -> Self:
 		return self
 
 	def __exit__(self, *_args: object) -> None:
@@ -27,7 +27,7 @@ class FakeSocket:
 		self.closed = False
 		self.sent: list[tuple[bytes, tuple[str, int]]] = []
 
-	def __enter__(self) -> 'FakeSocket':
+	def __enter__(self) -> Self:
 		return self
 
 	def __exit__(self, *_args: object) -> None:
