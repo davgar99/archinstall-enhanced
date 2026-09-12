@@ -18,7 +18,7 @@ def test_malformed_firmware_mode_fails_safe_to_full_set() -> None:
 
 def test_malformed_firmware_vendor_fails_safe_to_full_set() -> None:
 	config = FirmwarePackagesConfiguration(mode=FirmwarePackageMode.VENDOR)
-	config.vendors = ['unknown-vendor']  # type: ignore[list-item]
+	object.__setattr__(config, 'vendors', ['unknown-vendor'])
 
 	assert installer_base_packages(config) == [
 		'base',
