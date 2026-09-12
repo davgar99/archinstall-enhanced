@@ -1,4 +1,4 @@
-from archinstall.lib.models.application import FirmwarePackageMode, FirmwarePackagesConfiguration, FirmwareVendor
+from archinstall.lib.models.application import FirmwarePackageMode, FirmwarePackagesConfiguration
 
 DEFAULT_BASE_PACKAGES = ['base', 'sudo', 'linux-firmware', 'mkinitcpio']
 
@@ -21,8 +21,6 @@ def installer_base_packages(firmware_config: FirmwarePackagesConfiguration | Non
 
 	mode: object = firmware_config.mode
 	if not isinstance(mode, FirmwarePackageMode):
-		return DEFAULT_BASE_PACKAGES.copy()
-	if mode == FirmwarePackageMode.VENDOR and any(all(vendor is not candidate for candidate in FirmwareVendor) for vendor in firmware_config.vendors):
 		return DEFAULT_BASE_PACKAGES.copy()
 
 	firmware_packages = firmware_config.packages()
