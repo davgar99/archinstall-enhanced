@@ -50,9 +50,7 @@ class U2FLoginConfiguration:
 
 		u2f_config = cls(u2f_login_method=U2FLoginMethod(u2f_login_method))
 
-		u2f_config.u2f_login_method = U2FLoginMethod(u2f_login_method)
-
-		if passwordless_sudo := args.get('passwordless_sudo') is not None:
+		if (passwordless_sudo := args.get('passwordless_sudo')) is not None:
 			u2f_config.passwordless_sudo = passwordless_sudo
 
 		return u2f_config

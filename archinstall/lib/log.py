@@ -107,6 +107,11 @@ class Logger:
 		content = self.path.read_bytes()
 
 		if max_bytes is not None:
+			if max_bytes < 0:
+				raise ValueError('max_bytes must be non-negative')
+			if max_bytes == 0:
+				return b''
+
 			size = self.path.stat().st_size
 
 			if size > max_bytes:
@@ -122,6 +127,7 @@ class _LogOutputState:
 	def __init__(self) -> None:
 		self.tui_active = False
 		self.status_sink: Callable[[str], None] | None = None
+		self.journal_handler: logging.Handler | None = None
 
 
 _log_output_state = _LogOutputState()
@@ -229,10 +235,13 @@ def journal_log(message: str, level: int = logging.DEBUG) -> None:
 		return
 
 	log_adapter = logging.getLogger('archinstall')
-	log_fmt = logging.Formatter('[%(levelname)s]: %(message)s')
-	log_ch = systemd.journal.JournalHandler()
-	log_ch.setFormatter(log_fmt)
-	log_adapter.addHandler(log_ch)
+	if _log_output_state.journal_handler is None:
+		log_fmt = logging.Formatter('[%(levelname)s]: %(message)s')
+		_log_output_state.journal_handler = systemd.journal.JournalHandler()
+		_log_output_state.journal_handler.setFormatter(log_fmt)
+
+	if _log_output_state.journal_handler not in log_adapter.handlers:
+		log_adapter.addHandler(_log_output_state.journal_handler)
 	log_adapter.setLevel(logging.DEBUG)
 
 	log_adapter.log(level, message)

@@ -1,9 +1,13 @@
 import errno
 import logging
+import sys
 from pathlib import Path
+from types import ModuleType
+from typing import override
 
 import pytest
 
+import archinstall.lib.log as log_module
 from archinstall.lib.command import SysCommand
 from archinstall.lib.log import Logger, set_tui_logging
 
@@ -62,6 +66,50 @@ def test_logger_reports_to_stderr_when_fallback_fails(
 	assert output.count('unable to initialize file logging') == 1
 	assert 'still visible' in output
 	assert 'second message' in output
+
+
+def test_logger_zero_byte_limit_returns_no_content(tmp_path: Path) -> None:
+	logger = Logger(tmp_path / 'logs', tmp_path / 'fallback')
+	logger.log(logging.INFO, 'sensitive content')
+
+	assert logger.get_content(max_bytes=0) == b''
+
+
+def test_logger_rejects_negative_byte_limit(tmp_path: Path) -> None:
+	logger = Logger(tmp_path / 'logs', tmp_path / 'fallback')
+	logger.log(logging.INFO, 'content')
+
+	with pytest.raises(ValueError, match='non-negative'):
+		logger.get_content(max_bytes=-1)
+
+
+def test_journal_log_reuses_single_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+	emitted: list[str] = []
+
+	class FakeJournalHandler(logging.Handler):
+		@override
+		def emit(self, record: logging.LogRecord) -> None:
+			emitted.append(record.getMessage())
+
+	journal_module = ModuleType('systemd.journal')
+	journal_module.__dict__['JournalHandler'] = FakeJournalHandler
+	systemd_module = ModuleType('systemd')
+	systemd_module.__dict__['journal'] = journal_module
+	monkeypatch.setitem(sys.modules, 'systemd', systemd_module)
+	monkeypatch.setitem(sys.modules, 'systemd.journal', journal_module)
+	monkeypatch.setattr(log_module._log_output_state, 'journal_handler', None)
+
+	adapter = logging.getLogger('archinstall')
+	original_handlers = list(adapter.handlers)
+	adapter.handlers.clear()
+	try:
+		log_module.journal_log('first')
+		log_module.journal_log('second')
+
+		assert len(adapter.handlers) == 1
+		assert emitted == ['first', 'second']
+	finally:
+		adapter.handlers[:] = original_handlers
 
 
 def test_command_peek_output_is_suppressed_while_tui_owns_terminal() -> None:

@@ -14,6 +14,29 @@ class FakeCommand:
 		return self.output
 
 
+class FakeEraseWorker:
+	def __init__(self, command: str, exit_code: int = 0) -> None:
+		self.command = command
+		self.exit_code = exit_code
+		self.poll_calls = 0
+		self.write_calls: list[tuple[bytes, bool]] = []
+		self.alive_checks = 0
+
+	def poll(self) -> None:
+		self.poll_calls += 1
+
+	def write(self, data: bytes, line_ending: bool = True) -> int:
+		self.write_calls.append((data, line_ending))
+		return len(data)
+
+	def is_alive(self) -> bool:
+		self.alive_checks += 1
+		return self.alive_checks == 1
+
+	def decode(self) -> str:
+		return 'erase failed'
+
+
 def test_dm_crypt_preflight_skips_modprobe_when_module_exists(monkeypatch: pytest.MonkeyPatch) -> None:
 	monkeypatch.setattr(Path, 'exists', lambda self: str(self) == '/sys/module/dm_crypt')
 	monkeypatch.setattr(luks, 'SysCommand', lambda command: pytest.fail(f'unexpected command: {command}'))
@@ -77,3 +100,21 @@ def test_non_swap_mapper_is_not_activated(monkeypatch: pytest.MonkeyPatch) -> No
 
 	assert not luks.activate_swap_mapper_if_needed(mapper)
 	assert activated == []
+
+
+def test_luks_erase_waits_for_worker_completion(monkeypatch: pytest.MonkeyPatch) -> None:
+	worker = FakeEraseWorker('')
+	monkeypatch.setattr(luks, 'SysCommandWorker', lambda command: worker)
+
+	luks.Luks2(Path('/dev/test')).erase()
+
+	assert worker.write_calls == [(b'YES\n', False)]
+	assert worker.alive_checks >= 2
+
+
+def test_luks_erase_surfaces_command_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+	worker = FakeEraseWorker('', exit_code=2)
+	monkeypatch.setattr(luks, 'SysCommandWorker', lambda command: worker)
+
+	with pytest.raises(DiskError, match='Could not erase LUKS metadata'):
+		luks.Luks2(Path('/dev/test')).erase()
