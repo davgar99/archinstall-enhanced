@@ -74,8 +74,8 @@ class DownloadTimer:
 def get_hw_addr(ifname: str) -> str:
 	import fcntl
 
-	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	ret = fcntl.ioctl(s.fileno(), 0x8927, struct.pack('256s', bytes(ifname, 'utf-8')[:15]))
+	with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+		ret = fcntl.ioctl(sock.fileno(), 0x8927, struct.pack('256s', bytes(ifname, 'utf-8')[:15]))
 	return ':'.join(f'{b:02x}' for b in ret[18:24])
 
 
@@ -126,21 +126,23 @@ def enrich_iface_types(interfaces: list[str]) -> dict[str, str]:
 
 
 def fetch_data_from_url(url: str, params: dict[str, str] | None = None, timeout: int = 30) -> bytes:
-	if urlparse(url).scheme not in {'http', 'https'}:
+	parsed = urlparse(url)
+	if parsed.scheme not in {'http', 'https'}:
 		raise ValueError(f'Unsupported URL scheme: {url}')
 
 	ssl_context = ssl.create_default_context()
 
 	if params is not None:
 		encoded = urlencode(params)
-		full_url = f'{url}?{encoded}'
+		query = '&'.join(part for part in (parsed.query, encoded) if part)
+		full_url = parsed._replace(query=query).geturl()
 	else:
 		full_url = url
 
 	try:
 		# The URL scheme is restricted to HTTP(S) above.
-		response = urlopen(full_url, context=ssl_context, timeout=timeout)  # nosec B310
-		return response.read()
+		with urlopen(full_url, context=ssl_context, timeout=timeout) as response:  # nosec B310
+			return response.read()
 	except URLError as e:
 		raise ValueError(f'Unable to fetch data from url: {url}\n{e}')
 	except Exception as e:
@@ -173,31 +175,40 @@ def ping(hostname: str, timeout: int = 5) -> int:
 	started = time.monotonic()
 	random_identifier = f'archinstall-{secrets.randbelow(9000) + 1000}'.encode()
 
-	# Create a raw socket (requires root, which should be fine on archiso)
-	icmp_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
-	watchdog.register(icmp_socket, select.EPOLLIN | select.EPOLLHUP)
+	try:
+		# Create a raw socket (requires root, which should be fine on archiso)
+		with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as icmp_socket:
+			watchdog.register(icmp_socket, select.EPOLLIN | select.EPOLLHUP)
 
-	icmp_packet = build_icmp(random_identifier)
+			icmp_packet = build_icmp(random_identifier)
 
-	# Send the ICMP packet
-	icmp_socket.sendto(icmp_packet, (hostname, 0))
-	latency = -1
+			# Send the ICMP packet
+			icmp_socket.sendto(icmp_packet, (hostname, 0))
+			latency = -1
 
-	# Gracefully wait for X amount of time
-	# for a ICMP response or exit with no latency
-	while latency == -1 and time.monotonic() - started < timeout:
-		try:
-			for _fileno, _event in watchdog.poll(0.1):
-				response, _ = icmp_socket.recvfrom(1024)
-				icmp_type = struct.unpack('!B', response[20:21])[0]
+			# Gracefully wait for X amount of time
+			# for a ICMP response or exit with no latency
+			while latency == -1 and time.monotonic() - started < timeout:
+				try:
+					for _fileno, _event in watchdog.poll(0.1):
+						response, _ = icmp_socket.recvfrom(1024)
+						if len(response) < 20:
+							continue
 
-				# Check if it's an Echo Reply (ICMP type 0)
-				if icmp_type == 0 and response[-len(random_identifier) :] == random_identifier:
-					latency = round((time.monotonic() - started) * 1000)
+						ip_header_length = (response[0] & 0x0F) * 4
+						if ip_header_length < 20 or len(response) <= ip_header_length:
+							continue
+
+						icmp_type = response[ip_header_length]
+
+						# Check if it's an Echo Reply (ICMP type 0)
+						if icmp_type == 0 and response[-len(random_identifier) :] == random_identifier:
+							latency = round((time.monotonic() - started) * 1000)
+							break
+				except OSError as e:
+					debug(f'Error: {e}')
 					break
-		except OSError as e:
-			debug(f'Error: {e}')
-			break
 
-	icmp_socket.close()
-	return latency
+			return latency
+	finally:
+		watchdog.close()
