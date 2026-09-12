@@ -202,8 +202,15 @@ class FirmwarePackagesConfiguration:
 
 	@classmethod
 	def parse_arg(cls, arg: FirmwarePackagesConfigSerialization) -> Self:
-		mode = FirmwarePackageMode(arg.get('mode', FirmwarePackageMode.FULL.value))
-		vendors = [FirmwareVendor(package) for package in arg.get('vendors', [])]
+		try:
+			mode = FirmwarePackageMode(arg.get('mode', FirmwarePackageMode.FULL.value))
+			vendors = [FirmwareVendor(package) for package in arg.get('vendors', [])]
+		except (TypeError, ValueError):
+			return cls()
+
+		if mode == FirmwarePackageMode.VENDOR and not vendors:
+			return cls()
+
 		return cls(mode=mode, vendors=vendors)
 
 	def packages(self) -> list[str]:
