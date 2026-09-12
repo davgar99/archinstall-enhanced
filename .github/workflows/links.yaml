@@ -36,6 +36,8 @@ jobs:
             --exclude '^https://archlinux\.life/aur-plugin$'
             --exclude '^https://archlinux\.org/packages/'
             --exclude '^https://discovery\.endeavouros\.com/wiki/$'
+            --exclude '^https://wiki\.archlinux\.org/$'
+            --exclude '^https://wiki\.archlinux\.org/title/Arch_User_Repository#Updating_packages$'
             --exclude '^https://wiki\.archlinux\.org/title/Frequently_asked_questions#What_architectures_does_Arch_support.*$'
             README.md CONTRIBUTING.md docs/**/*.md docs/**/*.rst
           fail: true
