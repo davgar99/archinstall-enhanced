@@ -280,7 +280,7 @@ class WifiConfiguredNetwork:
 				continue
 
 			try:
-				flags: list[str] = []
+				flags = cls._extract_flags(parts[3]) if len(parts) > 3 else []
 
 				networks.append(
 					cls(

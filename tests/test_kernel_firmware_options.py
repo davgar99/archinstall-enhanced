@@ -86,6 +86,21 @@ def test_firmware_policy_round_trip() -> None:
 	assert parsed.firmware_packages_config.vendors == [FirmwareVendor.AMD_GPU, FirmwareVendor.NVIDIA]
 
 
+def test_unknown_saved_firmware_mode_falls_back_to_full() -> None:
+	config = FirmwarePackagesConfiguration.parse_arg({'mode': 'future-mode', 'vendors': []})
+	assert config == FirmwarePackagesConfiguration()
+
+
+def test_unknown_saved_firmware_vendor_falls_back_to_full() -> None:
+	config = FirmwarePackagesConfiguration.parse_arg({'mode': 'vendor', 'vendors': ['linux-firmware-future']})
+	assert config == FirmwarePackagesConfiguration()
+
+
+def test_empty_saved_vendor_policy_falls_back_to_full() -> None:
+	config = FirmwarePackagesConfiguration.parse_arg({'mode': 'vendor', 'vendors': []})
+	assert config == FirmwarePackagesConfiguration()
+
+
 def test_vendor_mode_reprompts_on_empty_selection(monkeypatch: MonkeyPatch) -> None:
 	selection_calls = 0
 	notifications = 0
