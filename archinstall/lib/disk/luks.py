@@ -67,14 +67,15 @@ class Luks2:
 	def erase(self) -> None:
 		debug(f'Erasing luks partition: {self.luks_dev_path}')
 		worker = SysCommandWorker(f'cryptsetup erase {self.luks_dev_path}')
-		worker.poll()
-		worker.write(b'YES\n', line_ending=False)
+		try:
+			with worker:
+				worker.poll()
+				worker.write(b'YES\n', line_ending=False)
 
-		while worker.is_alive():
-			pass
-
-		if worker.exit_code != 0:
-			raise DiskError(f'Could not erase LUKS metadata on {self.luks_dev_path}: {worker.decode()}')
+				while worker.is_alive():
+					pass
+		except SysCallError as err:
+			raise DiskError(f'Could not erase LUKS metadata on {self.luks_dev_path}: {worker.decode()}') from err
 
 	def __enter__(self) -> None:
 		self.unlock(self.key_file)
@@ -211,27 +212,20 @@ class Luks2:
 		self._add_key(key_file)
 		self._crypttab(crypttab_path, kf_path, options=['luks', 'key-slot=1'])
 
-	def create_crypttab_entry(self, target_path: Path) -> None:
-		if self.mapper_name is None:
-			raise ValueError('Mapper name must be provided')
-
-		crypttab_path = target_path / 'etc/crypttab'
-		crypttab_path.parent.mkdir(parents=True, exist_ok=True)
-		self._crypttab(crypttab_path, Path('none'), options=['luks'])
-
 	def _add_key(self, key_file: Path) -> None:
 		debug(f'Adding additional key-file {key_file}')
 		command = f'cryptsetup -q -v luksAddKey {self.luks_dev_path} {key_file}'
 		worker = SysCommandWorker(command)
 		pw_injected = False
 
-		while worker.is_alive():
-			if b'Enter any existing passphrase' in worker and pw_injected is False:
-				worker.write(self._password_bytes())
-				pw_injected = True
-
-		if worker.exit_code != 0:
-			raise DiskError(f'Could not add encryption key {key_file} to {self.luks_dev_path}: {worker.decode()}')
+		try:
+			with worker:
+				while worker.is_alive():
+					if b'Enter any existing passphrase' in worker and pw_injected is False:
+						worker.write(self._password_bytes())
+						pw_injected = True
+		except SysCallError as err:
+			raise DiskError(f'Could not add encryption key {key_file} to {self.luks_dev_path}: {worker.decode()}') from err
 
 	def _crypttab(self, crypttab_path: Path, key_file: Path, options: list[str]) -> None:
 		debug(f'Adding crypttab entry for key {key_file}')
