@@ -1,15 +1,40 @@
+import asyncio
+
+from archinstall.default_profiles.desktop import DesktopProfile
 from archinstall.default_profiles.desktops.cosmic import CosmicProfile
 from archinstall.default_profiles.desktops.deepin import DeepinProfile
 from archinstall.default_profiles.desktops.gnome import GnomeFlavor, GnomeProfile
 from archinstall.default_profiles.desktops.mate import MateProfile
 from archinstall.default_profiles.desktops.plasma import PlasmaFlavor, PlasmaProfile
-from archinstall.default_profiles.desktops.utils import DesktopInstallFlavor
+from archinstall.default_profiles.desktops.utils import DesktopFlavorOption, DesktopInstallFlavor
 from archinstall.default_profiles.desktops.xfce4 import Xfce4Profile
-from archinstall.default_profiles.profile import CustomSetting
+from archinstall.default_profiles.profile import CustomSetting, Profile, ProfileType, SelectResult
 
 
-def _set_flavor(profile: object, flavor: DesktopInstallFlavor) -> None:
-	profile.custom_settings[CustomSetting.DesktopFlavor] = flavor.value  # type: ignore[attr-defined]
+def _set_flavor(profile: Profile, flavor: DesktopInstallFlavor) -> None:
+	profile.custom_settings[CustomSetting.DesktopFlavor] = flavor.value
+
+
+def test_standard_flavor_is_marked_recommended() -> None:
+	option = DesktopFlavorOption(DesktopInstallFlavor.Standard, 'Balanced desktop', ('example-package',))
+	assert option.menu_text().startswith('Standard (')
+
+
+def test_desktop_configures_selected_subprofiles_after_selection() -> None:
+	class PromptProfile(Profile):
+		def __init__(self) -> None:
+			super().__init__('Prompt test', ProfileType.DesktopEnv)
+			self.prompted = False
+
+		async def do_on_select(self) -> SelectResult:
+			self.prompted = True
+			return SelectResult.NewSelection
+
+	profile = PromptProfile()
+	desktop = DesktopProfile(current_selection=[profile])
+	asyncio.run(desktop._do_on_select_profiles())
+
+	assert profile.prompted is True
 
 
 def test_gnome_flavors_and_legacy_default() -> None:
