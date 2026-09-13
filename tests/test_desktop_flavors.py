@@ -1,4 +1,5 @@
 import asyncio
+from typing import cast, override
 
 from archinstall.default_profiles.desktop import DesktopProfile
 from archinstall.default_profiles.desktops.cosmic import CosmicProfile
@@ -26,12 +27,13 @@ def test_desktop_configures_selected_subprofiles_after_selection() -> None:
 			super().__init__('Prompt test', ProfileType.DesktopEnv)
 			self.prompted = False
 
+		@override
 		async def do_on_select(self) -> SelectResult:
 			self.prompted = True
 			return SelectResult.NewSelection
 
 	profile = PromptProfile()
-	desktop = DesktopProfile(current_selection=[profile])
+	desktop = DesktopProfile(current_selection=[cast(DesktopProfile, profile)])
 	asyncio.run(desktop._do_on_select_profiles())
 
 	assert profile.prompted is True
