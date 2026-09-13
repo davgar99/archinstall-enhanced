@@ -48,3 +48,13 @@ def test_context_exit_closes_epoll_resource() -> None:
 	worker.__exit__(None, None, None)
 
 	assert worker.poll_object.closed
+
+
+def test_context_exit_preserves_body_exception() -> None:
+	worker = _worker()
+	body_error = RuntimeError('body failed')
+
+	worker.__exit__(RuntimeError, body_error, None)
+
+	assert worker.poll_object.closed
+	assert worker.exit_code is None
