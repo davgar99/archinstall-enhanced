@@ -1,3 +1,4 @@
+import re
 import textwrap
 
 from archinstall.lib.installer import Installer
@@ -57,6 +58,20 @@ def _configure_nm_iwd(installation: Installer) -> None:
 	iwd_backend_conf.write_text('[device]\nwifi.backend=iwd\n')
 
 
+def _set_dnscrypt_option(content: str, key: str, value: str) -> str:
+	pattern = re.compile(rf'^\s*#?\s*{re.escape(key)}\s*=.*$', flags=re.MULTILINE)
+	replacement = f'{key} = {value}'
+	if pattern.search(content):
+		return pattern.sub(replacement, content, count=1)
+
+	# Keep new global options above the first TOML table so they do not become
+	# members of an unrelated section such as [sources.public-resolvers].
+	section = re.search(r'^\s*\[', content, flags=re.MULTILINE)
+	if section:
+		return content[: section.start()] + replacement + '\n\n' + content[section.start() :]
+	return content.rstrip() + '\n' + replacement + '\n'
+
+
 def _configure_dns_cache(installation: Installer, resolver: DnsResolver) -> None:
 	if resolver == DnsResolver.DEFAULT:
 		return
@@ -69,16 +84,22 @@ def _configure_dns_cache(installation: Installer, resolver: DnsResolver) -> None
 		installation.enable_service('dnscrypt-proxy.service')
 		(nm_conf_dir / 'dns-cache.conf').write_text('[main]\ndns=none\n')
 
-		dnscrypt_dir = installation.target / 'etc/dnscrypt-proxy'
-		dnscrypt_dir.mkdir(parents=True, exist_ok=True)
-		(dnscrypt_dir / 'dnscrypt-proxy.toml').write_text(
-			"listen_addresses = ['127.0.0.1:53', '[::1]:53']\n"
-			'dnscrypt_servers = false\n'
-			'doh_servers = true\n'
-			'odoh_servers = false\n'
-			'require_dnssec = true\n'
-			'cache = true\n'
-		)
+		dnscrypt_config = installation.target / 'etc/dnscrypt-proxy/dnscrypt-proxy.toml'
+		if not dnscrypt_config.is_file():
+			raise RuntimeError(f'dnscrypt-proxy configuration was not installed at {dnscrypt_config}')
+
+		content = dnscrypt_config.read_text()
+		for key, value in (
+			('listen_addresses', "['127.0.0.1:53', '[::1]:53']"),
+			('dnscrypt_servers', 'false'),
+			('doh_servers', 'true'),
+			('odoh_servers', 'false'),
+			('require_dnssec', 'true'),
+			('cache', 'true'),
+		):
+			content = _set_dnscrypt_option(content, key, value)
+		dnscrypt_config.write_text(content)
+
 		resolv_conf = installation.target / 'etc/resolv.conf'
 		if resolv_conf.exists() or resolv_conf.is_symlink():
 			resolv_conf.unlink()
