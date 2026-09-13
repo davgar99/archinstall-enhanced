@@ -24,9 +24,10 @@ class DesktopFlavorOption:
 	packages: tuple[str, ...]
 
 	def menu_text(self) -> str:
+		name = tr(self.flavor.name)
 		if self.flavor == DesktopInstallFlavor.Standard:
-			return f'{self.flavor.name} ({tr("Recommended")})'
-		return self.flavor.name
+			return f'{name} ({tr("Recommended")})'
+		return name
 
 	def preview_text(self) -> str:
 		packages = '\n'.join(f'- {package}' for package in self.packages)
