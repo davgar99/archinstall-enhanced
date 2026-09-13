@@ -4,6 +4,7 @@ import pytest
 
 from archinstall.lib.disk import luks
 from archinstall.lib.exceptions import DiskError, SysCallError
+from archinstall.lib.models.users import Password
 
 
 class FakeCommand:
@@ -21,6 +22,17 @@ class FakeEraseWorker:
 		self.poll_calls = 0
 		self.write_calls: list[tuple[bytes, bool]] = []
 		self.alive_checks = 0
+		self.entered = False
+		self.exited = False
+
+	def __enter__(self) -> 'FakeEraseWorker':
+		self.entered = True
+		return self
+
+	def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: object | None) -> None:
+		self.exited = True
+		if self.exit_code != 0:
+			raise SysCallError('command failed', self.exit_code)
 
 	def poll(self) -> None:
 		self.poll_calls += 1
@@ -32,6 +44,9 @@ class FakeEraseWorker:
 	def is_alive(self) -> bool:
 		self.alive_checks += 1
 		return self.alive_checks == 1
+
+	def __contains__(self, key: bytes) -> bool:
+		return key == b'Enter any existing passphrase'
 
 	def decode(self) -> str:
 		return 'erase failed'
@@ -102,7 +117,7 @@ def test_non_swap_mapper_is_not_activated(monkeypatch: pytest.MonkeyPatch) -> No
 	assert activated == []
 
 
-def test_luks_erase_waits_for_worker_completion(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_luks_erase_waits_for_worker_completion_and_closes_worker(monkeypatch: pytest.MonkeyPatch) -> None:
 	worker = FakeEraseWorker('')
 	monkeypatch.setattr(luks, 'SysCommandWorker', lambda command: worker)
 
@@ -110,11 +125,38 @@ def test_luks_erase_waits_for_worker_completion(monkeypatch: pytest.MonkeyPatch)
 
 	assert worker.write_calls == [(b'YES\n', False)]
 	assert worker.alive_checks >= 2
+	assert worker.entered
+	assert worker.exited
 
 
-def test_luks_erase_surfaces_command_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_luks_erase_surfaces_command_failure_and_closes_worker(monkeypatch: pytest.MonkeyPatch) -> None:
 	worker = FakeEraseWorker('', exit_code=2)
 	monkeypatch.setattr(luks, 'SysCommandWorker', lambda command: worker)
 
 	with pytest.raises(DiskError, match='Could not erase LUKS metadata'):
 		luks.Luks2(Path('/dev/test')).erase()
+
+	assert worker.exited
+
+
+def test_luks_add_key_closes_worker(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+	worker = FakeEraseWorker('')
+	monkeypatch.setattr(luks, 'SysCommandWorker', lambda command: worker)
+	key_file = tmp_path / 'key'
+
+	luks.Luks2(Path('/dev/test'), password=Password('secret'))._add_key(key_file)
+
+	assert worker.entered
+	assert worker.exited
+	assert worker.write_calls == [(b'secret', True)]
+
+
+def test_luks_add_key_surfaces_command_failure_and_closes_worker(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+	worker = FakeEraseWorker('', exit_code=2)
+	monkeypatch.setattr(luks, 'SysCommandWorker', lambda command: worker)
+	key_file = tmp_path / 'key'
+
+	with pytest.raises(DiskError, match='Could not add encryption key'):
+		luks.Luks2(Path('/dev/test'), password=Password('secret'))._add_key(key_file)
+
+	assert worker.exited
