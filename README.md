@@ -56,7 +56,7 @@ archinstall
 | Area | Additions in this fork |
 |---|---|
 | Installer experience | Grouped menus, consistent summaries and prompt ordering, clearer destructive-action review, hardware-aware graphics defaults, improved activity and error feedback |
-| Desktop foundation | Wayland-first desktop selection with Xorg compatibility, portals, codecs, PipeWire surround upmixing, package-cache maintenance, Fontconfig defaults, common command-line utilities |
+| Desktop foundation | Wayland-first desktop selection with Xorg compatibility, desktop installation flavors, portals, codecs, PipeWire surround upmixing, package-cache maintenance, Fontconfig defaults, common command-line utilities |
 | Gaming | 32-bit graphics libraries, sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, shader-cache and compatibility options |
 | Hardware | Detected graphics-driver recommendations with manual override, graphics-aware OpenCL, firmware updates, Bluetooth, printing, VirtualBox guest integration, controller and watchdog options |
 | Storage and memory | Balanced zram profiles, Zstandard compression for automatically generated Btrfs layouts, LUKS-encrypted swap support, and stronger encrypted-volume preflight checks |
@@ -126,6 +126,8 @@ Multilib is enabled only when a selected option requires 32-bit packages. Compat
 ### Graphics and desktop integration
 
 Graphics packages follow the driver chosen in the desktop profile. Hardware detection now recommends a graphics driver automatically when there is one unambiguous AMD, Intel, NVIDIA, or VirtualBox choice. The recommendation is only a default: the normal driver menu remains available for manual override, and mixed-GPU systems fall back to the broad open-source option.
+
+The desktop-environment list stays familiar and uncluttered. After selecting KDE Plasma, GNOME, Xfce4, MATE, COSMIC, or Deepin, the installer asks how much of that environment to install: **Basic**, **Standard (Recommended)**, or **Complete**. The preview explains the tier and its top-level package selections, so users can choose a lean base or a broader out-of-box desktop without maintaining a manual package list. Older saved configurations keep their historical package behavior until a new flavor is explicitly selected.
 
 New desktop selections are Wayland-first. Xorg-only environments remain available through an explicit compatibility choice, and existing saved configurations that already select an Xorg desktop continue to expose those profiles.
 

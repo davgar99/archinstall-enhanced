@@ -49,6 +49,7 @@ class SelectResult(Enum):
 
 class CustomSetting(StrEnum):
 	SeatAccess = 'seat_access'
+	DesktopFlavor = 'desktop_flavor'
 	PlasmaFlavor = 'plasma_flavor'
 	GnomeFlavor = 'gnome_flavor'
 
