@@ -1,4 +1,5 @@
-from enum import Enum
+from dataclasses import dataclass
+from enum import Enum, StrEnum
 
 from archinstall.default_profiles.profile import CustomSetting, Profile
 from archinstall.lib.installer import Installer
@@ -8,6 +9,70 @@ from archinstall.lib.models.users import User
 from archinstall.lib.translationhandler import tr
 from archinstall.tui.menu_item import MenuItem, MenuItemGroup
 from archinstall.tui.result import ResultType
+
+
+class DesktopInstallFlavor(StrEnum):
+	Basic = 'basic'
+	Standard = 'standard'
+	Complete = 'complete'
+
+
+@dataclass(frozen=True)
+class DesktopFlavorOption:
+	flavor: DesktopInstallFlavor
+	description: str
+	packages: tuple[str, ...]
+
+	def menu_text(self) -> str:
+		if self.flavor == DesktopInstallFlavor.Standard:
+			return f'{self.flavor.name} ({tr("Recommended")})'
+		return self.flavor.name
+
+	def preview_text(self) -> str:
+		packages = '\n'.join(f'- {package}' for package in self.packages)
+		return f'{tr("Description")}: {self.description}\n\n{tr("Installed packages")}:\n{packages}'
+
+
+def desktop_flavor_of(profile: Profile) -> DesktopInstallFlavor | None:
+	value = profile.custom_settings.get(CustomSetting.DesktopFlavor)
+	if value is None:
+		return None
+
+	try:
+		return DesktopInstallFlavor(value)
+	except (TypeError, ValueError):  # fmt: skip
+		warn(f'Unknown desktop install flavor for {profile.name}, using the legacy/default package set: {value}')
+		return None
+
+
+async def select_desktop_flavor(
+	profile_name: str,
+	options: tuple[DesktopFlavorOption, ...],
+	preset: DesktopInstallFlavor = DesktopInstallFlavor.Standard,
+) -> DesktopInstallFlavor:
+	by_flavor = {option.flavor: option for option in options}
+	items = [
+		MenuItem(
+			option.menu_text(),
+			value=option.flavor,
+			preview_action=lambda item: by_flavor[item.value].preview_text() if item.value else None,
+		)
+		for option in options
+	]
+	group = MenuItemGroup(items, sort_items=False)
+	group.set_default_by_value(preset)
+
+	result = await Selection[DesktopInstallFlavor](
+		group,
+		header=tr('Select how much of {} to install').format(profile_name) + '\n',
+		allow_skip=False,
+		preview_location='right',
+	).show()
+
+	if result.type_ == ResultType.Selection:
+		return result.get_value()
+	else:
+		raise ValueError('Unexpected result type from desktop flavor selection')
 
 
 class SeatAccess(Enum):
