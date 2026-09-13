@@ -30,7 +30,11 @@ class DesktopFlavorOption:
 
 	def preview_text(self) -> str:
 		packages = '\n'.join(f'- {package}' for package in self.packages)
-		return f'{tr("Description")}: {self.description}\n\n{tr("Installed packages")}:\n{packages}'
+		return (
+			f'{tr("Description")}: {self.description}\n\n'
+			f'{tr("Top-level package selections")}: {len(self.packages)}\n'
+			f'{tr("Installed packages")}:\n{packages}'
+		)
 
 
 def desktop_flavor_of(profile: Profile) -> DesktopInstallFlavor | None:
