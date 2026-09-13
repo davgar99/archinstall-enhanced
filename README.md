@@ -261,3 +261,22 @@ The installation progress screen reports the current stage while the detailed lo
 <p align="center">
   <img src="docs/screenshots/04-installation.png" alt="Archinstall Enhanced installation progress" width="900" />
 </p>
+
+## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before submitting a change. Fork-specific patches should have a focused purpose, preserve compatibility where practical, include tests for behavioral changes, and cite supporting documentation for system-level defaults. The contribution guide also defines expectations for AI-assisted development and review responsibility.
+
+Bug reports caused by this fork belong in this repository. General Archinstall questions and upstream issues should use the official project resources.
+
+## Resources
+
+- [Archinstall documentation](https://archinstall.archlinux.page/)
+- [Official Archinstall repository](https://github.com/archlinux/archinstall)
+- [Arch Linux wiki](https://wiki.archlinux.org/)
+- [CachyOS wiki](https://wiki.cachyos.org/)
+- [Manjaro wiki](https://wiki.manjaro.org/)
+- [Fedora wiki](https://fedoraproject.org/wiki/Fedora_Project_Wiki)
+
+## License
+
+Archinstall Enhanced is distributed under the same [GNU General Public License v3.0](LICENSE) as upstream Archinstall.
