@@ -17,7 +17,7 @@ def test_service_verification_does_not_query_removed_reflector_service(monkeypat
 	assert queried_services == []
 
 
-def test_sanity_check_keeps_offline_argument_compatibility(monkeypatch: MonkeyPatch) -> None:
+def test_sanity_check_offline_skips_online_service_waits(monkeypatch: MonkeyPatch) -> None:
 	installer = object.__new__(Installer)
 	verification_calls: list[tuple[bool, bool]] = []
 
@@ -25,6 +25,7 @@ def test_sanity_check_keeps_offline_argument_compatibility(monkeypatch: MonkeyPa
 		verification_calls.append((skip_ntp, skip_wkd))
 
 	monkeypatch.setattr(installer, '_verify_service_stop', verify)
-	installer.sanity_check(offline=True, skip_ntp=True, skip_wkd=False)
+	installer.sanity_check(offline=True, skip_ntp=False, skip_wkd=False)
+	installer.sanity_check(offline=False, skip_ntp=True, skip_wkd=False)
 
-	assert verification_calls == [(True, False)]
+	assert verification_calls == [(True, True), (True, False)]
