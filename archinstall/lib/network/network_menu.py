@@ -10,6 +10,29 @@ from archinstall.tui.menu_item import MenuItem, MenuItemGroup
 from archinstall.tui.result import ResultType
 
 
+def _validate_ip_input(
+	value: str | None,
+	*,
+	multi: bool,
+	allow_empty: bool,
+	allow_prefix: bool,
+) -> str | None:
+	failure = tr('You need to enter a valid IP in IP-config mode')
+	if not value:
+		return None if allow_empty else failure
+
+	candidates = value.split() if multi else [value]
+	try:
+		for candidate in candidates:
+			if allow_prefix:
+				ipaddress.ip_interface(candidate)
+			else:
+				ipaddress.ip_address(candidate)
+		return None
+	except ValueError:
+		return failure
+
+
 class ManualNetworkConfig(ListManager[Nic]):
 	def __init__(self, prompt: str, preset: list[Nic]):
 		self._actions = [tr('Add interface'), tr('Edit interface'), tr('Delete interface')]
@@ -62,18 +85,15 @@ class ManualNetworkConfig(ListManager[Nic]):
 		multi: bool,
 		preset: str | None = None,
 		allow_empty: bool = False,
+		allow_prefix: bool = True,
 	) -> str | None:
 		def validator(ip: str | None) -> str | None:
-			failure = tr('You need to enter a valid IP in IP-config mode')
-			if not ip:
-				return None if allow_empty else failure
-			ips = ip.split(' ') if multi else [ip]
-			try:
-				for candidate in ips:
-					ipaddress.ip_interface(candidate)
-				return None
-			except ValueError:
-				return failure
+			return _validate_ip_input(
+				ip,
+				multi=multi,
+				allow_empty=allow_empty,
+				allow_prefix=allow_prefix,
+			)
 
 		result = await Input(
 			header=header,
@@ -112,11 +132,11 @@ class ManualNetworkConfig(ListManager[Nic]):
 			header = tr('Enter the IP and subnet for {} (example: 192.168.0.5/24): ').format(iface_name) + '\n'
 			ip = await self._get_ip_address(header, False, False)
 			header = tr('Enter your gateway (router) IP address (leave blank for none)') + '\n'
-			gateway = await self._get_ip_address(header, True, False, allow_empty=True)
+			gateway = await self._get_ip_address(header, True, False, allow_empty=True, allow_prefix=False)
 			display_dns = ' '.join(edit_nic.dns) if edit_nic.dns else None
 			header = tr('Enter your DNS servers with space separated (leave blank for none)') + '\n'
-			dns_servers = await self._get_ip_address(header, True, True, display_dns, allow_empty=True)
-			dns = dns_servers.split(' ') if dns_servers is not None else []
+			dns_servers = await self._get_ip_address(header, True, True, display_dns, allow_empty=True, allow_prefix=False)
+			dns = dns_servers.split() if dns_servers is not None else []
 			return Nic(iface=iface_name, ip=ip, gateway=gateway, dns=dns, dhcp=False)
 		return Nic(iface=iface_name)
 
