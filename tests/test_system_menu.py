@@ -23,8 +23,10 @@ def test_kernel_selection_returns_package_names(monkeypatch: MonkeyPatch) -> Non
 	[
 		(True, False, False, GfxDriver.AmdOpenSource),
 		(False, True, False, GfxDriver.IntelOpenSource),
-		(False, False, True, GfxDriver.NvidiaOpenKernel),
+		(False, False, True, GfxDriver.AllOpenSource),
 		(True, True, False, GfxDriver.AllOpenSource),
+		(True, False, True, GfxDriver.AllOpenSource),
+		(False, True, True, GfxDriver.AllOpenSource),
 		(False, False, False, GfxDriver.AllOpenSource),
 	],
 )

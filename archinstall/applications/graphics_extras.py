@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from archinstall.lib.general.kernel_packages import kernel_header_packages
 from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.log import debug, warn
 
@@ -23,6 +24,16 @@ class GraphicsExtrasApp:
 		if driver is None and (install_32bit or install_opencl):
 			warn('Skipping graphics extras because no graphics driver was selected')
 			return
+
+		# The NVIDIA open-kernel option uses nvidia-open-dkms. DKMS deliberately
+		# treats kernel headers as optional dependencies, so install the matching
+		# headers here for every kernel selected by the installer. Without them the
+		# package can install successfully while leaving no usable NVIDIA module.
+		if driver == GfxDriver.NvidiaOpenKernel:
+			headers = kernel_header_packages(install_session.kernels)
+			if headers:
+				debug(f'Installing kernel headers required by NVIDIA DKMS: {headers}')
+				install_session.add_additional_packages(headers)
 
 		packages = self.packages(install_32bit, install_opencl, driver)
 		if packages:

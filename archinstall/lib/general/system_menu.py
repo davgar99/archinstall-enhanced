@@ -14,10 +14,16 @@ def recommended_gfx_driver() -> GfxDriver:
 	if SysInfo.virtualization() == 'oracle':
 		return GfxDriver.VMOpenSource
 
+	has_nvidia = SysInfo.has_nvidia_graphics()
+	if has_nvidia:
+		# The current PCI-vendor-only probe cannot distinguish Turing+ GPUs from
+		# Pascal and older hardware, where nvidia-open-dkms is unsupported.
+		# Keep the broad open-source fallback until generation-aware detection exists.
+		return GfxDriver.AllOpenSource
+
 	detected = [
 		(SysInfo.has_amd_graphics(), GfxDriver.AmdOpenSource),
 		(SysInfo.has_intel_graphics(), GfxDriver.IntelOpenSource),
-		(SysInfo.has_nvidia_graphics(), GfxDriver.NvidiaOpenKernel),
 	]
 	matches = [driver for present, driver in detected if present]
 
