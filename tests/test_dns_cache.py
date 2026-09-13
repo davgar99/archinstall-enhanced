@@ -39,6 +39,24 @@ class FakeInstaller:
 		self.disabled_services.append(service)
 
 
+def _seed_dnscrypt_config(target: Path) -> Path:
+	config = target / 'etc/dnscrypt-proxy/dnscrypt-proxy.toml'
+	config.parent.mkdir(parents=True, exist_ok=True)
+	config.write_text(
+		"listen_addresses = ['127.0.0.1:53']\n"
+		'dnscrypt_servers = true\n'
+		'doh_servers = true\n'
+		'odoh_servers = false\n'
+		'require_dnssec = false\n'
+		'cache = true\n\n'
+		'[sources.public-resolvers]\n'
+		"urls = ['https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']\n"
+		"cache_file = 'public-resolvers.md'\n"
+		"minisign_key = 'RWQf6LRCGA9A...fixture'\n"
+	)
+	return config
+
+
 @pytest.mark.parametrize('nic_type', [NicType.NM, NicType.NM_IWD])
 def test_systemd_resolved_dns_cache(tmp_path: Path, nic_type: NicType) -> None:
 	installer = FakeInstaller(tmp_path)
@@ -65,8 +83,9 @@ def test_dnsmasq_dns_cache(tmp_path: Path) -> None:
 	assert not installer.stub_mode
 
 
-def test_dns_over_https_uses_dnscrypt_proxy(tmp_path: Path) -> None:
+def test_dns_over_https_preserves_packaged_resolver_sources(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
+	config_path = _seed_dnscrypt_config(tmp_path)
 	config = NetworkConfiguration(NicType.NM, dns_resolver=DnsResolver.DNS_OVER_HTTPS)
 
 	install_network_config(config, installer)  # type: ignore[arg-type]
@@ -74,17 +93,27 @@ def test_dns_over_https_uses_dnscrypt_proxy(tmp_path: Path) -> None:
 	assert 'dnscrypt-proxy' in installer.packages
 	assert 'dnscrypt-proxy.service' in installer.services
 	assert (tmp_path / 'etc/NetworkManager/conf.d/dns-cache.conf').read_text() == '[main]\ndns=none\n'
-	proxy_config = (tmp_path / 'etc/dnscrypt-proxy/dnscrypt-proxy.toml').read_text()
+	proxy_config = config_path.read_text()
+	assert "listen_addresses = ['127.0.0.1:53', '[::1]:53']" in proxy_config
 	assert 'dnscrypt_servers = false' in proxy_config
 	assert 'doh_servers = true' in proxy_config
 	assert 'require_dnssec = true' in proxy_config
+	assert '[sources.public-resolvers]' in proxy_config
+	assert 'download.dnscrypt.info/resolvers-list/v3/public-resolvers.md' in proxy_config
 	assert (tmp_path / 'etc/resolv.conf').read_text().startswith('nameserver 127.0.0.1\n')
+
+
+def test_dns_over_https_fails_if_package_config_is_missing(tmp_path: Path) -> None:
+	installer = FakeInstaller(tmp_path)
+
+	with pytest.raises(RuntimeError, match='dnscrypt-proxy configuration was not installed'):
+		install_network_config(NetworkConfiguration(NicType.NM, dns_resolver=DnsResolver.DNS_OVER_HTTPS), installer)  # type: ignore[arg-type]
 
 
 def test_dns_over_https_replaces_existing_resolver_symlink(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
+	_seed_dnscrypt_config(tmp_path)
 	etc = tmp_path / 'etc'
-	etc.mkdir()
 	resolved = etc / 'resolved.conf'
 	resolved.write_text('keep me\n')
 	(etc / 'resolv.conf').symlink_to('resolved.conf')

@@ -112,8 +112,9 @@ class SysCommandWorker:
 
 		if exc_type is not None:
 			debug(str(exc_value))
+			return
 
-		if self.exit_code != 0:
+		if self.exit_code not in (None, 0):
 			raise SysCallError(
 				f'{self.cmd} exited with abnormal exit code [{self.exit_code}]: {str(self)[-500:]}',
 				self.exit_code,
