@@ -244,7 +244,7 @@ class Installer:
 		skip_wkd: bool = False,
 	) -> None:
 		# self._verify_boot_part()
-		self._verify_service_stop(skip_ntp, skip_wkd)
+		self._verify_service_stop(offline or skip_ntp, offline or skip_wkd)
 
 	def mount_ordered_layout(self) -> None:
 		debug('Mounting ordered layout')
@@ -1228,9 +1228,9 @@ class Installer:
 			f"""\
 			# Created by: archinstall
 			# Created on: {self.init_time}
-			title	Arch Linux ({{kernel}})
-			linux	/vmlinuz-{{kernel}}
-			initrd	/initramfs-{{kernel}}.img
+			title\tArch Linux ({{kernel}})
+			linux\t/vmlinuz-{{kernel}}
+			initrd\t/initramfs-{{kernel}}.img
 			options {' '.join(self._get_kernel_params(root))}
 			""",
 		)
@@ -1926,8 +1926,8 @@ class Installer:
 		# Creates directory if not exists
 		if not sudoers_dir.exists():
 			sudoers_dir.mkdir(parents=True)
-			# Guarantees sudoer confs directory recommended perms
-			sudoers_dir.chmod(0o440)
+			# Directories need execute permission so sudo can traverse and read rule files.
+			sudoers_dir.chmod(0o750)
 			# Appends a reference to the sudoers file, because if we are here sudoers.d did not exist yet
 			with open(self.target / 'etc/sudoers', 'a') as sudoers:
 				sudoers.write('@includedir /etc/sudoers.d\n')
