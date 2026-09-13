@@ -1,4 +1,6 @@
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 
 import pytest
 
@@ -25,11 +27,16 @@ class FakeEraseWorker:
 		self.entered = False
 		self.exited = False
 
-	def __enter__(self) -> 'FakeEraseWorker':
+	def __enter__(self) -> Self:
 		self.entered = True
 		return self
 
-	def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: object | None) -> None:
+	def __exit__(
+		self,
+		exc_type: type[BaseException] | None,
+		exc_value: BaseException | None,
+		traceback: TracebackType | None,
+	) -> None:
 		self.exited = True
 		if self.exit_code != 0:
 			raise SysCallError('command failed', self.exit_code)
