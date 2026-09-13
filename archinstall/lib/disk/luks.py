@@ -212,6 +212,14 @@ class Luks2:
 		self._add_key(key_file)
 		self._crypttab(crypttab_path, kf_path, options=['luks', 'key-slot=1'])
 
+	def create_crypttab_entry(self, target_path: Path) -> None:
+		if self.mapper_name is None:
+			raise ValueError('Mapper name must be provided')
+
+		crypttab_path = target_path / 'etc/crypttab'
+		crypttab_path.parent.mkdir(parents=True, exist_ok=True)
+		self._crypttab(crypttab_path, Path('none'), options=['luks'])
+
 	def _add_key(self, key_file: Path) -> None:
 		debug(f'Adding additional key-file {key_file}')
 		command = f'cryptsetup -q -v luksAddKey {self.luks_dev_path} {key_file}'
