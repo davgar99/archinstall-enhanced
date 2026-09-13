@@ -1,11 +1,14 @@
 from enum import StrEnum
 from typing import override
 
+from archinstall.default_profiles.desktops.utils import (
+	DesktopFlavorOption,
+	DesktopInstallFlavor,
+	desktop_flavor_of,
+	select_desktop_flavor,
+)
 from archinstall.default_profiles.profile import CustomSetting, DisplayServerType, GreeterType, Profile, ProfileType
-from archinstall.lib.menu.helpers import Selection
 from archinstall.lib.translationhandler import tr
-from archinstall.tui.menu_item import MenuItem, MenuItemGroup
-from archinstall.tui.result import ResultType
 
 
 class GnomeFlavor(StrEnum):
@@ -57,6 +60,26 @@ class GnomeFlavor(StrEnum):
 				]
 
 
+def _gnome_flavor_options() -> tuple[DesktopFlavorOption, ...]:
+	return (
+		DesktopFlavorOption(
+			DesktopInstallFlavor.Basic,
+			tr('Core GNOME shell, settings, file manager, terminal, portal, and tweak tools without the full application collection.'),
+			tuple(GnomeFlavor.Minimal.packages()),
+		),
+		DesktopFlavorOption(
+			DesktopInstallFlavor.Standard,
+			tr('Balanced GNOME desktop using the Arch Linux gnome group plus GNOME Tweaks.'),
+			('gnome', 'gnome-tweaks'),
+		),
+		DesktopFlavorOption(
+			DesktopInstallFlavor.Complete,
+			tr('Broad GNOME installation with the standard desktop plus the additional gnome-extra application group.'),
+			('gnome', 'gnome-extra', 'gnome-tweaks'),
+		),
+	)
+
+
 class GnomeProfile(Profile):
 	def __init__(self) -> None:
 		super().__init__(
@@ -74,12 +97,24 @@ class GnomeProfile(Profile):
 			return GnomeFlavor(flavor)
 		except (TypeError, ValueError):  # fmt: skip
 			# Persisted configurations can outlive flavor names. Fall back to the
-			# current recommended option instead of aborting profile loading.
+			# historical default instead of aborting profile loading.
 			return GnomeFlavor.Minimal
+
+	def _menu_flavor(self) -> DesktopInstallFlavor:
+		if flavor := desktop_flavor_of(self):
+			return flavor
+
+		legacy = self.custom_settings.get(CustomSetting.GnomeFlavor)
+		if legacy == GnomeFlavor.Minimal.value:
+			return DesktopInstallFlavor.Basic
+		return DesktopInstallFlavor.Standard
 
 	@property
 	@override
 	def packages(self) -> list[str]:
+		if flavor := desktop_flavor_of(self):
+			options = {option.flavor: option for option in _gnome_flavor_options()}
+			return list(options[flavor].packages)
 		return self._selected_flavor().packages()
 
 	@property
@@ -88,30 +123,8 @@ class GnomeProfile(Profile):
 		return GreeterType.Gdm
 
 	async def _select_flavor(self) -> None:
-		header = tr('Select a GNOME installation flavor') + '\n'
-
-		items = [
-			MenuItem(
-				s.show(),
-				value=s,
-				preview_action=lambda x: x.value.description() if x.value else None,
-			)
-			for s in GnomeFlavor
-		]
-		group = MenuItemGroup(items, sort_items=False)
-
-		preset = self._selected_flavor()
-		group.set_default_by_value(preset)
-
-		result = await Selection[GnomeFlavor](
-			group,
-			header=header,
-			allow_skip=False,
-			preview_location='right',
-		).show()
-
-		if result.type_ == ResultType.Selection:
-			self.custom_settings[CustomSetting.GnomeFlavor] = result.get_value().value
+		flavor = await select_desktop_flavor('GNOME', _gnome_flavor_options(), self._menu_flavor())
+		self.custom_settings[CustomSetting.DesktopFlavor] = flavor.value
 
 	@override
 	async def do_on_select(self) -> None:
