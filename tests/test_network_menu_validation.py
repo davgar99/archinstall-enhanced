@@ -12,10 +12,13 @@ def test_gateway_rejects_network_prefix() -> None:
 
 
 def test_dns_servers_require_bare_addresses() -> None:
-	assert _validate_ip_input(
-		'1.1.1.1 2606:4700:4700::1111',
-		multi=True,
-		allow_empty=True,
-		allow_prefix=False,
-	) is None
+	assert (
+		_validate_ip_input(
+			'1.1.1.1 2606:4700:4700::1111',
+			multi=True,
+			allow_empty=True,
+			allow_prefix=False,
+		)
+		is None
+	)
 	assert _validate_ip_input('1.1.1.1/32', multi=True, allow_empty=True, allow_prefix=False) is not None
