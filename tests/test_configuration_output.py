@@ -8,7 +8,7 @@ from typing import Any, cast
 from pytest import MonkeyPatch
 
 from archinstall.lib.args import USER_CONFIG_FILE, USER_CREDS_FILE, ArchConfig, ArchConfigHandler, ArchConfigType
-from archinstall.lib.configuration import _destructive_targets, confirm_config
+from archinstall.lib.configuration import _config_preview, _destructive_targets, confirm_config
 from archinstall.lib.menu.helpers import Confirmation
 from archinstall.lib.models.device import DeviceModification, DiskLayoutConfiguration, DiskLayoutType, SectorSize, Size, Unit
 from archinstall.tui.result import Result
@@ -69,6 +69,20 @@ def test_creds_roundtrip(
 	expected = json.loads(creds_fixture.read_text())
 
 	assert sorted(result.items()) == sorted(expected.items())
+
+
+def test_save_all_preview_omits_credentials_file_when_empty(monkeypatch: MonkeyPatch) -> None:
+	config = ArchConfig()
+	monkeypatch.setattr(config, 'user_credentials_to_json', lambda: None)
+
+	assert _config_preview(config, 'all') == str(USER_CONFIG_FILE)
+
+
+def test_save_all_preview_includes_credentials_file_when_present(monkeypatch: MonkeyPatch) -> None:
+	config = ArchConfig()
+	monkeypatch.setattr(config, 'user_credentials_to_json', lambda: '{"password":"secret"}')
+
+	assert _config_preview(config, 'all') == f'{USER_CONFIG_FILE}\n{USER_CREDS_FILE}'
 
 
 def test_installation_summary_uses_risk_first_order(monkeypatch: MonkeyPatch) -> None:
