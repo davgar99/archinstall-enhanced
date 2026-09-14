@@ -1,4 +1,5 @@
 from pathlib import Path
+from xml.etree import ElementTree
 
 from archinstall.applications.fonts import (
 	BITMAP_PRESET_TARGET,
@@ -40,6 +41,7 @@ def test_desktop_enables_fontconfig_preset_without_adding_font_families(tmp_path
 	assert fontconfig_link.readlink() == BITMAP_PRESET_TARGET
 
 	rendering_config = (tmp_path / 'etc/fonts/conf.d' / RENDERING_PRESET_NAME).read_text(encoding='utf-8')
+	assert ElementTree.fromstring(rendering_config).tag == 'fontconfig'
 	assert '<edit name="antialias" mode="assign"><bool>true</bool></edit>' in rendering_config
 	assert '<edit name="hinting" mode="assign"><bool>true</bool></edit>' in rendering_config
 	assert '<edit name="hintstyle" mode="assign"><const>hintslight</const></edit>' in rendering_config
