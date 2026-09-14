@@ -192,10 +192,21 @@ class DiskEncryptionMenu(AbstractSubMenu[DiskEncryption]):
 		return None
 
 
+def _luks_cipher_focus(preset: str | None) -> LuksCipher:
+	if preset is None:
+		return LuksCipher.DEFAULT
+
+	try:
+		return LuksCipher(preset)
+	except ValueError:
+		return LuksCipher.CUSTOM
+
+
 async def select_luks_cipher(preset: str | None = None) -> str | None:
 	items = [MenuItem(cipher.display_msg(), value=cipher) for cipher in LuksCipher]
 	group = MenuItemGroup(items, sort_items=False)
 	group.set_default_by_value(LuksCipher.DEFAULT)
+	group.set_focus_by_value(_luks_cipher_focus(preset))
 	result = await Selection[LuksCipher](
 		group,
 		header=tr('Select a LUKS2 cipher. The cryptsetup default is recommended unless you have a specific requirement.'),
