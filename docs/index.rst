@@ -18,6 +18,7 @@ Some of the features of Archinstall are:
 
    installing/guided
    installing/desktop-flavors
+   installing/font-rendering
    installing/windows-dual-boot
 
 .. toctree::
