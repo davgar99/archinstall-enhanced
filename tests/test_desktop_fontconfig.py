@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from archinstall.applications.fonts import BITMAP_PRESET_TARGET, RENDERING_PRESET_NAME, configure_font_rendering
+from archinstall.applications.fonts import (
+	BITMAP_PRESET_TARGET,
+	RENDERING_PRESET_NAME,
+	configure_font_rendering,
+)
 from archinstall.default_profiles.desktop import DesktopProfile
 from archinstall.default_profiles.desktops.sway import SwayProfile
 
@@ -69,6 +73,21 @@ def test_font_rendering_does_not_replace_existing_bitmap_configuration(tmp_path:
 	configure_font_rendering(tmp_path)
 
 	assert bitmap_config.read_text(encoding='utf-8') == 'custom administrator configuration\n'
+
+
+def test_font_rendering_replaces_managed_config_symlink_without_following_it(tmp_path: Path) -> None:
+	conf_dir = tmp_path / 'etc/fonts/conf.d'
+	conf_dir.mkdir(parents=True)
+	outside = tmp_path / 'outside.conf'
+	outside.write_text('must stay untouched\n', encoding='utf-8')
+	rendering_config = conf_dir / RENDERING_PRESET_NAME
+	rendering_config.symlink_to(outside)
+
+	configure_font_rendering(tmp_path)
+
+	assert not rendering_config.is_symlink()
+	assert rendering_config.is_file()
+	assert outside.read_text(encoding='utf-8') == 'must stay untouched\n'
 
 
 def test_sway_includes_screen_sharing_portal() -> None:
