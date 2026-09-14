@@ -14,12 +14,12 @@ RENDERING_PRESET_NAME = '45-archinstall-enhanced-rendering.conf'
 RENDERING_PRESET = """<?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
 <fontconfig>
-  <match target="font">
-    <edit name="antialias" mode="assign"><bool>true</bool></edit>
-    <edit name="hinting" mode="assign"><bool>true</bool></edit>
-    <edit name="hintstyle" mode="assign"><const>hintslight</const></edit>
-    <edit name="lcdfilter" mode="assign"><const>lcddefault</const></edit>
-  </match>
+<match target="font">
+<edit name="antialias" mode="assign"><bool>true</bool></edit>
+<edit name="hinting" mode="assign"><bool>true</bool></edit>
+<edit name="hintstyle" mode="assign"><const>hintslight</const></edit>
+<edit name="lcdfilter" mode="assign"><const>lcddefault</const></edit>
+</match>
 </fontconfig>
 """
 
