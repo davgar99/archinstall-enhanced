@@ -37,7 +37,13 @@ def configure_font_rendering(target: Path) -> None:
 	elif not bitmap_link.exists():
 		bitmap_link.symlink_to(BITMAP_PRESET_TARGET)
 
-	(conf_dir / RENDERING_PRESET_NAME).write_text(RENDERING_PRESET, encoding='utf-8')
+	rendering_config = conf_dir / RENDERING_PRESET_NAME
+	if rendering_config.is_symlink():
+		rendering_config.unlink()
+	elif rendering_config.exists() and not rendering_config.is_file():
+		raise ValueError(f'Font rendering configuration path is not a regular file: {rendering_config}')
+
+	rendering_config.write_text(RENDERING_PRESET, encoding='utf-8')
 
 
 class FontsApp:
