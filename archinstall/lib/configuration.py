@@ -62,22 +62,28 @@ def _destructive_targets(config: ArchConfig) -> list[str]:
 	return targets
 
 
+def _config_preview(config: ArchConfig, save_option: str) -> str | None:
+	match save_option:
+		case 'user_config':
+			serialized = config.user_config_to_json()
+			return f'{USER_CONFIG_FILE}\n{serialized}'
+		case 'user_creds':
+			if serialized := config.user_credentials_to_json():
+				return f'{USER_CREDS_FILE}\n{serialized}'
+			return tr('No configuration')
+		case 'all':
+			output = [str(USER_CONFIG_FILE)]
+			if config.user_credentials_to_json():
+				output.append(str(USER_CREDS_FILE))
+			return '\n'.join(output)
+	return None
+
+
 async def save_config(config: ArchConfig) -> None:
 	def preview(item: MenuItem) -> str | None:
-		match item.value:
-			case 'user_config':
-				serialized = config.user_config_to_json()
-				return f'{USER_CONFIG_FILE}\n{serialized}'
-			case 'user_creds':
-				if maybe_serial := config.user_credentials_to_json():
-					return f'{USER_CREDS_FILE}\n{maybe_serial}'
-				return tr('No configuration')
-			case 'all':
-				output = [str(USER_CONFIG_FILE)]
-				config.user_credentials_to_json()
-				output.append(str(USER_CREDS_FILE))
-				return '\n'.join(output)
-		return None
+		if not isinstance(item.value, str):
+			return None
+		return _config_preview(config, item.value)
 
 	items = [
 		MenuItem(
