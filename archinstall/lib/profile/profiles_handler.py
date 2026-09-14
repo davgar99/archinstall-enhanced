@@ -8,6 +8,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from archinstall.default_profiles.profile import CustomSetting, GreeterType, Profile
+from archinstall.lib.general.kernel_packages import nvidia_open_needs_dkms
 from archinstall.lib.hardware import GfxDriver, GfxPackage, SysInfo
 from archinstall.lib.log import debug, error, info
 from archinstall.lib.models.profile import ProfileConfiguration
@@ -227,12 +228,7 @@ class ProfileHandler:
 		# when all selected kernels are mainline (no dkms needed). This avoids
 		# installing dkms + kernel headers and speeds up installation.
 		if driver == GfxDriver.NvidiaOpenKernel:
-			needs_dkms = any('-' in k for k in install_session.kernels)
-
-			if needs_dkms:
-				headers = [f'{kernel}-headers' for kernel in install_session.kernels]
-				install_session.add_additional_packages(headers)
-			else:
+			if not nvidia_open_needs_dkms(install_session.kernels):
 				pkg_names = [GfxPackage.NvidiaOpen.value if p == GfxPackage.NvidiaOpenDkms.value else p for p in pkg_names]
 				pkg_names = [p for p in pkg_names if p != GfxPackage.Dkms.value]
 		elif driver == GfxDriver.VMOpenSource and SysInfo.virtualization() == 'oracle':

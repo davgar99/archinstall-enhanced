@@ -6,7 +6,7 @@ from types import TracebackType
 
 from archinstall.lib.command import SysCommand, SysCommandWorker, run
 from archinstall.lib.disk.encryption_cipher import normalize_luks_cipher
-from archinstall.lib.disk.utils import get_lsblk_info, swapon, umount
+from archinstall.lib.disk.utils import get_lsblk_info, swapoff, swapon, umount
 from archinstall.lib.exceptions import DiskError, SysCallError
 from archinstall.lib.log import debug, info
 from archinstall.lib.models.device import DEFAULT_ITER_TIME
@@ -188,6 +188,8 @@ class Luks2:
 			for mountpoint in child.mountpoints:
 				debug(f'Unmounting {mountpoint}')
 				umount(mountpoint, recursive=True)
+			if child.fstype == 'swap':
+				swapoff(child.path)
 			debug(f'Closing crypt device {child.name}')
 			SysCommand(f'cryptsetup close {child.name}')
 

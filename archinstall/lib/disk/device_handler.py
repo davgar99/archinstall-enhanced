@@ -6,6 +6,7 @@ from pathlib import Path
 from parted import Device, Disk, DiskException, FileSystem, Geometry, IOException, Partition, PartitionException, freshDisk, getAllDevices, getDevice, newDisk
 
 from archinstall.lib.command import SysCommand
+from archinstall.lib.disk.encryption_cipher import luks_key_size
 from archinstall.lib.disk.luks import Luks2, unlock_luks2_dev
 from archinstall.lib.disk.utils import (
 	find_lsblk_info,
@@ -286,14 +287,16 @@ class DeviceHandler:
 		enc_password: Password | None,
 		lock_after_create: bool = True,
 		iter_time: int = DEFAULT_ITER_TIME,
+		cipher: str | None = None,
 	) -> Luks2:
 		luks_handler = Luks2(
 			dev_path,
 			mapper_name=mapper_name,
 			password=enc_password,
+			cipher=cipher,
 		)
 
-		key_file = luks_handler.encrypt(iter_time=iter_time)
+		key_file = luks_handler.encrypt(iter_time=iter_time, key_size=luks_key_size(cipher))
 
 		udev_sync()
 
@@ -322,9 +325,10 @@ class DeviceHandler:
 			dev_path,
 			mapper_name=mapper_name,
 			password=enc_conf.encryption_password,
+			cipher=enc_conf.cipher,
 		)
 
-		key_file = luks_handler.encrypt(iter_time=enc_conf.iter_time)
+		key_file = luks_handler.encrypt(iter_time=enc_conf.iter_time, key_size=luks_key_size(enc_conf.cipher))
 
 		udev_sync()
 

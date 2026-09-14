@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 from archinstall.lib.models.network import WifiNetwork
 from archinstall.lib.network.wifi_handler import WifiHandler, WpaCliResult
@@ -8,7 +9,7 @@ SCAN = 'bssid / frequency / signal level / flags / ssid\naa:bb:cc:dd:ee:ff\t2412
 
 
 def test_scan_waits_for_delayed_results() -> None:
-	handler = WifiHandler(scan_timeout=1, poll_interval=0)
+	handler = WifiHandler(scan_timeout=1, poll_interval=0, scan_settle_time=0)
 	results = [[], WifiNetwork.from_wpa(SCAN)]
 	handler._get_scan_results = lambda iface: results.pop(0)  # type: ignore[method-assign]
 
@@ -16,12 +17,31 @@ def test_scan_waits_for_delayed_results() -> None:
 
 
 def test_scan_times_out() -> None:
-	handler = WifiHandler(scan_timeout=0, poll_interval=0)
+	handler = WifiHandler(scan_timeout=0, poll_interval=0, scan_settle_time=0)
 	handler._get_scan_results = lambda iface: []  # type: ignore[method-assign]
 
 	assert asyncio.run(handler._wait_for_scan_results('wlan0')) == []
 	assert handler._last_error is not None
 	assert 'timed out' in handler._last_error
+
+
+def test_scan_does_not_accept_results_before_settle_window_elapses() -> None:
+	# A scan just issued can still see wpa_supplicant's previous, stale scan
+	# table; results should not be accepted until the settle window passes.
+	handler = WifiHandler(scan_timeout=1, poll_interval=0.01, scan_settle_time=0.05)
+	call_times: list[float] = []
+
+	def fake_get_scan_results(iface: str) -> list[WifiNetwork]:
+		call_times.append(time.monotonic())
+		return WifiNetwork.from_wpa(SCAN)
+
+	handler._get_scan_results = fake_get_scan_results  # type: ignore[method-assign]
+	start = time.monotonic()
+
+	result = asyncio.run(handler._wait_for_scan_results('wlan0'))
+
+	assert result[0].ssid == 'Home'
+	assert call_times[0] - start >= 0.04
 
 
 def test_connection_waits_for_matching_completed_state() -> None:

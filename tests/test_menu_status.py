@@ -156,22 +156,33 @@ def test_authentication_transitions_to_complete(menu_under_test: GlobalMenu) -> 
 def test_desktop_greeter_requires_regular_user(menu_under_test: GlobalMenu) -> None:
 	from archinstall.default_profiles.profile import GreeterType
 
-	class Selection:
-		default_greeter_type = GreeterType.Sddm
-
 	class Profile:
-		def __init__(self) -> None:
-			self.current_selection = [Selection()]
-
 		def is_desktop_profile(self) -> bool:
 			return True
 
 	class ProfileConfig:
 		profile = Profile()
+		greeter = GreeterType.Sddm
 
 	menu_under_test._item_group.find_by_key('profile_config').value = ProfileConfig()
 	menu_under_test._item_group.find_by_key('auth_config').value = _FakeAuthConfig(superuser=True)
 	assert any('regular user' in issue for issue in menu_under_test.blocking_issues())
+
+
+def test_desktop_greeter_choice_other_than_sddm_does_not_require_regular_user(menu_under_test: GlobalMenu) -> None:
+	from archinstall.default_profiles.profile import GreeterType
+
+	class Profile:
+		def is_desktop_profile(self) -> bool:
+			return True
+
+	class ProfileConfig:
+		profile = Profile()
+		greeter = GreeterType.Ly
+
+	menu_under_test._item_group.find_by_key('profile_config').value = ProfileConfig()
+	menu_under_test._item_group.find_by_key('auth_config').value = _FakeAuthConfig(superuser=True)
+	assert not any('regular user' in issue for issue in menu_under_test.blocking_issues())
 
 
 def test_network_is_warning_not_blocking(menu_under_test: GlobalMenu) -> None:

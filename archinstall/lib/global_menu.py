@@ -249,7 +249,7 @@ class GlobalMenu(AbstractMenu[None]):
 			profile_config: ProfileConfiguration | None = self._item_group.find_by_key('profile_config').value
 			if profile_config and profile_config.profile and profile_config.profile.is_desktop_profile():
 				problematic_greeters = {GreeterType.Sddm}
-				if any(p.default_greeter_type in problematic_greeters for p in profile_config.profile.current_selection):
+				if profile_config.greeter in problematic_greeters:
 					issues.append(tr('The selected desktop profile requires a regular user to log in via the greeter'))
 
 		return issues

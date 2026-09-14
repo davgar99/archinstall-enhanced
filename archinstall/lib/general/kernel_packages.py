@@ -8,6 +8,16 @@ def kernel_header_packages(kernels: list[str]) -> list[str]:
 	return list(dict.fromkeys(f'{kernel}-headers' for kernel in kernels))
 
 
+def nvidia_open_needs_dkms(kernels: list[str]) -> bool:
+	"""Whether the nvidia-open-dkms package (and its kernel headers) are needed.
+
+	Non-mainline kernel packages carry a variant suffix (e.g. ``linux-lts``,
+	``linux-zen``); only the plain ``linux`` package ships nvidia-open support
+	built in, so any other selected kernel still requires DKMS.
+	"""
+	return any('-' in kernel for kernel in kernels)
+
+
 def installer_base_packages(firmware_config: FirmwarePackagesConfiguration | None) -> list[str] | None:
 	"""Build the bootstrap package list for an explicit firmware policy.
 

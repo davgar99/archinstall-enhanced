@@ -2,9 +2,10 @@ import asyncio
 
 from pytest import MonkeyPatch
 
+from archinstall.applications.graphics_extras import GraphicsExtrasApp
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.applications.application_menu import select_firmware_packages
-from archinstall.lib.general.kernel_packages import installer_base_packages, kernel_header_packages
+from archinstall.lib.general.kernel_packages import installer_base_packages, kernel_header_packages, nvidia_open_needs_dkms
 from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.menu.helpers import Notify, Selection
 from archinstall.lib.models.application import (
@@ -65,12 +66,30 @@ def test_application_handler_installs_explicit_kernel_headers() -> None:
 
 
 def test_nvidia_open_multi_kernel_path_uses_dkms_and_all_headers() -> None:
+	# Headers are installed by GraphicsExtrasApp (gated on nvidia_open_needs_dkms),
+	# not by ProfileHandler.install_gfx_driver, so a real install exercises both.
 	installer = FakeInstaller(['linux', 'linux-lts'])
+	GraphicsExtrasApp().install(installer, False, False, GfxDriver.NvidiaOpenKernel)  # type: ignore[arg-type]
 	ProfileHandler().install_gfx_driver(installer, GfxDriver.NvidiaOpenKernel)  # type: ignore[arg-type]
 	assert 'nvidia-open-dkms' in installer.packages
 	assert 'dkms' in installer.packages
 	assert 'linux-headers' in installer.packages
 	assert 'linux-lts-headers' in installer.packages
+
+
+def test_nvidia_open_mainline_only_kernel_skips_dkms_and_headers() -> None:
+	installer = FakeInstaller(['linux'])
+	GraphicsExtrasApp().install(installer, False, False, GfxDriver.NvidiaOpenKernel)  # type: ignore[arg-type]
+	ProfileHandler().install_gfx_driver(installer, GfxDriver.NvidiaOpenKernel)  # type: ignore[arg-type]
+	assert 'nvidia-open' in installer.packages
+	assert 'nvidia-open-dkms' not in installer.packages
+	assert 'dkms' not in installer.packages
+	assert 'linux-headers' not in installer.packages
+
+
+def test_nvidia_open_needs_dkms_detects_non_mainline_kernels() -> None:
+	assert nvidia_open_needs_dkms(['linux']) is False
+	assert nvidia_open_needs_dkms(['linux', 'linux-lts']) is True
 
 
 def test_firmware_policy_round_trip() -> None:
