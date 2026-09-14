@@ -31,6 +31,20 @@ def normalize_luks_cipher(cipher: str | None) -> str | None:
 	return cipher
 
 
+def luks_key_size(cipher: str | None) -> int:
+	"""Return the key size (in bits) required by a cryptsetup cipher specification.
+
+	XTS-mode ciphers split the key into two independent halves (one per XTS
+	operation), so they need double the key size of every other mode to reach
+	their nominal strength (e.g. aes-xts-plain64 needs 512 bits for AES-256).
+	`cryptsetup`'s own default cipher is aes-xts-plain64, so a cipher of ``None``
+	(cryptsetup default) also needs the doubled size.
+	"""
+	if cipher is None or cipher == LuksCipher.DEFAULT:
+		return 512
+	return 512 if '-xts-' in cipher.lower() else 256
+
+
 def validate_luks_cipher(cipher: str) -> str | None:
 	"""Return an error message for unsupported or unsafe-to-autoconfigure ciphers."""
 	if not _CIPHER_PATTERN.fullmatch(cipher):
@@ -44,7 +58,7 @@ def validate_luks_cipher(cipher: str) -> str | None:
 		)
 
 	try:
-		SysCommand(['cryptsetup', 'benchmark', '--cipher', cipher, '--key-size', '512'])
+		SysCommand(['cryptsetup', 'benchmark', '--cipher', cipher, '--key-size', str(luks_key_size(cipher))])
 	except SysCallError as err:
 		return f'Cryptsetup could not use cipher {cipher}: {err}'
 	return None

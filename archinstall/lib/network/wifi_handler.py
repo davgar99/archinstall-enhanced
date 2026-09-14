@@ -23,11 +23,18 @@ class WpaCliResult:
 
 
 class WifiHandler(InstanceRunnable[bool]):
-	def __init__(self, scan_timeout: float = 15, connection_timeout: float = 30, poll_interval: float = 0.5) -> None:
+	def __init__(
+		self,
+		scan_timeout: float = 15,
+		connection_timeout: float = 30,
+		poll_interval: float = 0.5,
+		scan_settle_time: float = 5,
+	) -> None:
 		self._wpa_config: WpaSupplicantConfig = WpaSupplicantConfig()
 		self._scan_timeout = scan_timeout
 		self._connection_timeout = connection_timeout
 		self._poll_interval = poll_interval
+		self._scan_settle_time = scan_settle_time
 		self._last_error: str | None = None
 
 	@override
@@ -207,6 +214,17 @@ class WifiHandler(InstanceRunnable[bool]):
 	async def _wait_for_scan_results(self, wifi_iface: str, reporter: ActivityReporter | None = None) -> list[WifiNetwork]:
 		loop = asyncio.get_running_loop()
 		deadline = loop.time() + self._scan_timeout
+
+		# wpa_supplicant keeps serving the previous scan's cached table while a new
+		# scan is in flight, so checking immediately after issuing `scan` can return
+		# stale results instead of the ones just requested. Give the scan time to
+		# actually complete before the first poll.
+		settle_deadline = min(loop.time() + self._scan_settle_time, deadline)
+		while loop.time() < settle_deadline:
+			if reporter is not None and reporter.cancellation_requested:
+				return []
+			await asyncio.sleep(self._poll_interval)
+
 		while loop.time() < deadline:
 			if reporter is not None and reporter.cancellation_requested:
 				return []

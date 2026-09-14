@@ -1,5 +1,5 @@
 from pathlib import Path
-from types import TracebackType
+from types import SimpleNamespace, TracebackType
 from typing import Self
 
 import pytest
@@ -167,3 +167,35 @@ def test_luks_add_key_surfaces_command_failure_and_closes_worker(monkeypatch: py
 		luks.Luks2(Path('/dev/test'), password=Password('secret'))._add_key(key_file)
 
 	assert worker.exited
+
+
+def test_lock_disables_active_encrypted_swap_before_closing(monkeypatch: pytest.MonkeyPatch) -> None:
+	swap_child = SimpleNamespace(name='cryptswap', path=Path('/dev/mapper/cryptswap'), fstype='swap', mountpoints=[])
+	lsblk_info = SimpleNamespace(children=[swap_child])
+	closed: list[str] = []
+	swapped_off: list[Path] = []
+
+	monkeypatch.setattr(luks, 'umount', lambda *_args, **_kwargs: None)
+	monkeypatch.setattr(luks, 'get_lsblk_info', lambda _path: lsblk_info)
+	monkeypatch.setattr(luks, 'swapoff', swapped_off.append)
+	monkeypatch.setattr(luks, 'SysCommand', closed.append)
+
+	luks.Luks2(Path('/dev/test')).lock()
+
+	assert swapped_off == [Path('/dev/mapper/cryptswap')]
+	assert closed == ['cryptsetup close cryptswap']
+
+
+def test_lock_does_not_swapoff_non_swap_children(monkeypatch: pytest.MonkeyPatch) -> None:
+	root_child = SimpleNamespace(name='cryptroot', path=Path('/dev/mapper/cryptroot'), fstype='btrfs', mountpoints=[])
+	lsblk_info = SimpleNamespace(children=[root_child])
+	swapped_off: list[Path] = []
+
+	monkeypatch.setattr(luks, 'umount', lambda *_args, **_kwargs: None)
+	monkeypatch.setattr(luks, 'get_lsblk_info', lambda _path: lsblk_info)
+	monkeypatch.setattr(luks, 'swapoff', swapped_off.append)
+	monkeypatch.setattr(luks, 'SysCommand', lambda command: None)
+
+	luks.Luks2(Path('/dev/test')).lock()
+
+	assert swapped_off == []

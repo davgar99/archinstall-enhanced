@@ -287,7 +287,6 @@ class FontsConfiguration:
 class ZramConfigSerialization(TypedDict):
 	enabled: bool
 	algorithm: str
-	swappiness_tweaks: NotRequired[bool]
 
 
 @dataclass(frozen=True)

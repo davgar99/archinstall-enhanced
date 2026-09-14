@@ -34,8 +34,13 @@ def test_zram_configuration_parses_legacy_config() -> None:
 	config_dict = ZramConfiguration.parse_arg({'enabled': True, 'algorithm': 'lz4'})
 	assert config_dict == ZramConfiguration(enabled=True, algorithm=ZramAlgorithm.LZ4)
 
-	balanced_config = ZramConfiguration.parse_arg({'enabled': True, 'algorithm': 'lzo-rle zstd(level=3) (type=idle)', 'swappiness_tweaks': False})
+	balanced_config = ZramConfiguration.parse_arg({'enabled': True, 'algorithm': 'lzo-rle zstd(level=3) (type=idle)'})
 	assert balanced_config == ZramConfiguration(enabled=True, algorithm=ZramAlgorithm.ZSTD)
+
+	# `swappiness_tweaks` was a real, now-removed config key. Configs saved before
+	# its removal may still carry it; parsing must ignore it rather than error.
+	legacy_config = ZramConfiguration.parse_arg({'enabled': True, 'algorithm': 'zstd', 'swappiness_tweaks': False})
+	assert legacy_config == ZramConfiguration(enabled=True, algorithm=ZramAlgorithm.ZSTD)
 
 
 def test_zram_configuration_summary() -> None:
