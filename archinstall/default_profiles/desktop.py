@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Self, override
 
+from archinstall.applications.fonts import enable_no_bitmaps_except_emoji
 from archinstall.default_profiles.desktops.utils import provision_seat_access
 from archinstall.default_profiles.profile import CustomSetting, DisplayServerType, GreeterType, Profile, ProfileType, SelectResult
 from archinstall.lib.log import info
@@ -119,10 +120,7 @@ class DesktopProfile(Profile):
 
 	@override
 	def post_install(self, install_session: Installer) -> None:
-		fontconfig_link = install_session.target / 'etc/fonts/conf.d/70-no-bitmaps-except-emoji.conf'
-		if not fontconfig_link.exists() and not fontconfig_link.is_symlink():
-			fontconfig_link.parent.mkdir(parents=True, exist_ok=True)
-			fontconfig_link.symlink_to('/usr/share/fontconfig/conf.avail/70-no-bitmaps-except-emoji.conf')
+		enable_no_bitmaps_except_emoji(install_session.target)
 
 		for profile in self.current_selection:
 			profile.post_install(install_session)
