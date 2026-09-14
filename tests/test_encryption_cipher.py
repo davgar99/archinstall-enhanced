@@ -4,7 +4,7 @@ from typing import Any
 
 from pytest import MonkeyPatch
 
-from archinstall.lib.disk import encryption_cipher, luks
+from archinstall.lib.disk import encryption_cipher, encryption_menu, luks
 from archinstall.lib.disk.luks import Luks2
 from archinstall.lib.models.device import DiskEncryption, EncryptionType
 from archinstall.lib.models.users import Password
@@ -25,6 +25,14 @@ def test_supported_cipher_is_benchmarked(monkeypatch: MonkeyPatch) -> None:
 	monkeypatch.setattr(encryption_cipher, 'SysCommand', record_command)
 	assert encryption_cipher.validate_luks_cipher('aes-xts-plain64') is None
 	assert commands == [['cryptsetup', 'benchmark', '--cipher', 'aes-xts-plain64', '--key-size', '512']]
+
+
+def test_luks_cipher_menu_focus_preserves_saved_selection() -> None:
+	assert encryption_menu._luks_cipher_focus(None) == encryption_cipher.LuksCipher.DEFAULT
+	assert encryption_menu._luks_cipher_focus('aes-xts-plain64') == encryption_cipher.LuksCipher.AES_XTS
+	assert encryption_menu._luks_cipher_focus('serpent-xts-plain64') == encryption_cipher.LuksCipher.SERPENT_XTS
+	assert encryption_menu._luks_cipher_focus('twofish-xts-plain64') == encryption_cipher.LuksCipher.TWOFISH_XTS
+	assert encryption_menu._luks_cipher_focus('camellia-xts-plain64') == encryption_cipher.LuksCipher.CUSTOM
 
 
 def test_selected_cipher_reaches_luks_format(monkeypatch: MonkeyPatch) -> None:
