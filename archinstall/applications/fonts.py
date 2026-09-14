@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 BITMAP_PRESET_NAME = '70-no-bitmaps-except-emoji.conf'
 BITMAP_PRESET_TARGET = Path('/usr/share/fontconfig/conf.avail') / BITMAP_PRESET_NAME
-RENDERING_PRESET_NAME = '90-archinstall-enhanced-rendering.conf'
+RENDERING_PRESET_NAME = '45-archinstall-enhanced-rendering.conf'
 RENDERING_PRESET = '''<?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
 <fontconfig>
