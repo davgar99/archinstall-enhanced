@@ -11,6 +11,7 @@ from archinstall.lib.args import USER_CONFIG_FILE, USER_CREDS_FILE, ArchConfig, 
 from archinstall.lib.configuration import _config_preview, _destructive_targets, confirm_config
 from archinstall.lib.menu.helpers import Confirmation
 from archinstall.lib.models.device import DeviceModification, DiskLayoutConfiguration, DiskLayoutType, SectorSize, Size, Unit
+from archinstall.lib.translationhandler import tr
 from archinstall.tui.result import Result
 
 
@@ -71,18 +72,31 @@ def test_creds_roundtrip(
 	assert sorted(result.items()) == sorted(expected.items())
 
 
-def test_save_all_preview_omits_credentials_file_when_empty(monkeypatch: MonkeyPatch) -> None:
+def test_save_all_preview_omits_credentials_file_when_empty() -> None:
 	config = ArchConfig()
-	monkeypatch.setattr(config, 'user_credentials_to_json', lambda: None)
 
 	assert _config_preview(config, 'all') == str(USER_CONFIG_FILE)
 
 
 def test_save_all_preview_includes_credentials_file_when_present(monkeypatch: MonkeyPatch) -> None:
 	config = ArchConfig()
-	monkeypatch.setattr(config, 'user_credentials_to_json', lambda: '{"password":"secret"}')
+	monkeypatch.setattr(config, 'unsafe_config', lambda: {ArchConfigType.ROOT_ENC_PASSWORD: 'secret'})
 
 	assert _config_preview(config, 'all') == f'{USER_CONFIG_FILE}\n{USER_CREDS_FILE}'
+
+
+def test_user_creds_preview_reports_no_configuration_when_empty() -> None:
+	config = ArchConfig()
+
+	assert _config_preview(config, 'user_creds') == tr('No configuration')
+
+
+def test_user_creds_preview_includes_serialized_content_when_present(monkeypatch: MonkeyPatch) -> None:
+	config = ArchConfig()
+	monkeypatch.setattr(config, 'unsafe_config', lambda: {ArchConfigType.ROOT_ENC_PASSWORD: 'secret'})
+	monkeypatch.setattr(config, 'user_credentials_to_json', lambda: '{"password":"secret"}')
+
+	assert _config_preview(config, 'user_creds') == f'{USER_CREDS_FILE}\n{{"password":"secret"}}'
 
 
 def test_installation_summary_uses_risk_first_order(monkeypatch: MonkeyPatch) -> None:

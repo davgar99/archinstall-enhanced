@@ -68,12 +68,12 @@ def _config_preview(config: ArchConfig, save_option: str) -> str | None:
 			serialized = config.user_config_to_json()
 			return f'{USER_CONFIG_FILE}\n{serialized}'
 		case 'user_creds':
-			if serialized := config.user_credentials_to_json():
-				return f'{USER_CREDS_FILE}\n{serialized}'
+			if config.unsafe_config():
+				return f'{USER_CREDS_FILE}\n{config.user_credentials_to_json()}'
 			return tr('No configuration')
 		case 'all':
 			output = [str(USER_CONFIG_FILE)]
-			if config.user_credentials_to_json():
+			if config.unsafe_config():
 				output.append(str(USER_CREDS_FILE))
 			return '\n'.join(output)
 	return None

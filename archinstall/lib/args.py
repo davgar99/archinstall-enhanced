@@ -17,6 +17,7 @@ from pydantic import TypeAdapter
 from pydantic.dataclasses import dataclass as p_dataclass
 
 from archinstall.lib.crypt import decrypt, encrypt
+from archinstall.lib.hardware import SysInfo
 from archinstall.lib.log import debug, error, logger, warn
 from archinstall.lib.menu.util import get_password
 from archinstall.lib.models.application import ApplicationConfiguration, ZramConfiguration
@@ -458,6 +459,9 @@ class ArchConfig:
 			error(f'Invalid path {dest_path}. User credentials could not be saved.')
 			return
 
+		if not self.unsafe_config():
+			return
+
 		data = self.user_credentials_to_json()
 
 		if password:
@@ -529,6 +533,9 @@ class ArchConfigHandler:
 		except ValueError as err:
 			warn(str(err))
 			sys.exit(1)
+
+		if self._config.hardware_clock_utc is None:
+			self._config.hardware_clock_utc = not SysInfo.has_windows_bootloader()
 
 	@property
 	def config(self) -> ArchConfig:

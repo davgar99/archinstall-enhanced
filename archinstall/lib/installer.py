@@ -694,7 +694,7 @@ class Installer:
 
 	def set_hardware_clock_utc(self) -> None:
 		info('Setting the hardware clock from the system clock using UTC')
-		self.arch_chroot('hwclock --systohc')
+		self.arch_chroot('hwclock --systohc --utc')
 
 	def activate_time_synchronization(self) -> None:
 		info('Activating systemd-timesyncd for time synchronization using Arch Linux and ntp.org NTP servers')

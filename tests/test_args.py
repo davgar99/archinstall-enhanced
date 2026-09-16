@@ -120,6 +120,7 @@ def test_config_file_parsing(
 	config_fixture: Path,
 	creds_fixture: Path,
 ) -> None:
+	monkeypatch.setattr('archinstall.lib.args.SysInfo.has_windows_bootloader', staticmethod(lambda: False))
 	monkeypatch.setattr(
 		'sys.argv',
 		[
@@ -140,6 +141,7 @@ def test_config_file_parsing(
 	assert arch_config == ArchConfig(
 		version=version('archinstall'),
 		script='test_script',
+		hardware_clock_utc=True,
 		app_config=ApplicationConfiguration(
 			bluetooth_config=BluetoothConfiguration(enabled=True),
 			audio_config=AudioConfiguration(audio=Audio.PIPEWIRE),
