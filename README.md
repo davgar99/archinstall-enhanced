@@ -58,7 +58,7 @@ archinstall
 | Installer experience | Grouped menus, consistent summaries and prompt ordering, clearer destructive-action review, hardware-aware graphics defaults, improved activity and error feedback |
 | Desktop foundation | Wayland-first desktop selection with Xorg compatibility, desktop installation flavors, portals, codecs, PipeWire surround upmixing, package-cache maintenance, Fontconfig defaults, common command-line utilities |
 | Gaming | 32-bit graphics libraries, sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, shader-cache and compatibility options |
-| Hardware | Detected graphics-driver recommendations with manual override, graphics-aware OpenCL, firmware updates, Bluetooth, printing, VirtualBox guest integration, controller and watchdog options |
+| Hardware | Detected graphics-driver recommendations with manual override, graphics-aware OpenCL, firmware updates, Bluetooth, printing, VirtualBox guest integration, and controller options |
 | Storage and memory | Balanced zram profiles, Zstandard compression for automatically generated Btrfs layouts, LUKS-encrypted swap support, and stronger encrypted-volume preflight checks |
 | Networking and privacy | NetworkManager DNS caching, optional DNS-over-HTTPS, Wi-Fi MAC privacy controls, mDNS-aware printer discovery, and automatic Wi-Fi regulatory configuration |
 | Pacman | Parallel download controls, color output, `ILoveCandy`, and automatic package-cache cleanup for desktop profiles |
@@ -115,7 +115,7 @@ The dedicated **Gaming** menu can configure:
 - a 12 GiB Mesa and NVIDIA shader-cache limit
 - the SteamOS `vm.max_map_count` value for memory-map-heavy games
 - libinput rules that stop DualShock 4 and DualSense touchpads from moving the desktop pointer without hiding the controllers from games
-- an advanced option to disable AMD or Intel hardware watchdog modules on affected systems
+- an optional `nowatchdog` kernel parameter that turns off the CPU's NMI hard/soft lockup detectors for a small responsiveness and power gain, without touching the hardware watchdog timer itself, so a genuinely hung system can still be force-rebooted
 
 Multilib is enabled only when a selected option requires 32-bit packages. Compatibility and tuning choices include explanations and remain user-controlled.
 

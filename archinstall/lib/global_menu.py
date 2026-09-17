@@ -52,7 +52,6 @@ class GlobalMenu(AbstractMenu[None]):
 		arch_config: ArchConfig,
 		mirror_list_handler: MirrorListHandler | None = None,
 		skip_boot: bool = False,
-		advanced: bool = False,
 		title: str | None = None,
 	) -> None:
 		self._arch_config = arch_config
@@ -60,7 +59,6 @@ class GlobalMenu(AbstractMenu[None]):
 			self._arch_config.hardware_clock_utc = not SysInfo.has_windows_bootloader()
 		self._mirror_list_handler = mirror_list_handler
 		self._skip_boot = skip_boot
-		self._advanced = advanced
 		self._uefi = SysInfo.has_uefi()
 		menu_options = self._get_menu_options()
 
@@ -310,7 +308,7 @@ class GlobalMenu(AbstractMenu[None]):
 		return app_config
 
 	async def _select_gaming(self, preset: GamingConfiguration | None) -> GamingConfiguration | None:
-		gaming_config = await GamingMenu(preset, advanced=self._advanced).show()
+		gaming_config = await GamingMenu(preset).show()
 		return gaming_config
 
 	async def _select_authentication(self, preset: AuthenticationConfiguration | None) -> AuthenticationConfiguration | None:

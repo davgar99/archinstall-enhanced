@@ -1,18 +1,17 @@
 from pathlib import Path
 
 import pytest
-from pytest import MonkeyPatch
 
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
 from archinstall.applications.gaming_compatibility import GamingCompatibilityApp
 from archinstall.applications.gaming_tools import GamingToolsApp
 from archinstall.applications.graphics_extras import GraphicsExtrasApp
-from archinstall.applications.hardware_watchdog import HardwareWatchdogApp
+from archinstall.applications.nowatchdog import NowatchdogApp
 from archinstall.applications.ntsync import NTSyncApp
 from archinstall.applications.playstation_controller import PlayStationControllerApp
 from archinstall.lib.args import ArchConfig, ArchConfigType, Arguments
 from archinstall.lib.gaming.gaming_menu import GamingMenu
-from archinstall.lib.hardware import CPUVendor, GfxDriver, SysInfo
+from archinstall.lib.hardware import GfxDriver
 from archinstall.lib.models.gaming import (
 	CPU_SCHEDULER_STABILITY,
 	CPUScheduler,
@@ -31,6 +30,10 @@ class FakeInstaller:
 		self.services: list[str] = []
 		self.chroot_commands: list[str] = []
 		self.mkinitcpio_calls: list[list[str]] = []
+		self.kernel_params: list[str] = []
+
+	def add_kernel_params(self, params: list[str]) -> None:
+		self.kernel_params.extend(params)
 
 	def add_additional_packages(self, packages: list[str]) -> None:
 		self.packages.extend(packages)
@@ -77,7 +80,7 @@ def test_gaming_configuration_roundtrip() -> None:
 		gamemode=True,
 		mangohud=False,
 		gamescope=True,
-		disable_watchdog=True,
+		nowatchdog=True,
 		increase_vm_max_map_count=True,
 		increase_shader_cache=True,
 		install_32bit_graphics=True,
@@ -91,7 +94,7 @@ def test_gaming_configuration_roundtrip() -> None:
 		'gamemode': True,
 		'mangohud': False,
 		'gamescope': True,
-		'disable_watchdog': True,
+		'nowatchdog': True,
 		'increase_vm_max_map_count': True,
 		'increase_shader_cache': True,
 		'install_32bit_graphics': True,
@@ -110,70 +113,38 @@ def test_gaming_multilib_requirement() -> None:
 	assert GamingConfiguration(install_32bit_graphics=True).requires_multilib()
 	assert not GamingConfiguration(install_32bit_graphics=False, increase_vm_max_map_count=True).requires_multilib()
 	assert not GamingConfiguration(install_32bit_graphics=False, gamescope=True).requires_multilib()
+	assert not GamingConfiguration(install_32bit_graphics=False, nowatchdog=True).requires_multilib()
 	assert not GamingConfiguration(install_32bit_graphics=False, ntsync_config=NTSyncConfiguration(enabled=True)).requires_multilib()
-	assert not GamingConfiguration(install_32bit_graphics=False, disable_watchdog=True).requires_multilib()
 	assert not GamingConfiguration(install_32bit_graphics=False, increase_shader_cache=True).requires_multilib()
 
 
 def test_stable_gaming_compatibility_option_available() -> None:
-	item = GamingMenu(advanced=False)._item_group.find_by_key('increase_vm_max_map_count')
+	item = GamingMenu()._item_group.find_by_key('increase_vm_max_map_count')
 	assert item.enabled
 	assert item.text == 'Increase vm.max_map_count'
 
 
-def test_hardware_watchdog_modules() -> None:
-	app = HardwareWatchdogApp()
-	assert app.module(CPUVendor.AMD) == 'sp5100_tco'
-	assert app.module(CPUVendor.INTEL) == 'iTCO_wdt'
-	assert app.module(CPUVendor._UNKNOWN) is None
+def test_nowatchdog_option_available() -> None:
+	item = GamingMenu()._item_group.find_by_key('nowatchdog')
+	assert item.enabled
 
 
-def test_hardware_watchdog_is_advanced_only() -> None:
-	assert not GamingMenu(advanced=False)._item_group.find_by_key('disable_watchdog').enabled
-	assert GamingMenu(advanced=True)._item_group.find_by_key('disable_watchdog').enabled
-
-
-@pytest.mark.parametrize(
-	('vendor', 'module'),
-	[(CPUVendor.AMD, 'sp5100_tco'), (CPUVendor.INTEL, 'iTCO_wdt')],
-)
-def test_hardware_watchdog_disabled_for_supported_vendor(
-	tmp_path: Path,
-	monkeypatch: MonkeyPatch,
-	vendor: CPUVendor,
-	module: str,
-) -> None:
+def test_nowatchdog_install_is_opt_in(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
-	monkeypatch.setattr(SysInfo, 'cpu_vendor', lambda: vendor)
+	app = NowatchdogApp()
 
-	HardwareWatchdogApp().install(installer, GamingConfiguration(disable_watchdog=True))  # type: ignore[arg-type]
+	app.install(installer, GamingConfiguration(nowatchdog=None))  # type: ignore[arg-type]
+	app.install(installer, GamingConfiguration(nowatchdog=False))  # type: ignore[arg-type]
 
-	assert (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').read_text() == f'blacklist {module}\n'
-	assert installer.mkinitcpio_calls == [['-P']]
+	assert installer.kernel_params == []
 
 
-def test_hardware_watchdog_no_selection_leaves_enabled(tmp_path: Path) -> None:
+def test_nowatchdog_install_adds_kernel_param(tmp_path: Path) -> None:
 	installer = FakeInstaller(tmp_path)
-	app = HardwareWatchdogApp()
 
-	app.install(installer, GamingConfiguration(disable_watchdog=None))  # type: ignore[arg-type]
-	app.install(installer, GamingConfiguration(disable_watchdog=False))  # type: ignore[arg-type]
+	NowatchdogApp().install(installer, GamingConfiguration(nowatchdog=True))  # type: ignore[arg-type]
 
-	assert not (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').exists()
-	assert installer.mkinitcpio_calls == []
-
-
-def test_hardware_watchdog_unsupported_vendor_skips_without_writing(
-	tmp_path: Path,
-	monkeypatch: MonkeyPatch,
-) -> None:
-	installer = FakeInstaller(tmp_path)
-	monkeypatch.setattr(SysInfo, 'cpu_vendor', lambda: CPUVendor._UNKNOWN)
-
-	HardwareWatchdogApp().install(installer, GamingConfiguration(disable_watchdog=True))  # type: ignore[arg-type]
-
-	assert not (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').exists()
-	assert installer.mkinitcpio_calls == []
+	assert installer.kernel_params == ['nowatchdog']
 
 
 def test_cpu_scheduler_install(tmp_path: Path) -> None:

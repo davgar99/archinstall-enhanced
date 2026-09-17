@@ -70,7 +70,7 @@ class GamingConfigSerialization(TypedDict):
 	gamemode: NotRequired[bool]
 	mangohud: NotRequired[bool]
 	gamescope: NotRequired[bool]
-	disable_watchdog: NotRequired[bool]
+	nowatchdog: NotRequired[bool]
 	increase_vm_max_map_count: NotRequired[bool]
 	increase_shader_cache: NotRequired[bool]
 	install_32bit_graphics: NotRequired[bool]
@@ -108,7 +108,7 @@ class GamingConfiguration(SubConfig):
 	gamemode: bool | None = None
 	mangohud: bool | None = None
 	gamescope: bool | None = None
-	disable_watchdog: bool | None = None
+	nowatchdog: bool | None = None
 	increase_vm_max_map_count: bool | None = None
 	increase_shader_cache: bool | None = None
 	install_32bit_graphics: bool | None = True
@@ -133,8 +133,8 @@ class GamingConfiguration(SubConfig):
 		if 'gamescope' in arg:
 			config.gamescope = arg['gamescope']
 
-		if 'disable_watchdog' in arg:
-			config.disable_watchdog = arg['disable_watchdog']
+		if 'nowatchdog' in arg:
+			config.nowatchdog = arg['nowatchdog']
 
 		if 'increase_vm_max_map_count' in arg:
 			config.increase_vm_max_map_count = arg['increase_vm_max_map_count']
@@ -172,8 +172,8 @@ class GamingConfiguration(SubConfig):
 		if self.gamescope is not None:
 			config['gamescope'] = self.gamescope
 
-		if self.disable_watchdog is not None:
-			config['disable_watchdog'] = self.disable_watchdog
+		if self.nowatchdog is not None:
+			config['nowatchdog'] = self.nowatchdog
 
 		if self.increase_vm_max_map_count is not None:
 			config['increase_vm_max_map_count'] = self.increase_vm_max_map_count
@@ -207,7 +207,7 @@ class GamingConfiguration(SubConfig):
 			('GameMode', self.gamemode),
 			('MangoHud', self.mangohud),
 			('Gamescope', self.gamescope),
-			('Disable hardware watchdog', self.disable_watchdog),
+			('Disable NMI hard/soft lockup detectors (nowatchdog)', self.nowatchdog),
 			('Disable PlayStation controller touchpads as a mouse', self.disable_playstation_touchpad),
 		):
 			if enabled is not None:

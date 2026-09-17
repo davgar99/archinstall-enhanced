@@ -15,7 +15,7 @@ from archinstall.tui.result import ResultType
 
 
 class GamingMenu(AbstractSubMenu[GamingConfiguration]):
-	def __init__(self, preset: GamingConfiguration | None = None, advanced: bool = False) -> None:
+	def __init__(self, preset: GamingConfiguration | None = None) -> None:
 		self._gaming_config = preset if preset else GamingConfiguration()
 		self._item_group = MenuItemGroup(
 			[
@@ -58,6 +58,12 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					preview_action=self._prev_toggle,
 					key='gamemode',
 				),
+				MenuItem(
+					text=tr('Disable NMI lockup detector (nowatchdog)'),
+					action=select_nowatchdog,
+					preview_action=self._prev_toggle,
+					key='nowatchdog',
+				),
 				MenuItem(text=tr('Tools'), role=MenuItemRole.SECTION),
 				MenuItem(
 					text=tr('MangoHud'),
@@ -77,14 +83,6 @@ class GamingMenu(AbstractSubMenu[GamingConfiguration]):
 					action=select_playstation_touchpad,
 					preview_action=self._prev_toggle,
 					key='disable_playstation_touchpad',
-				),
-				MenuItem(text=tr('Advanced'), role=MenuItemRole.SECTION, enabled=advanced),
-				MenuItem(
-					text=tr('Disable hardware watchdog'),
-					action=select_disable_watchdog,
-					preview_action=self._prev_toggle,
-					key='disable_watchdog',
-					enabled=advanced,
 				),
 			],
 			checkmarks=True,
@@ -248,6 +246,17 @@ async def select_gamemode(preset: bool | None = None) -> bool | None:
 	)
 
 
+async def select_nowatchdog(preset: bool | None = None) -> bool | None:
+	return await _select_toggle(
+		tr(
+			"Add the 'nowatchdog' kernel parameter? It turns off the CPU's NMI hard/soft lockup detectors for a small "
+			'reduction in interrupts and overhead. It does not disable the hardware watchdog timer, so the system can '
+			'still recover automatically from a genuine hang.'
+		),
+		preset,
+	)
+
+
 async def select_mangohud(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
 		tr('Enable MangoHud? It displays FPS, frame times, temperatures, and other performance information in games.'),
@@ -258,15 +267,5 @@ async def select_mangohud(preset: bool | None = None) -> bool | None:
 async def select_gamescope(preset: bool | None = None) -> bool | None:
 	return await _select_toggle(
 		tr("Enable Gamescope? Valve's gaming compositor can isolate games, control resolution and scaling, and limit frame rates."),
-		preset,
-	)
-
-
-async def select_disable_watchdog(preset: bool | None = None) -> bool | None:
-	return await _select_toggle(
-		tr(
-			'Disable the hardware watchdog? This may prevent watchdog-related freezes or unwanted resets on affected hardware, '
-			'but the system will lose automatic recovery from some hardware lockups.'
-		),
 		preset,
 	)

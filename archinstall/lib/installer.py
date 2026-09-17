@@ -519,6 +519,11 @@ class Installer:
 
 		return True
 
+	def add_kernel_params(self, params: list[str]) -> None:
+		for param in params:
+			if param not in self._kernel_params:
+				self._kernel_params.append(param)
+
 	def add_swapfile(self, size: str = '4G', enable_resume: bool = True, file: str = '/swapfile') -> None:
 		if file[:1] != '/':
 			file = f'/{file}'

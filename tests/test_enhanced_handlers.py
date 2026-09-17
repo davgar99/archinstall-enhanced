@@ -5,7 +5,7 @@ from pytest import MonkeyPatch
 from archinstall.applications.graphics_extras import GraphicsExtrasApp
 from archinstall.lib.applications.application_handler import ApplicationHandler
 from archinstall.lib.gaming.gaming_handler import GamingHandler
-from archinstall.lib.hardware import CPUVendor, GfxDriver, SysInfo
+from archinstall.lib.hardware import GfxDriver, SysInfo
 from archinstall.lib.models import Audio
 from archinstall.lib.models.application import (
 	ApplicationConfiguration,
@@ -38,6 +38,10 @@ class FakeInstaller:
 		self.services: list[str] = []
 		self.chroot_commands: list[str] = []
 		self.mkinitcpio_calls: list[list[str]] = []
+		self.kernel_params: list[str] = []
+
+	def add_kernel_params(self, params: list[str]) -> None:
+		self.kernel_params.extend(params)
 
 	def add_additional_packages(self, packages: str | list[str]) -> None:
 		if isinstance(packages, str):
@@ -133,14 +137,13 @@ def test_application_handler_installs_complete_selected_stack(tmp_path: Path, mo
 
 def test_gaming_handler_installs_complete_selected_stack(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
 	installer = FakeInstaller(tmp_path)
-	monkeypatch.setattr(SysInfo, 'cpu_vendor', lambda: CPUVendor.AMD)
 	config = GamingConfiguration(
 		cpu_scheduler_config=CPUSchedulerConfiguration(scheduler=CPUScheduler.LAVD),
 		ntsync_config=NTSyncConfiguration(enabled=True),
 		gamemode=True,
 		mangohud=True,
 		gamescope=True,
-		disable_watchdog=True,
+		nowatchdog=True,
 		increase_vm_max_map_count=True,
 		increase_shader_cache=True,
 		disable_playstation_touchpad=True,
@@ -161,9 +164,9 @@ def test_gaming_handler_installs_complete_selected_stack(tmp_path: Path, monkeyp
 	]
 	assert installer.services == ['scx_loader.service']
 	assert installer.chroot_commands == ['usermod -aG gamemode traveler']
-	assert installer.mkinitcpio_calls == [['-P']]
+	assert installer.mkinitcpio_calls == []
+	assert installer.kernel_params == ['nowatchdog']
 	assert (tmp_path / 'etc/scx_loader/config.toml').read_text() == 'default_sched = "scx_lavd"\ndefault_mode = "Gaming"\n'
-	assert (tmp_path / 'etc/modprobe.d/disable-watchdog.conf').read_text() == 'blacklist sp5100_tco\n'
 	assert 'vm.max_map_count = 2147483642' in (tmp_path / 'etc/sysctl.d/80-gamecompatibility.conf').read_text()
 	assert 'MESA_SHADER_CACHE_MAX_SIZE=12G' in (tmp_path / 'etc/environment.d/90-gaming-shader-cache.conf').read_text()
 	assert (tmp_path / 'etc/udev/rules.d/72-playstation-controller-touchpads.rules').read_text().count('ENV{LIBINPUT_IGNORE_DEVICE}="1"') == 4

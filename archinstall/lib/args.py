@@ -66,7 +66,6 @@ class Arguments:
 	plugin_url: str | None = None
 	skip_version_check: bool = False
 	skip_wifi_check: bool = False
-	advanced: bool = False
 	verbose: bool = False
 
 	command: SubCommand | None = None
@@ -693,12 +692,6 @@ class ArchConfigHandler:
 			action='store_true',
 			default=False,
 			help='Skip wifi check when running archinstall',
-		)
-		parser.add_argument(
-			'--advanced',
-			action='store_true',
-			default=False,
-			help='Enabled advanced options',
 		)
 		parser.add_argument(
 			'--verbose',

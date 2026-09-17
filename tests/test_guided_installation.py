@@ -94,7 +94,7 @@ def test_guided_menu_uses_canonical_title(
 	monkeypatch.setattr(guided, 'check_version_upgrade', lambda: upgrade)
 	monkeypatch.setattr(guided, 'GlobalMenu', global_menu)
 	monkeypatch.setattr('archinstall.scripts.guided.tui.run', lambda _menu: object())
-	handler: Any = SimpleNamespace(config=object(), args=SimpleNamespace(skip_boot=False, advanced=False))
+	handler: Any = SimpleNamespace(config=object(), args=SimpleNamespace(skip_boot=False))
 	mirrors: Any = SimpleNamespace()
 
 	guided.show_menu(handler, mirrors)

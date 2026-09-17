@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from archinstall.applications.cpu_scheduler import CPUSchedulerApp
 from archinstall.applications.gaming_compatibility import GamingCompatibilityApp
 from archinstall.applications.gaming_tools import GamingToolsApp
-from archinstall.applications.hardware_watchdog import HardwareWatchdogApp
+from archinstall.applications.nowatchdog import NowatchdogApp
 from archinstall.applications.ntsync import NTSyncApp
 from archinstall.applications.playstation_controller import PlayStationControllerApp
 from archinstall.lib.models.gaming import GamingConfiguration
@@ -28,5 +28,5 @@ class GamingHandler:
 
 		GamingToolsApp().install(install_session, gaming_config, users)
 		GamingCompatibilityApp().install(install_session, gaming_config)
-		HardwareWatchdogApp().install(install_session, gaming_config)
+		NowatchdogApp().install(install_session, gaming_config)
 		PlayStationControllerApp().install(install_session, gaming_config)
