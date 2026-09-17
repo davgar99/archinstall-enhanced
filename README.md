@@ -57,7 +57,7 @@ archinstall
 |---|---|
 | Installer experience | Grouped menus, consistent summaries and prompt ordering, clearer destructive-action review, hardware-aware graphics defaults, improved activity and error feedback |
 | Desktop foundation | Wayland-first desktop selection with Xorg compatibility, desktop installation flavors, portals, codecs, PipeWire surround upmixing, package-cache maintenance, Fontconfig defaults, common command-line utilities |
-| Gaming | 32-bit graphics libraries, sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, shader-cache and compatibility options |
+| Gaming | 32-bit graphics libraries, sched-ext, NTSYNC, GameMode, MangoHud, Gamescope, shader-cache, `nowatchdog`, and compatibility options |
 | Hardware | Detected graphics-driver recommendations with manual override, graphics-aware OpenCL, firmware updates, Bluetooth, printing, VirtualBox guest integration, and controller options |
 | Storage and memory | Balanced zram profiles, Zstandard compression for automatically generated Btrfs layouts, LUKS-encrypted swap support, and stronger encrypted-volume preflight checks |
 | Networking and privacy | NetworkManager DNS caching, optional DNS-over-HTTPS, Wi-Fi MAC privacy controls, mDNS-aware printer discovery, and automatic Wi-Fi regulatory configuration |
@@ -276,6 +276,8 @@ Bug reports caused by this fork belong in this repository. General Archinstall q
 - [CachyOS wiki](https://wiki.cachyos.org/)
 - [Manjaro wiki](https://wiki.manjaro.org/)
 - [Fedora wiki](https://fedoraproject.org/wiki/Fedora_Project_Wiki)
+- [Nobara Project wiki](https://wiki.nobaraproject.org/)
+- [EndeavourOS wiki](https://discovery.endeavouros.com/wiki/)
 
 ## License
 
